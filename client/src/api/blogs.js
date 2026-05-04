@@ -29,3 +29,8 @@ export const createCategory = (data) =>
   axiosInstance.post("/blogs/categories", data);
 
 export const createTag = (data) => axiosInstance.post("/blogs/tags", data);
+
+export const deleteCategory = (id) =>
+  axiosInstance.delete(`/blogs/categories/${id}`);
+
+export const deleteTag = (id) => axiosInstance.delete(`/blogs/tags/${id}`);

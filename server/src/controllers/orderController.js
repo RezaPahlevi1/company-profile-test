@@ -196,7 +196,6 @@ export const handleMidtransWebhook = async (req, res) => {
       transaction_id,
     } = notification;
 
-    // Strip repay suffix jika ada — "ORD-xxx-R1234567890" → "ORD-xxx"
     const order_id = rawOrderId.replace(/-R\d+$/, "");
 
     let orderStatus = "pending";
@@ -225,24 +224,24 @@ export const handleMidtransWebhook = async (req, res) => {
 
     if (error) throw error;
 
+    // Email logic SEBELUM return — ini yang fix bug utama
+    if (orderStatus === "paid") {
+      const { data: fullOrder } = await supabase
+        .from("orders")
+        .select(`*, order_items(product_name, price_at_purchase, quantity)`)
+        .eq("order_number", order_id)
+        .single();
+
+      if (fullOrder) {
+        sendPaymentSuccessEmail(fullOrder, fullOrder.order_items).catch((err) =>
+          console.error("Failed to send payment success email:", err),
+        );
+      }
+    }
+
     return res.status(200).json({ success: true });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
-  }
-
-  // Kirim email payment success
-  if (orderStatus === "paid") {
-    const { data: fullOrder } = await supabase
-      .from("orders")
-      .select(`*, order_items(product_name, price_at_purchase, quantity)`)
-      .eq("order_number", order_id)
-      .single();
-
-    if (fullOrder) {
-      sendPaymentSuccessEmail(fullOrder, fullOrder.order_items).catch((err) =>
-        console.error("Failed to send payment success email:", err),
-      );
-    }
   }
 };
 

@@ -2,6 +2,25 @@ import supabase from "../config/supabase.js";
 import uploadToSupabase from "../utils/uploadToSupabase.js";
 import slugify from "slugify";
 
+// Helper: ambil ID kategori/tag "General"
+const getGeneralCategoryId = async () => {
+  const { data } = await supabase
+    .from("categories")
+    .select("id")
+    .eq("slug", "general")
+    .single();
+  return data?.id || null;
+};
+
+const getGeneralTagId = async () => {
+  const { data } = await supabase
+    .from("tags")
+    .select("id")
+    .eq("slug", "general")
+    .single();
+  return data?.id || null;
+};
+
 // ==================== CATEGORIES ====================
 
 export const getAllCategories = async (req, res) => {
@@ -241,6 +260,15 @@ export const createBlog = async (req, res) => {
     }
   }
 
+  // Kalau tidak ada tags → pakai General
+  if (parsedTags.length === 0) {
+    const generalTagId = await getGeneralTagId();
+    if (generalTagId) parsedTags = [generalTagId];
+  }
+
+  // Kalau tidak ada category → pakai General
+  const finalCategoryId = category_id || (await getGeneralCategoryId());
+
   const slug = slugify(title, { lower: true, strict: true });
 
   try {
@@ -259,7 +287,7 @@ export const createBlog = async (req, res) => {
       slug,
       content,
       cover_image_url,
-      category_id: category_id || null,
+      category_id: finalCategoryId,
       status: blogStatus,
       published_at:
         blogStatus === "published" ? new Date().toISOString() : null,
@@ -334,8 +362,15 @@ export const updateBlog = async (req, res) => {
       );
     }
 
+    // Di dalam updateBlog, bagian update payload
     const wasPublished = existing.status === "published";
     const willPublish = status === "published";
+
+    // Kalau category_id dikirim kosong string → fallback ke General
+    let finalCategoryId = existing.category_id;
+    if (category_id !== undefined) {
+      finalCategoryId = category_id || (await getGeneralCategoryId());
+    }
 
     const updatePayload = {
       ...(title && {
@@ -343,7 +378,7 @@ export const updateBlog = async (req, res) => {
         slug: slugify(title, { lower: true, strict: true }),
       }),
       ...(content && { content }),
-      ...(category_id !== undefined && { category_id: category_id || null }),
+      category_id: finalCategoryId,
       ...(status && { status }),
       cover_image_url,
       published_at:
@@ -418,6 +453,85 @@ export const deleteBlog = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "Blog deleted successfully",
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+export const deleteCategory = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    // Cek apakah ini General — tidak boleh dihapus
+    const { data: cat } = await supabase
+      .from("categories")
+      .select("slug")
+      .eq("id", id)
+      .single();
+
+    if (cat?.slug === "general") {
+      return res.status(400).json({
+        success: false,
+        message: 'Default category "General" cannot be deleted',
+      });
+    }
+
+    // Blog yang pakai kategori ini akan di-set ke General
+    const generalId = await getGeneralCategoryId();
+    if (generalId) {
+      await supabase
+        .from("blogs")
+        .update({ category_id: generalId })
+        .eq("category_id", id);
+    }
+
+    const { error } = await supabase.from("categories").delete().eq("id", id);
+
+    if (error) throw error;
+
+    return res.status(200).json({
+      success: true,
+      message: "Category deleted. Affected blogs moved to General.",
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+export const deleteTag = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const { data: tag } = await supabase
+      .from("tags")
+      .select("slug")
+      .eq("id", id)
+      .single();
+
+    if (tag?.slug === "general") {
+      return res.status(400).json({
+        success: false,
+        message: 'Default tag "General" cannot be deleted',
+      });
+    }
+
+    // blog_tags dengan tag ini akan di-set ke General
+    const generalTagId = await getGeneralTagId();
+    if (generalTagId) {
+      await supabase
+        .from("blog_tags")
+        .update({ tag_id: generalTagId })
+        .eq("tag_id", id);
+    }
+
+    const { error } = await supabase.from("tags").delete().eq("id", id);
+
+    if (error) throw error;
+
+    return res.status(200).json({
+      success: true,
+      message: "Tag deleted. Affected blogs moved to General.",
     });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });

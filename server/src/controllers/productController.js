@@ -35,9 +35,9 @@ export const getAllProducts = async (req, res) => {
     // Kalau tidak ada query param ?all=true, hanya tampilkan yang aktif
     // Ini dipakai oleh halaman publik
     // Admin bisa akses semua dengan ?all=true
-    // if (!all) {
-    //   query = query.eq("is_active", true);
-    // }
+    if (!all) {
+      query = query.eq("is_active", true);
+    }
 
     const { data, error } = await query;
     if (error) throw error;

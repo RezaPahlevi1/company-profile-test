@@ -8,8 +8,10 @@ import {
   deleteBlog,
   getAllCategories,
   createCategory,
+  deleteCategory,
   getAllTags,
   createTag,
+  deleteTag,
 } from "../controllers/blogController.js";
 import authMiddleware from "../middlewares/authMiddleware.js";
 import upload from "../middlewares/uploadMiddleware.js";
@@ -28,5 +30,7 @@ router.get("/:slug", getBlogBySlug);
 router.post("/", authMiddleware, upload.single("cover_image"), createBlog);
 router.put("/:id", authMiddleware, upload.single("cover_image"), updateBlog);
 router.delete("/:id", authMiddleware, deleteBlog);
+router.delete("/categories/:id", authMiddleware, deleteCategory);
+router.delete("/tags/:id", authMiddleware, deleteTag);
 
 export default router;

@@ -1,12 +1,18 @@
 import { useEffect, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  QueryClient,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
 import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
+
 import {
   X,
   Plus,
@@ -27,6 +33,8 @@ import {
   getTags,
   createCategory,
   createTag,
+  deleteCategory as deleteCategoryApi,
+  deleteTag as deleteTagApi,
 } from "../../../api/blogs";
 import { blogSchema } from "../../../validations/blogSchema";
 
@@ -128,6 +136,26 @@ export default function BlogForm({ blog, onClose, onSuccess }) {
   const [newCategory, setNewCategory] = useState("");
   const [newTag, setNewTag] = useState("");
   const [selectedTags, setSelectedTags] = useState([]);
+
+  const { mutate: deleteCategory } = useMutation({
+    mutationFn: deleteCategoryApi,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["categories"] });
+      toast.success("Category deleted");
+    },
+    onError: (err) =>
+      toast.error(err.response?.data?.message || "Failed to delete category"),
+  });
+
+  const { mutate: removeTag } = useMutation({
+    mutationFn: deleteTagApi,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tags"] });
+      toast.success("Tag deleted");
+    },
+    onError: (err) =>
+      toast.error(err.response?.data?.message || "Failed to delete tag"),
+  });
 
   const { data: categoriesData } = useQuery({
     queryKey: ["categories"],
@@ -369,6 +397,29 @@ export default function BlogForm({ blog, onClose, onSuccess }) {
                 </button>
               </div>
             </div>
+
+            {/* Category list dengan delete */}
+            {categories.filter((c) => c.slug !== "general").length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {categories
+                  .filter((c) => c.slug !== "general")
+                  .map((cat) => (
+                    <div
+                      key={cat.id}
+                      className="flex items-center gap-1 bg-gray-100 rounded-lg px-2 py-1"
+                    >
+                      <span className="text-xs text-gray-600">{cat.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => deleteCategory(cat.id)}
+                        className="text-gray-400 hover:text-red-500 transition-colors"
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  ))}
+              </div>
+            )}
           </div>
 
           {/* Tags */}
@@ -379,26 +430,32 @@ export default function BlogForm({ blog, onClose, onSuccess }) {
             <div className="flex flex-wrap gap-2 mb-3">
               {tags.map((tag) => {
                 const isSelected = selectedTags.some((t) => t.id === tag.id);
+                const isGeneral = tag.slug === "general";
                 return (
-                  <button
-                    key={tag.id}
-                    type="button"
-                    onClick={() => toggleTag(tag)}
-                    className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                      isSelected
-                        ? "bg-blue-600 text-white"
-                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                    }`}
-                  >
-                    {tag.name}
-                  </button>
+                  <div key={tag.id} className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => toggleTag(tag)}
+                      className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                        isSelected
+                          ? "bg-blue-600 text-white"
+                          : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                      }`}
+                    >
+                      {tag.name}
+                    </button>
+                    {!isGeneral && (
+                      <button
+                        type="button"
+                        onClick={() => removeTag(tag.id)}
+                        className="text-gray-300 hover:text-red-500 transition-colors"
+                      >
+                        <X size={11} />
+                      </button>
+                    )}
+                  </div>
                 );
               })}
-              {tags.length === 0 && (
-                <p className="text-xs text-gray-400">
-                  No tags yet. Add one below.
-                </p>
-              )}
             </div>
             <div className="flex gap-2">
               <input
