@@ -19,6 +19,7 @@ import ServiceList from "./pages/admin/services/ServiceList";
 import BlogList from "./pages/admin/blogs/BlogList";
 import OrderList from "./pages/admin/orders/OrderList";
 import OrderDetail from "./pages/admin/orders/OrderDetail";
+import AdminList from "./pages/admin/settings/AdminList";
 
 import Navbar from "./components/layout/Navbar";
 import Footer from "./components/layout/Footer";
@@ -55,6 +56,15 @@ const ProtectedRoute = ({ children }) => {
     );
   }
   return isAuthenticated ? children : <Navigate to="/admin/login" replace />;
+};
+
+const RoleProtectedRoute = ({ allowedRoles, children }) => {
+  const { admin } = useAuthStore();
+  const role = admin?.role || "superadmin";
+  if (!allowedRoles.includes(role)) {
+    return <Navigate to="/admin/dashboard" replace />;
+  }
+  return children;
 };
 
 const PublicLayout = ({ children }) => (
@@ -161,12 +171,62 @@ export default function App() {
         }
       >
         <Route index element={<Navigate to="/admin/dashboard" replace />} />
-        <Route path="dashboard" element={<Dashboard />} />
-        <Route path="products" element={<ProductList />} />
-        <Route path="services" element={<ServiceList />} />
-        <Route path="blogs" element={<BlogList />} />
-        <Route path="orders" element={<OrderList />} />
-        <Route path="orders/:id" element={<OrderDetail />} />
+        <Route
+          path="dashboard"
+          element={
+            <RoleProtectedRoute allowedRoles={["superadmin"]}>
+              <Dashboard />
+            </RoleProtectedRoute>
+          }
+        />
+        <Route
+          path="products"
+          element={
+            <RoleProtectedRoute allowedRoles={["superadmin"]}>
+              <ProductList />
+            </RoleProtectedRoute>
+          }
+        />
+        <Route
+          path="services"
+          element={
+            <RoleProtectedRoute allowedRoles={["superadmin"]}>
+              <ServiceList />
+            </RoleProtectedRoute>
+          }
+        />
+        <Route
+          path="blogs"
+          element={
+            <RoleProtectedRoute allowedRoles={["superadmin", "admin_konten"]}>
+              <BlogList />
+            </RoleProtectedRoute>
+          }
+        />
+        <Route
+          path="orders"
+          element={
+            <RoleProtectedRoute allowedRoles={["superadmin", "admin_order"]}>
+              <OrderList />
+            </RoleProtectedRoute>
+          }
+        />
+        <Route
+          path="orders/:id"
+          element={
+            <RoleProtectedRoute allowedRoles={["superadmin", "admin_order"]}>
+              <OrderDetail />
+            </RoleProtectedRoute>
+          }
+        />
+        <Route
+          path="settings/admins"
+          element={
+            <RoleProtectedRoute allowedRoles={["superadmin"]}>
+              <AdminList />
+            </RoleProtectedRoute>
+          }
+        />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

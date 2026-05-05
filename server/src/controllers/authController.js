@@ -46,6 +46,7 @@ export const login = async (req, res) => {
       id: admin.id,
       name: admin.name,
       email: admin.email,
+      role: admin.role,
     };
 
     const token = jwt.sign(payload, process.env.JWT_SECRET, {
@@ -61,6 +62,7 @@ export const login = async (req, res) => {
         id: admin.id,
         name: admin.name,
         email: admin.email,
+        role: admin.role,
       },
     });
   } catch (err) {

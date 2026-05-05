@@ -5,6 +5,7 @@ import {
   Briefcase,
   FileText,
   ShoppingCart,
+  Settings,
   LogOut,
 } from "lucide-react";
 import useAuthStore from "../../store/authStore";
@@ -13,11 +14,12 @@ import toast from "react-hot-toast";
 import { useQueryClient } from "@tanstack/react-query";
 
 const navItems = [
-  { label: "Dashboard", to: "/admin/dashboard", icon: LayoutDashboard },
-  { label: "Products", to: "/admin/products", icon: Package },
-  { label: "Services", to: "/admin/services", icon: Briefcase },
-  { label: "Blogs", to: "/admin/blogs", icon: FileText },
-  { label: "Orders", to: "/admin/orders", icon: ShoppingCart },
+  { label: "Dashboard", to: "/admin/dashboard", icon: LayoutDashboard, roles: ['superadmin'] },
+  { label: "Products", to: "/admin/products", icon: Package, roles: ['superadmin'] },
+  { label: "Services", to: "/admin/services", icon: Briefcase, roles: ['superadmin'] },
+  { label: "Blogs", to: "/admin/blogs", icon: FileText, roles: ['superadmin', 'admin_konten'] },
+  { label: "Orders", to: "/admin/orders", icon: ShoppingCart, roles: ['superadmin', 'admin_order'] },
+  { label: "Admins", to: "/admin/settings/admins", icon: Settings, roles: ['superadmin'] },
 ];
 
 export default function AdminSidebar() {
@@ -42,15 +44,21 @@ export default function AdminSidebar() {
     }
   };
 
+  const role = admin?.role || 'superadmin';
+  const filteredNavItems = navItems.filter(item => item.roles.includes(role));
+
   return (
     <aside className="w-64 min-h-screen bg-gray-900 text-gray-300 flex flex-col">
       <div className="px-6 py-5 border-b border-gray-800">
         <p className="text-white font-semibold text-lg">Admin Panel</p>
-        <p className="text-xs text-gray-500 mt-1 truncate">{admin?.email}</p>
+        <p className="text-xs text-gray-500 mt-1 truncate">{admin?.name}</p>
+        <span className="inline-block mt-1 text-[10px] uppercase tracking-wider px-2 py-0.5 bg-gray-800 rounded text-gray-400 border border-gray-700">
+          {role.replace('_', ' ')}
+        </span>
       </div>
 
       <nav className="flex-1 px-3 py-4 space-y-1">
-        {navItems.map(({ label, to, icon: Icon }) => (
+        {filteredNavItems.map(({ label, to, icon: Icon }) => (
           <NavLink
             key={to}
             to={to}
