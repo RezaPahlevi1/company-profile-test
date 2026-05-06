@@ -7,6 +7,7 @@ import serviceRoutes from "./routes/serviceRoutes.js";
 import blogRoutes from "./routes/blogRoutes.js";
 import orderRoutes from "./routes/orderRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
+import settingsRoutes from "./routes/settingsRoutes.js";
 
 const app = express();
 
@@ -28,6 +29,7 @@ app.use("/api/blogs", blogRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/midtrans", orderRoutes);
 app.use("/api/admin/admins", adminRoutes);
+app.use("/api/settings", settingsRoutes);
 
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", message: "Server is running" });

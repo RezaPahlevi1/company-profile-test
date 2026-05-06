@@ -2,16 +2,8 @@ import { useState, useEffect } from "react";
 import { Link, NavLink } from "react-router-dom";
 import { Menu, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-
-const navLinks = [
-  { label: "Home", to: "/" },
-  { label: "About", to: "/about" },
-  { label: "Products", to: "/products" },
-  { label: "Services", to: "/services" },
-  { label: "Blog", to: "/blog" },
-  { label: "Contact", to: "/contact" },
-  { label: "Track Order", to: "/order/track" },
-];
+import { useQuery } from "@tanstack/react-query";
+import { getSiteSettings, getPageSettings } from "../../api/settings";
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
@@ -23,6 +15,32 @@ export default function Navbar() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  const { data: siteData } = useQuery({
+    queryKey: ["site-settings"],
+    queryFn: getSiteSettings,
+    staleTime: 1000 * 60 * 10,
+  });
+
+  const { data: pagesData } = useQuery({
+    queryKey: ["page-settings"],
+    queryFn: getPageSettings,
+    staleTime: 1000 * 60 * 10,
+  });
+
+  const settings = siteData?.data?.data || {};
+  const pages = pagesData?.data?.data || [];
+
+  // Hanya tampilkan halaman yang aktif, urutan dari sort_order
+  const navLinks = pages
+    .filter((p) => p.is_active && p.page_key !== "home")
+    .map((p) => ({
+      label: p.navbar_label,
+      to: `/${p.page_key}`,
+    }));
+
+  const siteName = settings.site_name || "CompanyName";
+  const logoUrl = settings.navbar_logo_url;
+
   return (
     <nav
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
@@ -33,22 +51,48 @@ export default function Navbar() {
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16 lg:h-20">
-          <Link to="/" className="font-bold text-xl text-slate-900">
-            <span className="text-brand-600">RezaPahlevi</span>.Co
+          {/* Logo atau text */}
+          <Link to="/" className="flex items-center">
+            {logoUrl ? (
+              <img
+                src={logoUrl}
+                alt={siteName}
+                className="h-9 w-auto object-contain"
+              />
+            ) : (
+              <span className="font-bold text-xl text-slate-900">
+                <span className="text-brand-600">
+                  {siteName.slice(0, Math.ceil(siteName.length / 2))}
+                </span>
+                {siteName.slice(Math.ceil(siteName.length / 2))}
+              </span>
+            )}
           </Link>
 
           {/* Desktop */}
           <div className="hidden lg:flex items-center gap-8">
+            <NavLink
+              to="/"
+              end
+              className={({ isActive }) =>
+                `text-sm font-medium transition-colors duration-200 ${
+                  isActive
+                    ? "text-brand-600"
+                    : "text-slate-600 hover:text-slate-900"
+                }`
+              }
+            >
+              {pages.find((p) => p.page_key === "home")?.navbar_label || "Home"}
+            </NavLink>
             {navLinks.map((link) => (
               <NavLink
                 key={link.to}
                 to={link.to}
-                end={link.to === "/"}
                 className={({ isActive }) =>
                   `text-sm font-medium transition-colors duration-200 ${
                     isActive
                       ? "text-brand-600"
-                      : "text-slate-400 hover:text-slate-600"
+                      : "text-slate-600 hover:text-slate-900"
                   }`
                 }
               >
@@ -66,7 +110,6 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* Mobile menu */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -77,11 +120,25 @@ export default function Navbar() {
             className="lg:hidden bg-white border-t border-slate-100 overflow-hidden"
           >
             <div className="px-4 py-4 space-y-1">
+              <NavLink
+                to="/"
+                end
+                onClick={() => setIsOpen(false)}
+                className={({ isActive }) =>
+                  `block px-4 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                    isActive
+                      ? "bg-brand-50 text-brand-600"
+                      : "text-slate-600 hover:bg-slate-50"
+                  }`
+                }
+              >
+                {pages.find((p) => p.page_key === "home")?.navbar_label ||
+                  "Home"}
+              </NavLink>
               {navLinks.map((link) => (
                 <NavLink
                   key={link.to}
                   to={link.to}
-                  end={link.to === "/"}
                   onClick={() => setIsOpen(false)}
                   className={({ isActive }) =>
                     `block px-4 py-2.5 rounded-xl text-sm font-medium transition-colors ${

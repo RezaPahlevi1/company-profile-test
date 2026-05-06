@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { Mail, Phone, MapPin, MessageCircle, Send } from "lucide-react";
 import toast from "react-hot-toast";
 import WhatsAppButton from "../../components/shared/WhatsAppButton";
+import usePageCheck from "../../hooks/usePageCheck";
 
 const contactSchema = z.object({
   name: z.string().min(1, "Nama wajib diisi"),
@@ -38,6 +39,8 @@ const contactInfo = [
 ];
 
 export default function Contact() {
+  const { pageInfo, siteSettings, isLoading } = usePageCheck("contact");
+
   const {
     register,
     handleSubmit,
@@ -53,6 +56,8 @@ export default function Contact() {
     );
     reset();
   };
+
+  if (isLoading) return <div className="min-h-screen"></div>;
 
   return (
     <main className="pt-16 lg:pt-20">
@@ -71,7 +76,7 @@ export default function Contact() {
             animate={{ opacity: 1 }}
             className="inline-block text-brand-300 font-semibold text-sm uppercase tracking-widest mb-4"
           >
-            Hubungi Kami
+            {pageInfo?.title || "Hubungi Kami"}
           </motion.span>
           <motion.h1
             initial={{ opacity: 0, y: 20 }}

@@ -7,12 +7,18 @@ import ProductCard from "../../components/shared/ProductCard";
 import SectionHeader from "../../components/ui/SectionHeader";
 import Spinner from "../../components/ui/Spinner";
 import EmptyState from "../../components/ui/EmptyState";
+import usePageCheck from "../../hooks/usePageCheck";
 
 export default function Products() {
+  const {
+    pageInfo,
+    siteSettings,
+    isLoading: isPageLoading,
+  } = usePageCheck("products");
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading: isProductsLoading } = useQuery({
     queryKey: ["public-products"],
     queryFn: () => getProducts(),
   });
@@ -34,6 +40,8 @@ export default function Products() {
     return matchSearch && matchFilter;
   });
 
+  if (isPageLoading) return <div className="min-h-screen"></div>;
+
   return (
     <main className="pt-16 lg:pt-20">
       {/* Hero */}
@@ -51,7 +59,7 @@ export default function Products() {
             animate={{ opacity: 1 }}
             className="inline-block text-brand-300 font-semibold text-sm uppercase tracking-widest mb-4"
           >
-            Produk Kami
+            {pageInfo?.title || "Produk Kami"}
           </motion.span>
           <motion.h1
             initial={{ opacity: 0, y: 20 }}
@@ -112,7 +120,7 @@ export default function Products() {
             </div>
           </motion.div>
 
-          {isLoading ? (
+          {isProductsLoading ? (
             <Spinner size="lg" className="py-20" />
           ) : filtered.length === 0 ? (
             <EmptyState

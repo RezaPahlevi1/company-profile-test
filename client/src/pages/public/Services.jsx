@@ -8,11 +8,17 @@ import SectionHeader from "../../components/ui/SectionHeader";
 import Spinner from "../../components/ui/Spinner";
 import EmptyState from "../../components/ui/EmptyState";
 import WhatsAppButton from "../../components/shared/WhatsAppButton";
+import usePageCheck from "../../hooks/usePageCheck";
 
 export default function Services() {
+  const {
+    pageInfo,
+    siteSettings,
+    isLoading: isPageLoading,
+  } = usePageCheck("services");
   const [search, setSearch] = useState("");
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading: isServicesLoading } = useQuery({
     queryKey: ["public-services"],
     queryFn: () => getServices(),
   });
@@ -24,6 +30,8 @@ export default function Services() {
       s.name.toLowerCase().includes(search.toLowerCase()) ||
       s.description?.toLowerCase().includes(search.toLowerCase()),
   );
+
+  if (isPageLoading) return <div className="min-h-screen"></div>;
 
   return (
     <main className="pt-16 lg:pt-20">
@@ -42,7 +50,7 @@ export default function Services() {
             animate={{ opacity: 1 }}
             className="inline-block text-brand-300 font-semibold text-sm uppercase tracking-widest mb-4"
           >
-            Layanan Kami
+            {pageInfo?.title || "Layanan Kami"}
           </motion.span>
           <motion.h1
             initial={{ opacity: 0, y: 20 }}
@@ -88,7 +96,7 @@ export default function Services() {
             </div>
           </motion.div>
 
-          {isLoading ? (
+          {isServicesLoading ? (
             <Spinner size="lg" className="py-20" />
           ) : filtered.length === 0 ? (
             <EmptyState

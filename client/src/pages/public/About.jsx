@@ -12,6 +12,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import SectionHeader from "../../components/ui/SectionHeader";
+import usePageCheck from "../../hooks/usePageCheck";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 30 },
@@ -80,6 +81,10 @@ const milestones = [
 ];
 
 export default function About() {
+  const { pageInfo, siteSettings, isLoading } = usePageCheck("about");
+
+  if (isLoading) return <div className="min-h-screen"></div>;
+
   return (
     <main className="pt-16 lg:pt-20">
       {/* Hero */}
@@ -98,7 +103,7 @@ export default function About() {
             transition={{ duration: 0.5 }}
             className="inline-block text-brand-300 font-semibold text-sm uppercase tracking-widest mb-4"
           >
-            Tentang Kami
+            {pageInfo?.title || "Tentang Kami"}
           </motion.span>
           <motion.h1
             initial={{ opacity: 0, y: 20 }}

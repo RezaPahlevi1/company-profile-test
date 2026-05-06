@@ -7,13 +7,19 @@ import BlogCard from "../../components/shared/BlogCard";
 import SectionHeader from "../../components/ui/SectionHeader";
 import Spinner from "../../components/ui/Spinner";
 import EmptyState from "../../components/ui/EmptyState";
+import usePageCheck from "../../hooks/usePageCheck";
 
 export default function Blog() {
+  const {
+    pageInfo,
+    siteSettings,
+    isLoading: isPageLoading,
+  } = usePageCheck("blog");
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("");
   const [activeTag, setActiveTag] = useState("");
 
-  const { data: blogsData, isLoading } = useQuery({
+  const { data: blogsData, isLoading: isBlogsLoading } = useQuery({
     queryKey: ["public-blogs", activeCategory, activeTag],
     queryFn: () =>
       getBlogs({
@@ -41,6 +47,8 @@ export default function Blog() {
     b.title.toLowerCase().includes(search.toLowerCase()),
   );
 
+  if (isPageLoading) return <div className="min-h-screen"></div>;
+
   return (
     <main className="pt-16 lg:pt-20">
       {/* Hero */}
@@ -58,7 +66,7 @@ export default function Blog() {
             animate={{ opacity: 1 }}
             className="inline-block text-brand-300 font-semibold text-sm uppercase tracking-widest mb-4"
           >
-            Blog & Artikel
+            {pageInfo?.title || "Blog & Artikel"}
           </motion.span>
           <motion.h1
             initial={{ opacity: 0, y: 20 }}
@@ -103,7 +111,7 @@ export default function Blog() {
                 />
               </motion.div>
 
-              {isLoading ? (
+              {isBlogsLoading ? (
                 <Spinner size="lg" className="py-20" />
               ) : filtered.length === 0 ? (
                 <EmptyState

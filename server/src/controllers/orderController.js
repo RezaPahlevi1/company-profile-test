@@ -105,6 +105,15 @@ export const createOrder = async (req, res) => {
       name: item.product_name.substring(0, 50),
     }));
 
+    // Di bagian atas createOrder, sebelum snap.createTransaction
+    const { data: expirySetting } = await supabase
+      .from("site_settings")
+      .select("value")
+      .eq("key", "payment_expiry_hours")
+      .single();
+
+    const expiryHours = Number(expirySetting?.value) || 24;
+
     const midtransParameter = {
       transaction_details: {
         order_id: order.order_number,
@@ -114,11 +123,13 @@ export const createOrder = async (req, res) => {
         first_name: buyer_name,
         email: buyer_email,
         phone: buyer_phone,
-        billing_address: {
-          address: buyer_address,
-        },
+        billing_address: { address: buyer_address },
       },
       item_details: midtransItems,
+      expiry: {
+        unit: "hour",
+        duration: expiryHours, // ← dari database, bukan hardcode
+      },
     };
 
     sendOrderCreatedEmail(order, orderItems).catch((err) =>

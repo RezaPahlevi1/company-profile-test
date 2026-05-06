@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, Link } from "react-router-dom";
 import useAuthStore from "./store/authStore";
 
 import Home from "./pages/public/Home";
@@ -11,6 +11,7 @@ import BlogDetail from "./pages/public/BlogDetail";
 import Contact from "./pages/public/Contact";
 import Checkout from "./pages/public/Checkout";
 import OrderStatus from "./pages/public/OrderStatus";
+import NotFound from "./pages/public/NotFound";
 
 import Login from "./pages/admin/Login";
 import Dashboard from "./pages/admin/Dashboard";
@@ -20,11 +21,45 @@ import BlogList from "./pages/admin/blogs/BlogList";
 import OrderList from "./pages/admin/orders/OrderList";
 import OrderDetail from "./pages/admin/orders/OrderDetail";
 import AdminList from "./pages/admin/settings/AdminList";
+import SiteSettings from "./pages/admin/settings/SiteSettings";
 
 import Navbar from "./components/layout/Navbar";
 import Footer from "./components/layout/Footer";
 import AdminLayout from "./components/layout/AdminLayout";
 import useAuthVerify from "./hooks/useAuth";
+import { useQuery } from "@tanstack/react-query";
+import { getPageSettings } from "./api/settings";
+
+const PageGuard = ({ pageKey, children }) => {
+  const { data, isLoading } = useQuery({
+    queryKey: ["page-settings"],
+    queryFn: getPageSettings,
+    staleTime: 1000 * 60 * 10,
+  });
+
+  if (isLoading) return null;
+
+  const pages = data?.data?.data || [];
+  const page = pages.find((p) => p.page_key === pageKey);
+
+  if (page && !page.is_active) {
+    return (
+      <div className="min-h-screen flex items-center justify-center pt-20">
+        <div className="text-center">
+          <h1 className="text-4xl font-bold text-slate-900">
+            Halaman Tidak Tersedia
+          </h1>
+          <p className="text-slate-500 mt-4">Halaman ini sedang tidak aktif.</p>
+          <Link to="/" className="btn-primary mt-6 inline-flex">
+            Kembali ke Home
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  return children;
+};
 
 const ProtectedRoute = ({ children }) => {
   const { isAuthenticated, _hasHydrated } = useAuthStore();
@@ -91,7 +126,9 @@ export default function App() {
         path="/about"
         element={
           <PublicLayout>
-            <About />
+            <PageGuard pageKey="about">
+              <About />
+            </PageGuard>
           </PublicLayout>
         }
       />
@@ -99,7 +136,9 @@ export default function App() {
         path="/products"
         element={
           <PublicLayout>
-            <Products />
+            <PageGuard pageKey="products">
+              <Products />
+            </PageGuard>
           </PublicLayout>
         }
       />
@@ -115,7 +154,9 @@ export default function App() {
         path="/services"
         element={
           <PublicLayout>
-            <Services />
+            <PageGuard pageKey="services">
+              <Services />
+            </PageGuard>
           </PublicLayout>
         }
       />
@@ -123,7 +164,9 @@ export default function App() {
         path="/blog"
         element={
           <PublicLayout>
-            <Blog />
+            <PageGuard pageKey="blog">
+              <Blog />
+            </PageGuard>
           </PublicLayout>
         }
       />
@@ -139,7 +182,9 @@ export default function App() {
         path="/contact"
         element={
           <PublicLayout>
-            <Contact />
+            <PageGuard pageKey="contact">
+              <Contact />
+            </PageGuard>
           </PublicLayout>
         }
       />
@@ -156,6 +201,14 @@ export default function App() {
         element={
           <PublicLayout>
             <OrderStatus />
+          </PublicLayout>
+        }
+      />
+      <Route
+        path="/404"
+        element={
+          <PublicLayout>
+            <NotFound />
           </PublicLayout>
         }
       />
@@ -224,6 +277,14 @@ export default function App() {
           element={
             <RoleProtectedRoute allowedRoles={["superadmin"]}>
               <AdminList />
+            </RoleProtectedRoute>
+          }
+        />
+        <Route
+          path="settings/site"
+          element={
+            <RoleProtectedRoute allowedRoles={["superadmin"]}>
+              <SiteSettings />
             </RoleProtectedRoute>
           }
         />

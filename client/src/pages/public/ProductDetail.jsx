@@ -1,28 +1,44 @@
-import { useState } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
-import { motion } from 'framer-motion'
+import { useState } from "react";
+import { useParams, useNavigate, Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { motion } from "framer-motion";
 import {
-  ArrowLeft, ShoppingCart, MessageCircle,
-  ImageOff, CheckCircle, Tag
-} from 'lucide-react'
-import { getProductById } from '../../api/products'
-import WhatsAppButton from '../../components/shared/WhatsAppButton'
-import Spinner from '../../components/ui/Spinner'
+  ArrowLeft,
+  ShoppingCart,
+  MessageCircle,
+  ImageOff,
+  CheckCircle,
+  Tag,
+  Clock,
+} from "lucide-react";
+import { getProductById } from "../../api/products";
+import WhatsAppButton from "../../components/shared/WhatsAppButton";
+import Spinner from "../../components/ui/Spinner";
+import api from "../../api/axiosInstance";
 
 export default function ProductDetail() {
-  const { id } = useParams()
-  const navigate = useNavigate()
-  const [quantity, setQuantity] = useState(1)
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const [quantity, setQuantity] = useState(1);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['product', id],
-    queryFn: () => getProductById(id)
-  })
+    queryKey: ["product", id],
+    queryFn: () => getProductById(id),
+  });
 
-  const product = data?.data?.data
+  const { data: siteSettingsData } = useQuery({
+    queryKey: ["site-settings"],
+    queryFn: async () => {
+      const res = await api.get("/settings/site");
+      return res.data.data;
+    },
+    staleTime: 1000 * 60 * 10,
+  });
 
-  if (isLoading) return <Spinner size="lg" className="min-h-screen" />
+  const product = data?.data?.data;
+  const siteSettings = siteSettingsData || {};
+
+  if (isLoading) return <Spinner size="lg" className="min-h-screen" />;
 
   if (!product) {
     return (
@@ -34,14 +50,13 @@ export default function ProductDetail() {
           </Link>
         </div>
       </main>
-    )
+    );
   }
 
   return (
     <main className="pt-16 lg:pt-20">
       <div className="section-padding bg-slate-50 min-h-screen">
         <div className="container-base">
-
           {/* Back button */}
           <button
             onClick={() => navigate(-1)}
@@ -52,7 +67,6 @@ export default function ProductDetail() {
           </button>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-
             {/* Image */}
             <motion.div
               initial={{ opacity: 0, x: -20 }}
@@ -93,7 +107,7 @@ export default function ProductDetail() {
               </h1>
 
               <p className="text-3xl font-bold text-brand-600">
-                Rp {Number(product.price).toLocaleString('id-ID')}
+                Rp {Number(product.price).toLocaleString("id-ID")}
               </p>
 
               {product.description && (
@@ -104,15 +118,29 @@ export default function ProductDetail() {
 
               <ul className="space-y-2">
                 {[
-                  'Produk digital berkualitas tinggi',
-                  'Dukungan teknis tersedia',
-                  'Garansi kepuasan pelanggan',
-                ].map(item => (
-                  <li key={item} className="flex items-center gap-3 text-slate-600">
-                    <CheckCircle size={16} className="text-brand-600 shrink-0" />
+                  "Produk digital berkualitas tinggi",
+                  "Dukungan teknis tersedia",
+                  "Garansi kepuasan pelanggan",
+                ].map((item) => (
+                  <li
+                    key={item}
+                    className="flex items-center gap-3 text-slate-600"
+                  >
+                    <CheckCircle
+                      size={16}
+                      className="text-brand-600 shrink-0"
+                    />
                     {item}
                   </li>
                 ))}
+                {siteSettings.delivery_estimation && (
+                  <li className="flex items-center gap-3 text-slate-600 mt-4 bg-blue-50 p-3 rounded-lg border border-blue-100">
+                    <Clock size={16} className="text-blue-600 shrink-0" />
+                    <span className="text-sm font-medium">
+                      Estimasi Pengerjaan: {siteSettings.delivery_estimation}
+                    </span>
+                  </li>
+                )}
               </ul>
 
               {/* Quantity */}
@@ -120,7 +148,7 @@ export default function ProductDetail() {
                 <span className="text-slate-700 font-medium">Jumlah:</span>
                 <div className="flex items-center border border-slate-200 rounded-xl overflow-hidden">
                   <button
-                    onClick={() => setQuantity(q => Math.max(1, q - 1))}
+                    onClick={() => setQuantity((q) => Math.max(1, q - 1))}
                     className="w-10 h-10 flex items-center justify-center hover:bg-slate-50 text-slate-600 transition-colors"
                   >
                     −
@@ -129,7 +157,7 @@ export default function ProductDetail() {
                     {quantity}
                   </span>
                   <button
-                    onClick={() => setQuantity(q => q + 1)}
+                    onClick={() => setQuantity((q) => q + 1)}
                     className="w-10 h-10 flex items-center justify-center hover:bg-slate-50 text-slate-600 transition-colors"
                   >
                     +
@@ -150,7 +178,7 @@ export default function ProductDetail() {
                 {product.allow_negotiation && (
                   <WhatsAppButton
                     productName={product.name}
-                    message={`Halo, saya tertarik dengan produk *${product.name}* seharga Rp ${Number(product.price).toLocaleString('id-ID')}. Apakah harga bisa dinegosiasikan?`}
+                    message={`Halo, saya tertarik dengan produk *${product.name}* seharga Rp ${Number(product.price).toLocaleString("id-ID")}. Apakah harga bisa dinegosiasikan?`}
                     className="flex-1 justify-center"
                   />
                 )}
@@ -160,5 +188,5 @@ export default function ProductDetail() {
         </div>
       </div>
     </main>
-  )
+  );
 }

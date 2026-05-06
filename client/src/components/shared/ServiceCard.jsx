@@ -1,8 +1,21 @@
 import { motion } from "framer-motion";
-import { ImageOff } from "lucide-react";
+import { ImageOff, Clock } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import api from "../../api/axiosInstance";
 import WhatsAppButton from "./WhatsAppButton";
 
 export default function ServiceCard({ service, index = 0 }) {
+  const { data: siteSettingsData } = useQuery({
+    queryKey: ["site-settings"],
+    queryFn: async () => {
+      const res = await api.get("/settings/site");
+      return res.data.data;
+    },
+    staleTime: 1000 * 60 * 10,
+  });
+
+  const siteSettings = siteSettingsData || {};
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -31,6 +44,12 @@ export default function ServiceCard({ service, index = 0 }) {
           <p className="text-slate-500 text-sm mt-2 line-clamp-3">
             {service.description}
           </p>
+        )}
+        {siteSettings.delivery_estimation && (
+          <div className="flex items-center gap-1.5 mt-3 text-blue-600 text-xs font-medium bg-blue-50 w-fit px-2 py-1 rounded">
+            <Clock size={12} />
+            {siteSettings.delivery_estimation}
+          </div>
         )}
         <div className="mt-4">
           <WhatsAppButton

@@ -41,7 +41,7 @@ Urutan pengerjaan berdasarkan prioritas dan dependency:
 | File                     | Fitur                                                 | Status           |
 | ------------------------ | ----------------------------------------------------- | ---------------- |
 | `01-multi-role-admin.md` | Superadmin, admin konten, admin order                 | ✅ Selesai       |
-| `02-site-settings.md`    | Logo navbar, rename halaman, payment expiry, estimasi | ⬜ Belum dimulai |
+| `02-site-settings.md`    | Logo navbar, rename halaman, payment expiry, estimasi | ✅ Selesai       |
 | `03-fitur-promo.md`      | Diskon produk, label promo jasa, popup publik         | ⬜ Belum dimulai |
 | `04-visitor-tracking.md` | Kunjungan per hari, negara, device, chart             | ⬜ Belum dimulai |
 | `05-sistem-email.md`     | Custom template, estimasi di email, broadcast         | ⬜ Belum dimulai |

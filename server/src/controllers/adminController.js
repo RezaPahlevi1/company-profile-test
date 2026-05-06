@@ -1,23 +1,18 @@
-import bcrypt from "bcryptjs";
 import supabase from "../config/supabase.js";
+import bcrypt from "bcryptjs";
 
 export const getAllAdmins = async (req, res) => {
   try {
-    const { data: admins, error } = await supabase
+    const { data, error } = await supabase
       .from("admins")
-      .select("id, name, email, role, created_at");
+      .select("id, name, email, role, created_at")
+      .order("created_at", { ascending: false });
 
     if (error) throw error;
 
-    return res.status(200).json({
-      success: true,
-      data: admins,
-    });
+    return res.status(200).json({ success: true, data });
   } catch (err) {
-    return res.status(500).json({
-      success: false,
-      message: err.message || "Internal server error",
-    });
+    return res.status(500).json({ success: false, message: err.message });
   }
 };
 
@@ -31,33 +26,40 @@ export const createAdmin = async (req, res) => {
     });
   }
 
+  const allowedRoles = ["admin_konten", "admin_order"];
+  if (!allowedRoles.includes(role)) {
+    return res.status(400).json({
+      success: false,
+      message: "Role must be admin_konten or admin_order",
+    });
+  }
+
+  if (password.length < 8) {
+    return res.status(400).json({
+      success: false,
+      message: "Password must be at least 8 characters",
+    });
+  }
+
   try {
-    const { data: existingAdmin } = await supabase
+    const { data: existing } = await supabase
       .from("admins")
       .select("id")
       .eq("email", email)
       .single();
 
-    if (existingAdmin) {
-      return res.status(400).json({
+    if (existing) {
+      return res.status(409).json({
         success: false,
-        message: "Email is already registered",
+        message: "Email already registered",
       });
     }
 
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
+    const password_hash = await bcrypt.hash(password, 10);
 
-    const { data: newAdmin, error } = await supabase
+    const { data, error } = await supabase
       .from("admins")
-      .insert([
-        {
-          name,
-          email,
-          password_hash: hashedPassword,
-          role,
-        },
-      ])
+      .insert([{ name, email, password_hash, role }])
       .select("id, name, email, role, created_at")
       .single();
 
@@ -66,41 +68,67 @@ export const createAdmin = async (req, res) => {
     return res.status(201).json({
       success: true,
       message: "Admin created successfully",
-      data: newAdmin,
+      data,
     });
   } catch (err) {
-    return res.status(500).json({
-      success: false,
-      message: err.message || "Internal server error",
-    });
+    return res.status(500).json({ success: false, message: err.message });
   }
 };
 
 export const updateAdmin = async (req, res) => {
   const { id } = req.params;
-  const { name, email, role, password } = req.body;
+  const { name, email, password, role } = req.body;
+  const requesterId = req.admin.id;
 
   try {
-    // If they are trying to edit a superadmin's role to something else, maybe check if it's the last superadmin?
-    // We'll trust the validation, but the spec says "Superadmin tidak bisa mengubah role dirinya sendiri"
-    if (req.admin.id === id && role && role !== req.admin.role) {
+    const { data: existing, error: findError } = await supabase
+      .from("admins")
+      .select("*")
+      .eq("id", id)
+      .single();
+
+    if (findError || !existing) {
+      return res.status(404).json({
+        success: false,
+        message: "Admin not found",
+      });
+    }
+
+    // Superadmin tidak bisa ubah role dirinya sendiri
+    if (id === requesterId && role && role !== existing.role) {
       return res.status(400).json({
         success: false,
         message: "You cannot change your own role",
       });
     }
 
-    const updates = { name, email };
-    if (role) updates.role = role;
-
-    if (password) {
-      const salt = await bcrypt.genSalt(10);
-      updates.password_hash = await bcrypt.hash(password, salt);
+    // Tidak bisa ubah role superadmin lain
+    if (existing.role === "superadmin" && id !== requesterId) {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot modify another superadmin",
+      });
     }
 
-    const { data: updatedAdmin, error } = await supabase
+    const updatePayload = {
+      ...(name && { name }),
+      ...(email && { email }),
+      ...(role && { role }),
+    };
+
+    if (password) {
+      if (password.length < 8) {
+        return res.status(400).json({
+          success: false,
+          message: "Password must be at least 8 characters",
+        });
+      }
+      updatePayload.password_hash = await bcrypt.hash(password, 10);
+    }
+
+    const { data, error } = await supabase
       .from("admins")
-      .update(updates)
+      .update(updatePayload)
       .eq("id", id)
       .select("id, name, email, role, created_at")
       .single();
@@ -110,45 +138,42 @@ export const updateAdmin = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "Admin updated successfully",
-      data: updatedAdmin,
+      data,
     });
   } catch (err) {
-    return res.status(500).json({
-      success: false,
-      message: err.message || "Internal server error",
-    });
+    return res.status(500).json({ success: false, message: err.message });
   }
 };
 
 export const deleteAdmin = async (req, res) => {
   const { id } = req.params;
+  const requesterId = req.admin.id;
+
+  if (id === requesterId) {
+    return res.status(400).json({
+      success: false,
+      message: "You cannot delete your own account",
+    });
+  }
 
   try {
-    if (req.admin.id === id) {
-      return res.status(400).json({
-        success: false,
-        message: "You cannot delete yourself",
-      });
-    }
-
-    const { data: targetAdmin, error: fetchError } = await supabase
+    const { data: existing, error: findError } = await supabase
       .from("admins")
       .select("role")
       .eq("id", id)
       .single();
 
-    if (fetchError || !targetAdmin) {
+    if (findError || !existing) {
       return res.status(404).json({
         success: false,
         message: "Admin not found",
       });
     }
 
-    // Spec says: "tidak bisa hapus superadmin lain"
-    if (targetAdmin.role === 'superadmin') {
-      return res.status(403).json({
+    if (existing.role === "superadmin") {
+      return res.status(400).json({
         success: false,
-        message: "You cannot delete another superadmin",
+        message: "Cannot delete a superadmin account",
       });
     }
 
@@ -161,9 +186,6 @@ export const deleteAdmin = async (req, res) => {
       message: "Admin deleted successfully",
     });
   } catch (err) {
-    return res.status(500).json({
-      success: false,
-      message: err.message || "Internal server error",
-    });
+    return res.status(500).json({ success: false, message: err.message });
   }
 };

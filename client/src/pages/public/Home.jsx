@@ -32,7 +32,7 @@ const fadeUp = {
 // ============================================================
 // HERO SECTION
 // ============================================================
-const HeroSection = () => (
+const HeroSection = ({ siteName }) => (
   <section className="relative min-h-screen flex items-center overflow-hidden bg-linear-to-br from-slate-900 via-brand-950 to-slate-900">
     {/* Background grid pattern */}
     <div
@@ -350,7 +350,11 @@ const CTASection = () => (
 // ============================================================
 // MAIN HOME PAGE
 // ============================================================
+import usePageCheck from "../../hooks/usePageCheck";
+
 export default function Home() {
+  const { pageInfo, siteSettings, isLoading } = usePageCheck("home");
+
   const { data: productsData } = useQuery({
     queryKey: ["public-products"],
     queryFn: () => getProducts(),
@@ -370,9 +374,11 @@ export default function Home() {
   const services = servicesData?.data?.data || [];
   const blogs = blogsData?.data?.data || [];
 
+  if (isLoading) return <div className="min-h-screen"></div>;
+
   return (
     <main>
-      <HeroSection />
+      <HeroSection siteName={siteSettings?.site_name} />
       <StatsSection />
       {services.length > 0 && <ServicesPreview services={services} />}
       {products.length > 0 && <ProductsPreview products={products} />}
