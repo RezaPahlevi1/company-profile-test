@@ -117,7 +117,7 @@ export default function SiteSettings() {
     const file = e.target.files[0];
     if (file) doUploadLogo(file);
   };
-
+  const showLogo = settings.navbar_logo_url && settings.navbar_logo_url !== "";
   if (siteLoading || pagesLoading) {
     return (
       <div className="space-y-4">
@@ -229,6 +229,32 @@ export default function SiteSettings() {
             />
           </div>
         </div>
+        {/* Toggle tampilkan company name */}
+        {showLogo && (
+          <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl mt-3">
+            <div>
+              <p className="text-sm font-medium text-gray-700">
+                Tampilkan nama perusahaan
+              </p>
+              <p className="text-xs text-gray-400 mt-0.5">
+                Tampilkan teks nama di sebelah logo
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                const newVal =
+                  settings.show_site_name === "false" ? "true" : "false";
+                saveSiteSettings({ show_site_name: newVal });
+              }}
+            >
+              {settings.show_site_name !== "false" ? (
+                <ToggleRight size={28} className="text-brand-600" />
+              ) : (
+                <ToggleLeft size={28} className="text-gray-400" />
+              )}
+            </button>
+          </div>
+        )}
       </motion.div>
 
       {/* Payment & Estimasi */}

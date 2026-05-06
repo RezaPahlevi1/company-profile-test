@@ -1,27 +1,12 @@
 import supabase from "../config/supabase.js";
 import uploadToSupabase from "../utils/uploadToSupabase.js";
 
-// export const getAllProducts = async (req, res) => {
-//   try {
-//     const { data, error } = await supabase
-//       .from("products")
-//       .select("*")
-//       .eq("is_active", true)
-//       .order("created_at", { ascending: false });
-
-//     if (error) throw error;
-
-//     return res.status(200).json({
-//       success: true,
-//       data,
-//     });
-//   } catch (err) {
-//     return res.status(500).json({
-//       success: false,
-//       message: err.message,
-//     });
-//   }
-// };
+// Helper function
+const parseBoolean = (value) => {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") return value === "true";
+  return false;
+};
 
 export const getAllProducts = async (req, res) => {
   const { all } = req.query;
@@ -32,9 +17,6 @@ export const getAllProducts = async (req, res) => {
       .select("*")
       .order("created_at", { ascending: false });
 
-    // Kalau tidak ada query param ?all=true, hanya tampilkan yang aktif
-    // Ini dipakai oleh halaman publik
-    // Admin bisa akses semua dengan ?all=true
     if (!all) {
       query = query.eq("is_active", true);
     }
@@ -65,20 +47,21 @@ export const getProductById = async (req, res) => {
       });
     }
 
-    return res.status(200).json({
-      success: true,
-      data,
-    });
+    return res.status(200).json({ success: true, data });
   } catch (err) {
-    return res.status(500).json({
-      success: false,
-      message: err.message,
-    });
+    return res.status(500).json({ success: false, message: err.message });
   }
 };
 
 export const createProduct = async (req, res) => {
-  const { name, description, price, allow_negotiation } = req.body;
+  const {
+    name,
+    description,
+    price,
+    allow_negotiation,
+    discount_percent,
+    is_promo,
+  } = req.body;
 
   if (!name || !price) {
     return res.status(400).json({
@@ -106,9 +89,10 @@ export const createProduct = async (req, res) => {
           description: description || null,
           price: parseFloat(price),
           image_url,
-          allow_negotiation:
-            allow_negotiation === "true" || allow_negotiation === true,
+          allow_negotiation: parseBoolean(allow_negotiation),
           is_active: true,
+          discount_percent: parseFloat(discount_percent) || 0,
+          is_promo: parseBoolean(is_promo),
         },
       ])
       .select()
@@ -122,16 +106,21 @@ export const createProduct = async (req, res) => {
       data,
     });
   } catch (err) {
-    return res.status(500).json({
-      success: false,
-      message: err.message,
-    });
+    return res.status(500).json({ success: false, message: err.message });
   }
 };
 
 export const updateProduct = async (req, res) => {
   const { id } = req.params;
-  const { name, description, price, allow_negotiation, is_active } = req.body;
+  const {
+    name,
+    description,
+    price,
+    allow_negotiation,
+    is_active,
+    discount_percent,
+    is_promo,
+  } = req.body;
 
   try {
     const { data: existing, error: findError } = await supabase
@@ -162,12 +151,13 @@ export const updateProduct = async (req, res) => {
       ...(description !== undefined && { description }),
       ...(price && { price: parseFloat(price) }),
       ...(allow_negotiation !== undefined && {
-        allow_negotiation:
-          allow_negotiation === "true" || allow_negotiation === true,
+        allow_negotiation: parseBoolean(allow_negotiation),
       }),
-      ...(is_active !== undefined && {
-        is_active: is_active === "true" || is_active === true,
+      ...(is_active !== undefined && { is_active: parseBoolean(is_active) }),
+      ...(discount_percent !== undefined && {
+        discount_percent: parseFloat(discount_percent) || 0,
       }),
+      ...(is_promo !== undefined && { is_promo: parseBoolean(is_promo) }),
       image_url,
     };
 
@@ -186,10 +176,7 @@ export const updateProduct = async (req, res) => {
       data,
     });
   } catch (err) {
-    return res.status(500).json({
-      success: false,
-      message: err.message,
-    });
+    return res.status(500).json({ success: false, message: err.message });
   }
 };
 
@@ -219,9 +206,6 @@ export const deleteProduct = async (req, res) => {
       message: "Product deleted successfully",
     });
   } catch (err) {
-    return res.status(500).json({
-      success: false,
-      message: err.message,
-    });
+    return res.status(500).json({ success: false, message: err.message });
   }
 };

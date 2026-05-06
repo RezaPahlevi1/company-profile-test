@@ -29,6 +29,7 @@ import AdminLayout from "./components/layout/AdminLayout";
 import useAuthVerify from "./hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import { getPageSettings } from "./api/settings";
+import PromoPopup from "./components/shared/PromoPopup";
 
 const PageGuard = ({ pageKey, children }) => {
   const { data, isLoading } = useQuery({
@@ -112,185 +113,188 @@ const PublicLayout = ({ children }) => (
 
 export default function App() {
   return (
-    <Routes>
-      {/* Public routes */}
-      <Route
-        path="/"
-        element={
-          <PublicLayout>
-            <Home />
-          </PublicLayout>
-        }
-      />
-      <Route
-        path="/about"
-        element={
-          <PublicLayout>
-            <PageGuard pageKey="about">
-              <About />
-            </PageGuard>
-          </PublicLayout>
-        }
-      />
-      <Route
-        path="/products"
-        element={
-          <PublicLayout>
-            <PageGuard pageKey="products">
-              <Products />
-            </PageGuard>
-          </PublicLayout>
-        }
-      />
-      <Route
-        path="/products/:id"
-        element={
-          <PublicLayout>
-            <ProductDetail />
-          </PublicLayout>
-        }
-      />
-      <Route
-        path="/services"
-        element={
-          <PublicLayout>
-            <PageGuard pageKey="services">
-              <Services />
-            </PageGuard>
-          </PublicLayout>
-        }
-      />
-      <Route
-        path="/blog"
-        element={
-          <PublicLayout>
-            <PageGuard pageKey="blog">
-              <Blog />
-            </PageGuard>
-          </PublicLayout>
-        }
-      />
-      <Route
-        path="/blog/:slug"
-        element={
-          <PublicLayout>
-            <BlogDetail />
-          </PublicLayout>
-        }
-      />
-      <Route
-        path="/contact"
-        element={
-          <PublicLayout>
-            <PageGuard pageKey="contact">
-              <Contact />
-            </PageGuard>
-          </PublicLayout>
-        }
-      />
-      <Route
-        path="/checkout"
-        element={
-          <PublicLayout>
-            <Checkout />
-          </PublicLayout>
-        }
-      />
-      <Route
-        path="/order/:orderNumber"
-        element={
-          <PublicLayout>
-            <OrderStatus />
-          </PublicLayout>
-        }
-      />
-      <Route
-        path="/404"
-        element={
-          <PublicLayout>
-            <NotFound />
-          </PublicLayout>
-        }
-      />
+    <>
+      <Routes>
+        {/* Public routes */}
+        <Route
+          path="/"
+          element={
+            <PublicLayout>
+              <PromoPopup />
+              <Home />
+            </PublicLayout>
+          }
+        />
+        <Route
+          path="/about"
+          element={
+            <PublicLayout>
+              <PageGuard pageKey="about">
+                <About />
+              </PageGuard>
+            </PublicLayout>
+          }
+        />
+        <Route
+          path="/products"
+          element={
+            <PublicLayout>
+              <PageGuard pageKey="products">
+                <Products />
+              </PageGuard>
+            </PublicLayout>
+          }
+        />
+        <Route
+          path="/products/:id"
+          element={
+            <PublicLayout>
+              <ProductDetail />
+            </PublicLayout>
+          }
+        />
+        <Route
+          path="/services"
+          element={
+            <PublicLayout>
+              <PageGuard pageKey="services">
+                <Services />
+              </PageGuard>
+            </PublicLayout>
+          }
+        />
+        <Route
+          path="/blog"
+          element={
+            <PublicLayout>
+              <PageGuard pageKey="blog">
+                <Blog />
+              </PageGuard>
+            </PublicLayout>
+          }
+        />
+        <Route
+          path="/blog/:slug"
+          element={
+            <PublicLayout>
+              <BlogDetail />
+            </PublicLayout>
+          }
+        />
+        <Route
+          path="/contact"
+          element={
+            <PublicLayout>
+              <PageGuard pageKey="contact">
+                <Contact />
+              </PageGuard>
+            </PublicLayout>
+          }
+        />
+        <Route
+          path="/checkout"
+          element={
+            <PublicLayout>
+              <Checkout />
+            </PublicLayout>
+          }
+        />
+        <Route
+          path="/order/:orderNumber"
+          element={
+            <PublicLayout>
+              <OrderStatus />
+            </PublicLayout>
+          }
+        />
+        <Route
+          path="/404"
+          element={
+            <PublicLayout>
+              <NotFound />
+            </PublicLayout>
+          }
+        />
 
-      {/* Admin routes */}
-      <Route path="/admin/login" element={<Login />} />
-      <Route
-        path="/admin"
-        element={
-          <ProtectedRoute>
-            <AdminLayout />
-          </ProtectedRoute>
-        }
-      >
-        <Route index element={<Navigate to="/admin/dashboard" replace />} />
+        {/* Admin routes */}
+        <Route path="/admin/login" element={<Login />} />
         <Route
-          path="dashboard"
+          path="/admin"
           element={
-            <RoleProtectedRoute allowedRoles={["superadmin"]}>
-              <Dashboard />
-            </RoleProtectedRoute>
+            <ProtectedRoute>
+              <AdminLayout />
+            </ProtectedRoute>
           }
-        />
-        <Route
-          path="products"
-          element={
-            <RoleProtectedRoute allowedRoles={["superadmin"]}>
-              <ProductList />
-            </RoleProtectedRoute>
-          }
-        />
-        <Route
-          path="services"
-          element={
-            <RoleProtectedRoute allowedRoles={["superadmin"]}>
-              <ServiceList />
-            </RoleProtectedRoute>
-          }
-        />
-        <Route
-          path="blogs"
-          element={
-            <RoleProtectedRoute allowedRoles={["superadmin", "admin_konten"]}>
-              <BlogList />
-            </RoleProtectedRoute>
-          }
-        />
-        <Route
-          path="orders"
-          element={
-            <RoleProtectedRoute allowedRoles={["superadmin", "admin_order"]}>
-              <OrderList />
-            </RoleProtectedRoute>
-          }
-        />
-        <Route
-          path="orders/:id"
-          element={
-            <RoleProtectedRoute allowedRoles={["superadmin", "admin_order"]}>
-              <OrderDetail />
-            </RoleProtectedRoute>
-          }
-        />
-        <Route
-          path="settings/admins"
-          element={
-            <RoleProtectedRoute allowedRoles={["superadmin"]}>
-              <AdminList />
-            </RoleProtectedRoute>
-          }
-        />
-        <Route
-          path="settings/site"
-          element={
-            <RoleProtectedRoute allowedRoles={["superadmin"]}>
-              <SiteSettings />
-            </RoleProtectedRoute>
-          }
-        />
-      </Route>
+        >
+          <Route index element={<Navigate to="/admin/dashboard" replace />} />
+          <Route
+            path="dashboard"
+            element={
+              <RoleProtectedRoute allowedRoles={["superadmin"]}>
+                <Dashboard />
+              </RoleProtectedRoute>
+            }
+          />
+          <Route
+            path="products"
+            element={
+              <RoleProtectedRoute allowedRoles={["superadmin"]}>
+                <ProductList />
+              </RoleProtectedRoute>
+            }
+          />
+          <Route
+            path="services"
+            element={
+              <RoleProtectedRoute allowedRoles={["superadmin"]}>
+                <ServiceList />
+              </RoleProtectedRoute>
+            }
+          />
+          <Route
+            path="blogs"
+            element={
+              <RoleProtectedRoute allowedRoles={["superadmin", "admin_konten"]}>
+                <BlogList />
+              </RoleProtectedRoute>
+            }
+          />
+          <Route
+            path="orders"
+            element={
+              <RoleProtectedRoute allowedRoles={["superadmin", "admin_order"]}>
+                <OrderList />
+              </RoleProtectedRoute>
+            }
+          />
+          <Route
+            path="orders/:id"
+            element={
+              <RoleProtectedRoute allowedRoles={["superadmin", "admin_order"]}>
+                <OrderDetail />
+              </RoleProtectedRoute>
+            }
+          />
+          <Route
+            path="settings/admins"
+            element={
+              <RoleProtectedRoute allowedRoles={["superadmin"]}>
+                <AdminList />
+              </RoleProtectedRoute>
+            }
+          />
+          <Route
+            path="settings/site"
+            element={
+              <RoleProtectedRoute allowedRoles={["superadmin"]}>
+                <SiteSettings />
+              </RoleProtectedRoute>
+            }
+          />
+        </Route>
 
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </>
   );
 }

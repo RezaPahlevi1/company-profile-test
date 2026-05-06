@@ -14,6 +14,7 @@ export default function ProductForm({ product, onClose, onSuccess }) {
     register,
     handleSubmit,
     reset,
+    watch, // ← ambil watch dari useForm dulu
     formState: { errors },
   } = useForm({
     resolver: zodResolver(productSchema),
@@ -23,8 +24,21 @@ export default function ProductForm({ product, onClose, onSuccess }) {
       price: "",
       allow_negotiation: true,
       is_active: true,
+      is_promo: false,
+      discount_percent: "0",
     },
   });
+
+  // Baru boleh pakai watch setelah useForm dipanggil
+  const watchIsPromo = watch("is_promo");
+  const watchPrice = watch("price");
+  const watchDiscount = watch("discount_percent");
+
+  const promoPrice =
+    watchIsPromo && watchPrice && watchDiscount
+      ? parseFloat(watchPrice) -
+        (parseFloat(watchPrice) * parseFloat(watchDiscount)) / 100
+      : null;
 
   useEffect(() => {
     if (product) {
@@ -34,6 +48,8 @@ export default function ProductForm({ product, onClose, onSuccess }) {
         price: String(product.price),
         allow_negotiation: product.allow_negotiation,
         is_active: product.is_active,
+        is_promo: product.is_promo || false,
+        discount_percent: String(product.discount_percent || 0),
       });
     }
   }, [product, reset]);
@@ -56,6 +72,11 @@ export default function ProductForm({ product, onClose, onSuccess }) {
     formData.append("price", data.price);
     formData.append("allow_negotiation", String(data.allow_negotiation));
     formData.append("is_active", String(data.is_active));
+    formData.append("is_promo", String(data.is_promo));
+    formData.append(
+      "discount_percent",
+      data.is_promo ? data.discount_percent || "0" : "0",
+    );
 
     const imageInput = document.getElementById("product-image");
     if (imageInput?.files[0]) {
@@ -155,7 +176,6 @@ export default function ProductForm({ product, onClose, onSuccess }) {
               />
               <span className="text-sm text-gray-700">Allow negotiation</span>
             </label>
-
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
@@ -164,6 +184,55 @@ export default function ProductForm({ product, onClose, onSuccess }) {
               />
               <span className="text-sm text-gray-700">Active</span>
             </label>
+          </div>
+
+          {/* Promo section */}
+          <div className="border border-gray-100 rounded-xl p-4 space-y-3">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                {...register("is_promo")}
+                className="w-4 h-4 rounded accent-red-500"
+              />
+              <span className="text-sm font-medium text-gray-700">
+                🔥 Aktifkan Promo
+              </span>
+            </label>
+
+            {watchIsPromo && (
+              <div className="space-y-3 pt-2 border-t border-gray-100">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Diskon (%)
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="100"
+                    {...register("discount_percent")}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
+                    placeholder="Contoh: 20"
+                  />
+                </div>
+
+                {promoPrice !== null && !isNaN(promoPrice) && watchPrice && (
+                  <div className="bg-red-50 border border-red-100 rounded-lg p-3">
+                    <p className="text-xs text-gray-500">Preview harga:</p>
+                    <div className="flex items-center gap-3 mt-1 flex-wrap">
+                      <span className="line-through text-gray-400 text-sm">
+                        Rp {parseFloat(watchPrice).toLocaleString("id-ID")}
+                      </span>
+                      <span className="text-red-600 font-bold">
+                        Rp {Math.round(promoPrice).toLocaleString("id-ID")}
+                      </span>
+                      <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full font-semibold">
+                        -{watchDiscount}%
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="flex gap-3 pt-2">

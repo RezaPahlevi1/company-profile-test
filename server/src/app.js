@@ -8,6 +8,7 @@ import blogRoutes from "./routes/blogRoutes.js";
 import orderRoutes from "./routes/orderRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import settingsRoutes from "./routes/settingsRoutes.js";
+import promoRoutes from "./routes/promoRoutes.js";
 
 const app = express();
 
@@ -30,6 +31,7 @@ app.use("/api/orders", orderRoutes);
 app.use("/api/midtrans", orderRoutes);
 app.use("/api/admin/admins", adminRoutes);
 app.use("/api/settings", settingsRoutes);
+app.use("/api/promos", promoRoutes);
 
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", message: "Server is running" });

@@ -3,15 +3,9 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
 import { X } from "lucide-react";
-import { z } from "zod";
 import toast from "react-hot-toast";
 import { createService, updateService } from "../../../api/services";
-
-const serviceSchema = z.object({
-  name: z.string().min(1, "Name is required"),
-  description: z.string().optional(),
-  is_active: z.boolean().default(true),
-});
+import { serviceSchema } from "../../../validations/serviceSchema";
 
 export default function ServiceForm({ service, onClose, onSuccess }) {
   const isEdit = Boolean(service);
@@ -27,6 +21,7 @@ export default function ServiceForm({ service, onClose, onSuccess }) {
       name: "",
       description: "",
       is_active: true,
+      is_promo: false,
     },
   });
 
@@ -36,6 +31,7 @@ export default function ServiceForm({ service, onClose, onSuccess }) {
         name: service.name,
         description: service.description || "",
         is_active: service.is_active,
+        is_promo: service.is_promo || false,
       });
     }
   }, [service, reset]);
@@ -56,6 +52,7 @@ export default function ServiceForm({ service, onClose, onSuccess }) {
     formData.append("name", data.name);
     formData.append("description", data.description || "");
     formData.append("is_active", String(data.is_active));
+    formData.append("is_promo", String(data.is_promo));
 
     const imageInput = document.getElementById("service-image");
     if (imageInput?.files[0]) {
@@ -137,6 +134,17 @@ export default function ServiceForm({ service, onClose, onSuccess }) {
               className="w-4 h-4 rounded accent-blue-600"
             />
             <span className="text-sm text-gray-700">Active</span>
+          </label>
+
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              {...register("is_promo")}
+              className="w-4 h-4 rounded accent-red-500"
+            />
+            <span className="text-sm text-gray-700">
+              🔥 Tandai sebagai Promo
+            </span>
           </label>
 
           <div className="flex gap-3 pt-2">

@@ -27,6 +27,7 @@ export const updateSiteSettings = async (req, res) => {
     site_description,
     payment_expiry_hours,
     delivery_estimation,
+    show_site_name,
   } = req.body;
 
   // Validasi payment_expiry_hours
@@ -58,6 +59,8 @@ export const updateSiteSettings = async (req, res) => {
     if (delivery_estimation !== undefined) {
       updates.push({ key: "delivery_estimation", value: delivery_estimation });
     }
+    if (show_site_name !== undefined)
+      updates.push({ key: "show_site_name", value: show_site_name });
 
     for (const update of updates) {
       const { error } = await supabase

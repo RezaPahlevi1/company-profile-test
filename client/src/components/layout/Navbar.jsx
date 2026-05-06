@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, NavLink } from "react-router-dom";
-import { Menu, X } from "lucide-react";
+import { Menu, X, MessageCircle, Package } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { getSiteSettings, getPageSettings } from "../../api/settings";
@@ -30,16 +30,15 @@ export default function Navbar() {
   const settings = siteData?.data?.data || {};
   const pages = pagesData?.data?.data || [];
 
-  // Hanya tampilkan halaman yang aktif, urutan dari sort_order
   const navLinks = pages
     .filter((p) => p.is_active && p.page_key !== "home")
-    .map((p) => ({
-      label: p.navbar_label,
-      to: `/${p.page_key}`,
-    }));
+    .map((p) => ({ label: p.navbar_label, to: `/${p.page_key}` }));
 
   const siteName = settings.site_name || "CompanyName";
   const logoUrl = settings.navbar_logo_url;
+  const showLogo = logoUrl && logoUrl !== "";
+  const showSiteName = !showLogo || settings.show_site_name !== "false";
+  const waNumber = import.meta.env.VITE_WA_NUMBER || "628123456789";
 
   return (
     <nav
@@ -51,26 +50,47 @@ export default function Navbar() {
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16 lg:h-20">
-          {/* Logo atau text */}
-          <Link to="/" className="flex items-center">
-            {logoUrl ? (
+          {/* Brand kiri — logo + nama + WA */}
+          <Link to="/" className="flex items-center gap-3 min-w-0">
+            {showLogo && (
               <img
                 src={logoUrl}
                 alt={siteName}
-                className="h-9 w-auto object-contain"
+                className="h-9 w-auto object-contain shrink-0"
               />
-            ) : (
-              <span className="font-bold text-xl text-slate-900">
-                <span className="text-brand-600">
-                  {siteName.slice(0, Math.ceil(siteName.length / 2))}
-                </span>
-                {siteName.slice(Math.ceil(siteName.length / 2))}
-              </span>
             )}
+            <div className="flex flex-col min-w-0">
+              {showSiteName && (
+                <span className="font-bold text-lg leading-tight text-slate-900 truncate">
+                  <span className="text-brand-600">
+                    {siteName.slice(0, Math.ceil(siteName.length / 2))}
+                  </span>
+                  {siteName.slice(Math.ceil(siteName.length / 2))}
+                </span>
+              )}
+              <a
+                href={`https://wa.me/${waNumber}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className={`flex items-center gap-1 text-green-600 hover:text-green-700 transition-colors ${
+                  showSiteName ? "text-xs" : "text-sm font-medium"
+                }`}
+              >
+                <MessageCircle size={10} className="shrink-0" />
+                <span className="truncate">
+                  +
+                  {waNumber.replace(
+                    /(\d{2})(\d{3})(\d{4})(\d+)/,
+                    "$1 $2-$3-$4",
+                  )}
+                </span>
+              </a>
+            </div>
           </Link>
 
-          {/* Desktop */}
-          <div className="hidden lg:flex items-center gap-8">
+          {/* Desktop nav */}
+          <div className="hidden lg:flex items-center gap-6">
             <NavLink
               to="/"
               end
@@ -84,6 +104,7 @@ export default function Navbar() {
             >
               {pages.find((p) => p.page_key === "home")?.navbar_label || "Home"}
             </NavLink>
+
             {navLinks.map((link) => (
               <NavLink
                 key={link.to}
@@ -99,6 +120,21 @@ export default function Navbar() {
                 {link.label}
               </NavLink>
             ))}
+
+            {/* Track Order */}
+            <NavLink
+              to="/order/track"
+              className={({ isActive }) =>
+                `flex items-center gap-1.5 text-sm font-medium transition-colors duration-200 ${
+                  isActive
+                    ? "text-brand-600"
+                    : "text-slate-600 hover:text-slate-900"
+                }`
+              }
+            >
+              <Package size={14} />
+              Track Order
+            </NavLink>
           </div>
 
           <button
@@ -110,6 +146,7 @@ export default function Navbar() {
         </div>
       </div>
 
+      {/* Mobile menu */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -135,6 +172,7 @@ export default function Navbar() {
                 {pages.find((p) => p.page_key === "home")?.navbar_label ||
                   "Home"}
               </NavLink>
+
               {navLinks.map((link) => (
                 <NavLink
                   key={link.to}
@@ -151,6 +189,34 @@ export default function Navbar() {
                   {link.label}
                 </NavLink>
               ))}
+
+              {/* Track Order mobile */}
+              <NavLink
+                to="/order/track"
+                onClick={() => setIsOpen(false)}
+                className={({ isActive }) =>
+                  `flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                    isActive
+                      ? "bg-brand-50 text-brand-600"
+                      : "text-slate-600 hover:bg-slate-50"
+                  }`
+                }
+              >
+                <Package size={15} />
+                Track Order
+              </NavLink>
+
+              {/* WA mobile */}
+              <a
+                href={`https://wa.me/${waNumber}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-green-600 hover:bg-green-50 transition-colors"
+                onClick={() => setIsOpen(false)}
+              >
+                <MessageCircle size={15} />+
+                {waNumber.replace(/(\d{2})(\d{3})(\d{4})(\d+)/, "$1 $2-$3-$4")}
+              </a>
             </div>
           </motion.div>
         )}

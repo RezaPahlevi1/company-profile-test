@@ -1,9 +1,14 @@
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
-import { ShoppingCart, MessageCircle, ImageOff } from "lucide-react";
+import { ShoppingCart, ImageOff } from "lucide-react";
 import WhatsAppButton from "./WhatsAppButton";
 
 export default function ProductCard({ product, index = 0 }) {
+  const promoPrice =
+    product.is_promo && product.discount_percent > 0
+      ? product.price - (product.price * product.discount_percent) / 100
+      : null;
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -12,7 +17,7 @@ export default function ProductCard({ product, index = 0 }) {
       transition={{ duration: 0.4, delay: index * 0.1 }}
       className="card-base overflow-hidden group"
     >
-      {/* Image */}
+      {/* Image dengan overlay badge */}
       <div className="relative h-52 bg-slate-100 overflow-hidden">
         {product.image_url ? (
           <img
@@ -25,9 +30,20 @@ export default function ProductCard({ product, index = 0 }) {
             <ImageOff size={32} className="text-slate-300" />
           </div>
         )}
+
+        {/* Badge promo — overlay pojok kiri atas */}
+        {product.is_promo && product.discount_percent > 0 && (
+          <div className="absolute top-0 left-0">
+            <div className="bg-red-500 text-white text-xs font-bold px-3 py-1.5 rounded-br-xl shadow-md">
+              🔥 -{product.discount_percent}%
+            </div>
+          </div>
+        )}
+
+        {/* Badge negotiable — tetap di kanan atas */}
         {product.allow_negotiation && (
           <span className="absolute top-3 right-3 bg-brand-600 text-white text-xs font-semibold px-2.5 py-1 rounded-lg">
-            Negotiable
+            Nego
           </span>
         )}
       </div>
@@ -42,9 +58,24 @@ export default function ProductCard({ product, index = 0 }) {
             {product.description}
           </p>
         )}
-        <p className="text-brand-600 font-bold text-xl mt-3">
-          Rp {Number(product.price).toLocaleString("id-ID")}
-        </p>
+
+        {/* Harga */}
+        <div className="mt-3">
+          {promoPrice !== null ? (
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-red-600 font-bold text-xl">
+                Rp {Math.round(promoPrice).toLocaleString("id-ID")}
+              </span>
+              <span className="line-through text-slate-400 text-sm">
+                Rp {Number(product.price).toLocaleString("id-ID")}
+              </span>
+            </div>
+          ) : (
+            <span className="text-brand-600 font-bold text-xl">
+              Rp {Number(product.price).toLocaleString("id-ID")}
+            </span>
+          )}
+        </div>
 
         {/* Actions */}
         <div className="flex gap-2 mt-4">

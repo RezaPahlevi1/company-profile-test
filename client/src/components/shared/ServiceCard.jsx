@@ -1,20 +1,17 @@
 import { motion } from "framer-motion";
 import { ImageOff, Clock } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import api from "../../api/axiosInstance";
+import { getSiteSettings } from "../../api/settings";
 import WhatsAppButton from "./WhatsAppButton";
 
 export default function ServiceCard({ service, index = 0 }) {
-  const { data: siteSettingsData } = useQuery({
+  const { data: siteData } = useQuery({
     queryKey: ["site-settings"],
-    queryFn: async () => {
-      const res = await api.get("/settings/site");
-      return res.data.data;
-    },
+    queryFn: getSiteSettings,
     staleTime: 1000 * 60 * 10,
   });
 
-  const siteSettings = siteSettingsData || {};
+  const siteSettings = siteData?.data?.data || {};
 
   return (
     <motion.div
@@ -34,6 +31,15 @@ export default function ServiceCard({ service, index = 0 }) {
         ) : (
           <div className="w-full h-full flex items-center justify-center">
             <ImageOff size={32} className="text-slate-300" />
+          </div>
+        )}
+
+        {/* Badge promo — hanya penanda, tanpa diskon persen */}
+        {service.is_promo && (
+          <div className="absolute top-0 left-0">
+            <div className="bg-red-500 text-white text-xs font-bold px-3 py-1.5 rounded-br-xl shadow-md">
+              🔥 Sedang Ada Promo!
+            </div>
           </div>
         )}
       </div>

@@ -1,6 +1,12 @@
 import supabase from "../config/supabase.js";
 import uploadToSupabase from "../utils/uploadToSupabase.js";
 
+const parseBoolean = (value) => {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") return value === "true";
+  return false;
+};
+
 export const getAllServices = async (req, res) => {
   const { all } = req.query;
 
@@ -53,7 +59,7 @@ export const getServiceById = async (req, res) => {
 };
 
 export const createService = async (req, res) => {
-  const { name, description } = req.body;
+  const { name, description, is_promo } = req.body;
 
   if (!name) {
     return res.status(400).json({
@@ -81,6 +87,7 @@ export const createService = async (req, res) => {
           description: description || null,
           image_url,
           is_active: true,
+          is_promo: parseBoolean(is_promo),
         },
       ])
       .select()
@@ -103,7 +110,7 @@ export const createService = async (req, res) => {
 
 export const updateService = async (req, res) => {
   const { id } = req.params;
-  const { name, description, is_active } = req.body;
+  const { name, description, is_active, is_promo } = req.body;
 
   try {
     const { data: existing, error: findError } = await supabase
@@ -132,9 +139,8 @@ export const updateService = async (req, res) => {
     const updatePayload = {
       ...(name && { name }),
       ...(description !== undefined && { description }),
-      ...(is_active !== undefined && {
-        is_active: is_active === "true" || is_active === true,
-      }),
+      ...(is_active !== undefined && { is_active: parseBoolean(is_active) }),
+      ...(is_promo !== undefined && { is_promo: parseBoolean(is_promo) }),
       image_url,
     };
 
