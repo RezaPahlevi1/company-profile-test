@@ -30,6 +30,7 @@ import useAuthVerify from "./hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import { getPageSettings } from "./api/settings";
 import PromoPopup from "./components/shared/PromoPopup";
+import useTrackVisit from "./hooks/useTrackVisit";
 
 const PageGuard = ({ pageKey, children }) => {
   const { data, isLoading } = useQuery({
@@ -65,6 +66,7 @@ const PageGuard = ({ pageKey, children }) => {
 const ProtectedRoute = ({ children }) => {
   const { isAuthenticated, _hasHydrated } = useAuthStore();
   useAuthVerify();
+  useTrackVisit();
 
   if (!_hasHydrated) {
     return (
