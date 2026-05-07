@@ -10,6 +10,7 @@ import adminRoutes from "./routes/adminRoutes.js";
 import settingsRoutes from "./routes/settingsRoutes.js";
 import promoRoutes from "./routes/promoRoutes.js";
 import analyticsRoutes from "./routes/analyticsRoutes.js";
+import emailRoutes from "./routes/emailRoutes.js";
 
 const app = express();
 
@@ -34,6 +35,7 @@ app.use("/api/admin/admins", adminRoutes);
 app.use("/api/settings", settingsRoutes);
 app.use("/api/promos", promoRoutes);
 app.use("/api/analytics", analyticsRoutes);
+app.use("/api/email", emailRoutes);
 
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", message: "Server is running" });

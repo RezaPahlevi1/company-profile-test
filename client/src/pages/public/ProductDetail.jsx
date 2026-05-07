@@ -5,16 +5,15 @@ import { motion } from "framer-motion";
 import {
   ArrowLeft,
   ShoppingCart,
-  MessageCircle,
   ImageOff,
   CheckCircle,
   Tag,
   Clock,
 } from "lucide-react";
 import { getProductById } from "../../api/products";
+import { getSiteSettings } from "../../api/settings";
 import WhatsAppButton from "../../components/shared/WhatsAppButton";
 import Spinner from "../../components/ui/Spinner";
-import api from "../../api/axiosInstance";
 
 export default function ProductDetail() {
   const { id } = useParams();
@@ -26,17 +25,22 @@ export default function ProductDetail() {
     queryFn: () => getProductById(id),
   });
 
-  const { data: siteSettingsData } = useQuery({
+  const { data: siteData } = useQuery({
     queryKey: ["site-settings"],
-    queryFn: async () => {
-      const res = await api.get("/settings/site");
-      return res.data.data;
-    },
+    queryFn: getSiteSettings,
     staleTime: 1000 * 60 * 10,
   });
 
   const product = data?.data?.data;
-  const siteSettings = siteSettingsData || {};
+  const siteSettings = siteData?.data?.data || {};
+
+  // ✅ Hitung promo price
+  const promoPrice =
+    product?.is_promo && product?.discount_percent > 0
+      ? product.price - (product.price * product.discount_percent) / 100
+      : null;
+
+  const effectivePrice = promoPrice ?? product?.price;
 
   if (isLoading) return <Spinner size="lg" className="min-h-screen" />;
 
@@ -57,7 +61,6 @@ export default function ProductDetail() {
     <main className="pt-16 lg:pt-20">
       <div className="section-padding bg-slate-50 min-h-screen">
         <div className="container-base">
-          {/* Back button */}
           <button
             onClick={() => navigate(-1)}
             className="flex items-center gap-2 text-slate-500 hover:text-slate-900 font-medium mb-8 transition-colors"
@@ -73,7 +76,7 @@ export default function ProductDetail() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.5 }}
             >
-              <div className="aspect-square bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100">
+              <div className="relative aspect-square bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100">
                 {product.image_url ? (
                   <img
                     src={product.image_url}
@@ -83,6 +86,15 @@ export default function ProductDetail() {
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">
                     <ImageOff size={48} className="text-slate-200" />
+                  </div>
+                )}
+
+                {/* ✅ Badge promo di detail */}
+                {product.is_promo && product.discount_percent > 0 && (
+                  <div className="absolute top-0 left-0">
+                    <div className="bg-red-500 text-white text-sm font-bold px-4 py-2 rounded-br-xl shadow-md">
+                      🔥 -{product.discount_percent}%
+                    </div>
                   </div>
                 )}
               </div>
@@ -106,9 +118,23 @@ export default function ProductDetail() {
                 {product.name}
               </h1>
 
-              <p className="text-3xl font-bold text-brand-600">
-                Rp {Number(product.price).toLocaleString("id-ID")}
-              </p>
+              {/* ✅ Tampilkan harga promo jika aktif */}
+              <div>
+                {promoPrice !== null ? (
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <span className="text-3xl font-bold text-red-600">
+                      Rp {Math.round(promoPrice).toLocaleString("id-ID")}
+                    </span>
+                    <span className="line-through text-slate-400 text-xl">
+                      Rp {Number(product.price).toLocaleString("id-ID")}
+                    </span>
+                  </div>
+                ) : (
+                  <p className="text-3xl font-bold text-brand-600">
+                    Rp {Number(product.price).toLocaleString("id-ID")}
+                  </p>
+                )}
+              </div>
 
               {product.description && (
                 <p className="text-slate-600 text-lg leading-relaxed">
@@ -178,7 +204,7 @@ export default function ProductDetail() {
                 {product.allow_negotiation && (
                   <WhatsAppButton
                     productName={product.name}
-                    message={`Halo, saya tertarik dengan produk *${product.name}* seharga Rp ${Number(product.price).toLocaleString("id-ID")}. Apakah harga bisa dinegosiasikan?`}
+                    message={`Halo, saya tertarik dengan produk *${product.name}* seharga Rp ${Math.round(effectivePrice).toLocaleString("id-ID")}. Apakah harga bisa dinegosiasikan?`}
                     className="flex-1 justify-center"
                   />
                 )}

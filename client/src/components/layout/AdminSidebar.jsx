@@ -7,6 +7,7 @@ import {
   ShoppingCart,
   Settings,
   LogOut,
+  Mail,
 } from "lucide-react";
 import useAuthStore from "../../store/authStore";
 import { logoutAdmin } from "../../api/auth";
@@ -56,6 +57,12 @@ const navItems = [
     icon: Settings,
     roles: ["superadmin"],
   },
+  {
+    label: "Email Settings",
+    to: "/admin/settings/email",
+    icon: Mail,
+    roles: ["superadmin"], // ✅ tambahkan roles
+  },
 ];
 
 export default function AdminSidebar() {
@@ -66,22 +73,20 @@ export default function AdminSidebar() {
   const handleLogout = async () => {
     try {
       await logoutAdmin();
-      clearAdmin();
-      navigate("/admin/login");
-      toast.success("Logged out successfully");
     } catch {
-      clearAdmin();
-      navigate("/admin/login");
+      // tetap lanjut logout meski error
     } finally {
-      queryClient.clear(); // ← clear semua cache React Query
-      clearAdmin(); // ← clear Zustand store
+      queryClient.clear();
+      clearAdmin();
       navigate("/admin/login");
       toast.success("Logged out successfully");
     }
   };
 
   const role = admin?.role || "superadmin";
-  const filteredNavItems = navItems.filter((item) => item.roles.includes(role));
+  const filteredNavItems = navItems.filter(
+    (item) => item.roles && item.roles.includes(role), // ✅ guard tambahan
+  );
 
   return (
     <aside className="w-64 min-h-screen bg-gray-900 text-gray-300 flex flex-col">

@@ -28,7 +28,7 @@ export const createOrder = async (req, res) => {
     const productIds = items.map((item) => item.product_id);
     const { data: products, error: productError } = await supabase
       .from("products")
-      .select("id, name, price, is_active")
+      .select("id, name, price, is_active, is_promo, discount_percent")
       .in("id", productIds);
 
     if (productError) throw productError;
@@ -38,7 +38,7 @@ export const createOrder = async (req, res) => {
       if (!product) {
         return res.status(404).json({
           success: false,
-          message: `Product not found`,
+          message: "Product not found",
         });
       }
       if (!product.is_active) {
@@ -51,10 +51,17 @@ export const createOrder = async (req, res) => {
 
     const orderItems = items.map((item) => {
       const product = products.find((p) => p.id === item.product_id);
+
+      // Hitung harga efektif dengan mempertimbangkan promo
+      const effectivePrice =
+        product.is_promo && product.discount_percent > 0
+          ? product.price - (product.price * product.discount_percent) / 100
+          : product.price;
+
       return {
         product_id: item.product_id,
         product_name: product.name,
-        price_at_purchase: product.price,
+        price_at_purchase: Math.round(effectivePrice), // ✅ harga promo
         quantity: item.quantity || 1,
       };
     });
@@ -105,7 +112,6 @@ export const createOrder = async (req, res) => {
       name: item.product_name.substring(0, 50),
     }));
 
-    // Di bagian atas createOrder, sebelum snap.createTransaction
     const { data: expirySetting } = await supabase
       .from("site_settings")
       .select("value")
@@ -128,14 +134,23 @@ export const createOrder = async (req, res) => {
       item_details: midtransItems,
       expiry: {
         unit: "hour",
-        duration: expiryHours, // ← dari database, bukan hardcode
+        duration: expiryHours,
       },
     };
 
-    sendOrderCreatedEmail(order, orderItems).catch((err) =>
-      console.error("Failed to send order created email:", err),
-    );
     const snapToken = await snap.createTransaction(midtransParameter);
+
+    // ✅ Email dikirim SETELAH semua proses berhasil
+    // ✅ Re-fetch order untuk pastikan created_at dan semua field lengkap
+    const { data: freshOrder } = await supabase
+      .from("orders")
+      .select("*")
+      .eq("id", order.id)
+      .single();
+
+    sendOrderCreatedEmail(freshOrder || order, orderItems).catch((err) =>
+      console.error("Failed to send order created email:", err.message),
+    );
 
     return res.status(201).json({
       success: true,
@@ -192,7 +207,6 @@ export const handleMidtransWebhook = async (req, res) => {
     const isDev = process.env.NODE_ENV === "development";
 
     let notification;
-
     if (isDev) {
       notification = req.body;
     } else {
@@ -235,7 +249,6 @@ export const handleMidtransWebhook = async (req, res) => {
 
     if (error) throw error;
 
-    // Email logic SEBELUM return — ini yang fix bug utama
     if (orderStatus === "paid") {
       const { data: fullOrder } = await supabase
         .from("orders")
@@ -245,7 +258,7 @@ export const handleMidtransWebhook = async (req, res) => {
 
       if (fullOrder) {
         sendPaymentSuccessEmail(fullOrder, fullOrder.order_items).catch((err) =>
-          console.error("Failed to send payment success email:", err),
+          console.error("Failed to send payment success email:", err.message),
         );
       }
     }
@@ -275,10 +288,7 @@ export const getAllOrders = async (req, res) => {
       .order("created_at", { ascending: false })
       .range(offset, offset + Number(limit) - 1);
 
-    if (status) {
-      query = query.eq("status", status);
-    }
-
+    if (status) query = query.eq("status", status);
     if (search) {
       query = query.or(
         `buyer_name.ilike.%${search}%,buyer_email.ilike.%${search}%,order_number.ilike.%${search}%`,
@@ -365,7 +375,6 @@ export const repayOrder = async (req, res) => {
       });
     }
 
-    // Generate unique order_id untuk Midtrans dengan timestamp suffix
     const midtransOrderId = `${order.order_number}-R${Date.now()}`;
 
     const midtransItems = order.order_items.map((item) => ({
@@ -384,9 +393,7 @@ export const repayOrder = async (req, res) => {
         first_name: order.buyer_name,
         email: order.buyer_email,
         phone: order.buyer_phone,
-        billing_address: {
-          address: order.buyer_address,
-        },
+        billing_address: { address: order.buyer_address },
       },
       item_details: midtransItems,
     };
@@ -425,7 +432,7 @@ export const updateOrderStatus = async (req, res) => {
   try {
     const { data: existing, error: findError } = await supabase
       .from("orders")
-      .select("id, status")
+      .select("id, status, paid_at")
       .eq("id", id)
       .single();
 

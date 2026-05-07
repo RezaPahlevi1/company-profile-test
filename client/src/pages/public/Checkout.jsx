@@ -41,7 +41,6 @@ export default function Checkout() {
     mutationFn: createOrder,
     onSuccess: (res) => {
       const { snap_token, order_number } = res.data.data;
-
       window.snap.pay(snap_token, {
         onSuccess: () => {
           toast.success("Pembayaran berhasil!");
@@ -76,12 +75,7 @@ export default function Checkout() {
 
     submitOrder({
       ...data,
-      items: [
-        {
-          product_id: product.id,
-          quantity,
-        },
-      ],
+      items: [{ product_id: product.id, quantity }],
     });
   };
 
@@ -95,7 +89,7 @@ export default function Checkout() {
           </p>
           <button
             onClick={() => navigate("/products")}
-            className="btn-primary mt-6 inline-flex"
+            className="btn-primary mt-flex inline-flex"
           >
             Lihat Produk
           </button>
@@ -104,7 +98,14 @@ export default function Checkout() {
     );
   }
 
-  const total = Number(product.price) * quantity;
+  // ✅ Hitung promo price di checkout
+  const promoPrice =
+    product.is_promo && product.discount_percent > 0
+      ? product.price - (product.price * product.discount_percent) / 100
+      : null;
+
+  const effectivePrice = promoPrice ?? Number(product.price);
+  const total = Math.round(effectivePrice) * quantity;
 
   return (
     <main className="pt-16 lg:pt-20">
@@ -274,9 +275,23 @@ export default function Checkout() {
                     <h3 className="font-semibold text-slate-900 line-clamp-2">
                       {product.name}
                     </h3>
-                    <p className="text-brand-600 font-bold mt-1">
-                      Rp {Number(product.price).toLocaleString("id-ID")}
-                    </p>
+
+                    {/* ✅ Tampilan harga di summary */}
+                    {promoPrice !== null ? (
+                      <div className="flex items-center gap-2 flex-wrap mt-1">
+                        <span className="text-red-600 font-bold">
+                          Rp {Math.round(promoPrice).toLocaleString("id-ID")}
+                        </span>
+                        <span className="line-through text-slate-400 text-sm">
+                          Rp {Number(product.price).toLocaleString("id-ID")}
+                        </span>
+                      </div>
+                    ) : (
+                      <p className="text-brand-600 font-bold mt-1">
+                        Rp {Number(product.price).toLocaleString("id-ID")}
+                      </p>
+                    )}
+
                     <p className="text-slate-500 text-sm mt-1">
                       Jumlah: {quantity}
                     </p>
@@ -284,6 +299,18 @@ export default function Checkout() {
                 </div>
 
                 <div className="border-t border-slate-100 mt-4 pt-4 space-y-2">
+                  {/* ✅ Tampilkan baris diskon jika promo aktif */}
+                  {promoPrice !== null && (
+                    <div className="flex justify-between text-sm text-red-500">
+                      <span>Diskon ({product.discount_percent}%)</span>
+                      <span>
+                        -Rp{" "}
+                        {Math.round(
+                          (product.price - promoPrice) * quantity,
+                        ).toLocaleString("id-ID")}
+                      </span>
+                    </div>
+                  )}
                   <div className="flex justify-between text-sm text-slate-600">
                     <span>Subtotal ({quantity} item)</span>
                     <span>Rp {total.toLocaleString("id-ID")}</span>

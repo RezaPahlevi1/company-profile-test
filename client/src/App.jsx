@@ -22,6 +22,7 @@ import OrderList from "./pages/admin/orders/OrderList";
 import OrderDetail from "./pages/admin/orders/OrderDetail";
 import AdminList from "./pages/admin/settings/AdminList";
 import SiteSettings from "./pages/admin/settings/SiteSettings";
+import EmailSettings from "./pages/admin/settings/EmailSettings";
 
 import Navbar from "./components/layout/Navbar";
 import Footer from "./components/layout/Footer";
@@ -258,6 +259,14 @@ export default function App() {
             element={
               <RoleProtectedRoute allowedRoles={["superadmin", "admin_konten"]}>
                 <BlogList />
+              </RoleProtectedRoute>
+            }
+          />
+          <Route
+            path="settings/email"
+            element={
+              <RoleProtectedRoute allowedRoles={["superadmin"]}>
+                <EmailSettings />
               </RoleProtectedRoute>
             }
           />
