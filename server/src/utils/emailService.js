@@ -317,7 +317,6 @@ export const sendBroadcastEmail = async (broadcast, recipients) => {
   let sent = 0;
   let failed = 0;
 
-  // Kirim batch per 50 agar tidak hit rate limit Resend
   const batchSize = 50;
   for (let i = 0; i < recipients.length; i += batchSize) {
     const batch = recipients.slice(i, i + batchSize);
@@ -363,14 +362,28 @@ export const sendBroadcastEmail = async (broadcast, recipients) => {
     });
 
     try {
-      await resend.batch.send(emails);
-      sent += batch.length;
+      // ✅ Kirim satu per satu, bukan batch — agar satu email invalid tidak gagalkan semua
+      const results = await Promise.allSettled(
+        emails.map((email) => resend.emails.send(email)),
+      );
+
+      for (const result of results) {
+        if (result.status === "fulfilled" && !result.value.error) {
+          sent++;
+        } else {
+          const reason = result.reason || result.value?.error;
+          console.error(
+            `Failed to send to one recipient:`,
+            reason?.message || reason,
+          );
+          failed++;
+        }
+      }
     } catch (err) {
       console.error(`Batch ${i / batchSize + 1} failed:`, err);
       failed += batch.length;
     }
 
-    // Delay antar batch untuk hindari rate limit
     if (i + batchSize < recipients.length) {
       await new Promise((resolve) => setTimeout(resolve, 1000));
     }

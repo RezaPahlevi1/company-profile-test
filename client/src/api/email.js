@@ -22,8 +22,10 @@ export const updateBroadcast = (id, data) =>
 export const deleteBroadcast = (id) =>
   axiosInstance.delete(`/email/broadcasts/${id}`);
 
-export const getRecipientPreview = () =>
-  axiosInstance.get("/email/broadcasts/recipients/preview");
+// ✅ Ganti preview → recipients (return semua)
+export const getRecipients = () =>
+  axiosInstance.get("/email/broadcasts/recipients");
 
+// ✅ Tidak perlu selected_emails lagi di frontend
 export const sendBroadcast = (id) =>
   axiosInstance.post(`/email/broadcasts/${id}/send`);

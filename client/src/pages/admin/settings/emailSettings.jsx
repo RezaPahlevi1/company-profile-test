@@ -14,6 +14,9 @@ import {
   Clock,
   AlertCircle,
   FileText,
+  Search,
+  CheckSquare,
+  Square,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import {
@@ -24,7 +27,7 @@ import {
   createBroadcast,
   updateBroadcast,
   deleteBroadcast,
-  getRecipientPreview,
+  getRecipients,
   sendBroadcast,
 } from "../../../api/email";
 import ConfirmModal from "../../../components/ui/ConfirmModal";
@@ -106,7 +109,6 @@ const TemplateEditor = ({
 
   return (
     <div className="space-y-5">
-      {/* Variabel yang tersedia */}
       <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
         <p className="text-xs font-semibold text-blue-700 mb-2">
           Variabel yang bisa dipakai — klik untuk salin:
@@ -124,7 +126,6 @@ const TemplateEditor = ({
         </div>
       </div>
 
-      {/* Subject */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1.5">
           Subject Email
@@ -140,7 +141,6 @@ const TemplateEditor = ({
         </p>
       </div>
 
-      {/* Greeting */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1.5">
           Salam Pembuka
@@ -153,7 +153,6 @@ const TemplateEditor = ({
         />
       </div>
 
-      {/* Body */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1.5">
           Pesan Utama
@@ -169,7 +168,6 @@ const TemplateEditor = ({
         />
       </div>
 
-      {/* Footer */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1.5">
           Footer
@@ -185,7 +183,6 @@ const TemplateEditor = ({
         />
       </div>
 
-      {/* Warna header */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1.5">
           Warna Header
@@ -214,7 +211,6 @@ const TemplateEditor = ({
         </div>
       </div>
 
-      {/* Actions */}
       <div className="flex gap-3 pt-2">
         <button
           onClick={() => onReset()}
@@ -238,6 +234,109 @@ const TemplateEditor = ({
 };
 
 // ============================================================
+// RECIPIENT SELECTOR
+// ============================================================
+const RecipientSelector = ({ recipients, selectedEmails, onChange }) => {
+  const [search, setSearch] = useState("");
+  const allSelected = selectedEmails === null; // null = semua
+
+  const filtered = recipients.filter(
+    (r) =>
+      r.name.toLowerCase().includes(search.toLowerCase()) ||
+      r.email.toLowerCase().includes(search.toLowerCase()),
+  );
+
+  const toggleAll = () => {
+    onChange(null); // null = kirim ke semua
+  };
+
+  const toggleOne = (email) => {
+    if (allSelected) {
+      // Dari "semua" → unselect satu = pilih semua kecuali ini
+      onChange(recipients.map((r) => r.email).filter((e) => e !== email));
+    } else {
+      if (selectedEmails.includes(email)) {
+        const next = selectedEmails.filter((e) => e !== email);
+        onChange(next.length === 0 ? [] : next);
+      } else {
+        const next = [...selectedEmails, email];
+        // Kalau sudah pilih semua, kembalikan ke null
+        onChange(next.length === recipients.length ? null : next);
+      }
+    }
+  };
+
+  const isSelected = (email) =>
+    allSelected || (selectedEmails && selectedEmails.includes(email));
+
+  const selectedCount = allSelected
+    ? recipients.length
+    : selectedEmails?.length || 0;
+
+  return (
+    <div className="border border-gray-200 rounded-xl overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200">
+        <button
+          onClick={toggleAll}
+          className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-brand-600 transition-colors"
+        >
+          {allSelected ? (
+            <CheckSquare size={16} className="text-brand-600" />
+          ) : (
+            <Square size={16} className="text-gray-400" />
+          )}
+          Semua ({recipients.length})
+        </button>
+        <span className="text-xs text-gray-500">{selectedCount} dipilih</span>
+      </div>
+
+      {/* Search */}
+      <div className="px-3 py-2 border-b border-gray-100">
+        <div className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2">
+          <Search size={13} className="text-gray-400" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Cari nama atau email..."
+            className="bg-transparent text-sm outline-none flex-1 text-gray-700 placeholder-gray-400"
+          />
+        </div>
+      </div>
+
+      {/* List */}
+      <div className="max-h-52 overflow-y-auto">
+        {filtered.length === 0 ? (
+          <p className="text-center text-gray-400 text-sm py-6">
+            Tidak ada hasil
+          </p>
+        ) : (
+          filtered.map((r) => (
+            <button
+              key={r.email}
+              onClick={() => toggleOne(r.email)}
+              className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors text-left"
+            >
+              {isSelected(r.email) ? (
+                <CheckSquare size={15} className="text-brand-600 shrink-0" />
+              ) : (
+                <Square size={15} className="text-gray-300 shrink-0" />
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-900 truncate">
+                  {r.name}
+                </p>
+                <p className="text-xs text-gray-400 truncate">{r.email}</p>
+              </div>
+            </button>
+          ))
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ============================================================
 // BROADCAST FORM
 // ============================================================
 const BroadcastForm = ({
@@ -245,7 +344,7 @@ const BroadcastForm = ({
   onSave,
   onCancel,
   isSaving,
-  recipientCount,
+  recipients,
 }) => {
   const [form, setForm] = useState({
     subject: broadcast?.subject || "",
@@ -256,6 +355,9 @@ const BroadcastForm = ({
     useSchedule: Boolean(broadcast?.scheduled_at),
   });
 
+  // null = semua, array = subset
+  const [selectedEmails, setSelectedEmails] = useState(null);
+
   const broadcastVariables = ["{{buyer_name}}", "{{site_name}}"];
 
   const copyVariable = (v) => {
@@ -263,13 +365,16 @@ const BroadcastForm = ({
     toast.success(`${v} disalin`);
   };
 
+  const selectedCount =
+    selectedEmails === null ? recipients.length : selectedEmails.length;
+
   return (
     <div className="space-y-5">
       <div className="bg-amber-50 border border-amber-100 rounded-xl p-4">
         <div className="flex items-center gap-2 mb-2">
           <Users size={14} className="text-amber-600" />
           <p className="text-sm font-medium text-amber-700">
-            Akan dikirim ke {recipientCount} pembeli yang pernah paid
+            {selectedCount} dari {recipients.length} penerima dipilih
           </p>
         </div>
         <p className="text-xs text-amber-600">
@@ -286,6 +391,18 @@ const BroadcastForm = ({
             </button>
           ))}
         </div>
+      </div>
+
+      {/* ✅ Recipient selector */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1.5">
+          Pilih Penerima
+        </label>
+        <RecipientSelector
+          recipients={recipients}
+          selectedEmails={selectedEmails}
+          onChange={setSelectedEmails}
+        />
       </div>
 
       <div>
@@ -315,7 +432,6 @@ const BroadcastForm = ({
         />
       </div>
 
-      {/* Schedule toggle */}
       <div className="border border-gray-100 rounded-xl p-4 space-y-3">
         <label className="flex items-center gap-2 cursor-pointer">
           <input
@@ -335,7 +451,6 @@ const BroadcastForm = ({
             Jadwalkan pengiriman
           </span>
         </label>
-
         {form.useSchedule && (
           <div>
             <label className="block text-xs text-gray-500 mb-1.5">
@@ -370,9 +485,16 @@ const BroadcastForm = ({
                 form.useSchedule && form.scheduled_at
                   ? new Date(form.scheduled_at).toISOString()
                   : null,
+              // ✅ null = semua, array = subset — disimpan ke database
+              recipient_emails: selectedEmails,
             })
           }
-          disabled={isSaving || !form.subject || !form.body_message}
+          disabled={
+            isSaving ||
+            !form.subject ||
+            !form.body_message ||
+            selectedCount === 0
+          }
           className="btn-primary flex-1 justify-center"
         >
           <Save size={15} />
@@ -394,6 +516,8 @@ export default function EmailSettings() {
   const [editingBroadcast, setEditingBroadcast] = useState(null);
   const [confirmSend, setConfirmSend] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
+  // ✅ State selected_emails untuk confirm send
+  const [pendingSendEmails, setPendingSendEmails] = useState(null);
 
   const { data: templatesData, isLoading: templatesLoading } = useQuery({
     queryKey: ["email-templates"],
@@ -406,15 +530,16 @@ export default function EmailSettings() {
     enabled: activeTab === "broadcasts",
   });
 
-  const { data: recipientData } = useQuery({
+  const { data: recipientsData } = useQuery({
     queryKey: ["broadcast-recipients"],
-    queryFn: getRecipientPreview,
+    queryFn: getRecipients,
     enabled: activeTab === "broadcasts",
   });
 
   const templates = templatesData?.data?.data || [];
   const broadcasts = broadcastsData?.data?.data || [];
-  const recipientCount = recipientData?.data?.data?.count || 0;
+  const recipients = recipientsData?.data?.data?.recipients || [];
+  const recipientCount = recipientsData?.data?.data?.count || 0;
   const currentTemplate = templates.find(
     (t) => t.template_key === activeTemplate,
   );
@@ -475,9 +600,10 @@ export default function EmailSettings() {
         toast.error(err.response?.data?.message || "Gagal menghapus"),
     });
 
+  // ✅ Simpel — tidak perlu selected_emails di request body
   const { mutate: doSendBroadcast, isPending: isSendingBroadcast } =
     useMutation({
-      mutationFn: sendBroadcast,
+      mutationFn: (id) => sendBroadcast(id),
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: ["email-broadcasts"] });
         setConfirmSend(null);
@@ -519,7 +645,6 @@ export default function EmailSettings() {
           animate={{ opacity: 1, y: 0 }}
           className="bg-white rounded-xl shadow-sm p-6"
         >
-          {/* Template selector */}
           <div className="flex gap-2 mb-6">
             {[
               { key: "order_created", label: "Order Dibuat" },
@@ -575,7 +700,7 @@ export default function EmailSettings() {
               </h2>
               <BroadcastForm
                 broadcast={editingBroadcast}
-                recipientCount={recipientCount}
+                recipients={recipients}
                 onSave={(data) => {
                   if (editingBroadcast) {
                     doUpdateBroadcast({ id: editingBroadcast.id, data });
@@ -669,7 +794,10 @@ export default function EmailSettings() {
                           <div className="flex items-center gap-2 shrink-0">
                             {canSend && (
                               <button
-                                onClick={() => setConfirmSend(bc)}
+                                onClick={() => {
+                                  setConfirmSend(bc);
+                                  setPendingSendEmails(null); // default = semua
+                                }}
                                 className="flex items-center gap-1.5 bg-brand-600 hover:bg-brand-700 text-white text-xs font-medium px-3 py-2 rounded-lg transition-colors"
                               >
                                 <Send size={12} />
@@ -708,11 +836,18 @@ export default function EmailSettings() {
       <ConfirmModal
         isOpen={Boolean(confirmSend)}
         title="Kirim Broadcast"
-        message={`Broadcast "${confirmSend?.subject}" akan dikirim ke ${recipientCount} penerima. Tindakan ini tidak bisa dibatalkan setelah dimulai.`}
+        message={`Broadcast "${confirmSend?.subject}" akan dikirim ke ${
+          pendingSendEmails === null
+            ? recipientCount
+            : pendingSendEmails?.length || 0
+        } penerima. Tindakan ini tidak bisa dibatalkan setelah dimulai.`}
         confirmLabel="Ya, Kirim Sekarang"
         variant="primary"
         onConfirm={() => doSendBroadcast(confirmSend?.id)}
-        onCancel={() => setConfirmSend(null)}
+        onCancel={() => {
+          setConfirmSend(null);
+          setPendingSendEmails(null);
+        }}
         isLoading={isSendingBroadcast}
       />
 

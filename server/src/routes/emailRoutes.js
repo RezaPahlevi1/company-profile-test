@@ -8,7 +8,7 @@ import {
   createBroadcast,
   updateBroadcast,
   deleteBroadcast,
-  getRecipientPreview,
+  getRecipients,
   sendBroadcast,
 } from "../controllers/emailController.js";
 import authMiddleware from "../middlewares/authMiddleware.js";
@@ -25,12 +25,12 @@ router.get("/templates/:key", getTemplate);
 router.put("/templates/:key", updateTemplate);
 router.post("/templates/:key/reset", resetTemplate);
 
-// Broadcasts
+// Broadcasts — static routes HARUS sebelum dynamic :id routes
 router.get("/broadcasts", getBroadcasts);
 router.post("/broadcasts", createBroadcast);
-router.put("/broadcasts/:id", updateBroadcast);
+router.get("/broadcasts/recipients", getRecipients); // ✅ static, pindah ke atas
+router.put("/broadcasts/:id", updateBroadcast); // ✅ dynamic di bawah
 router.delete("/broadcasts/:id", deleteBroadcast);
-router.get("/broadcasts/recipients/preview", getRecipientPreview);
 router.post("/broadcasts/:id/send", sendBroadcast);
 
 export default router;

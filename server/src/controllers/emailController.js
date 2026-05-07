@@ -43,7 +43,6 @@ export const updateTemplate = async (req, res) => {
   const { subject, greeting, body_message, footer_text, header_color } =
     req.body;
 
-  // Validasi header_color format hex
   if (header_color && !/^#[0-9A-Fa-f]{6}$/.test(header_color)) {
     return res.status(400).json({
       success: false,
@@ -156,7 +155,7 @@ export const getBroadcasts = async (req, res) => {
 };
 
 export const createBroadcast = async (req, res) => {
-  const { subject, body_message, scheduled_at } = req.body;
+  const { subject, body_message, scheduled_at, recipient_emails } = req.body;
 
   if (!subject || !body_message) {
     return res.status(400).json({
@@ -165,7 +164,6 @@ export const createBroadcast = async (req, res) => {
     });
   }
 
-  // Validasi scheduled_at kalau ada
   if (scheduled_at) {
     const schedTime = new Date(scheduled_at);
     if (isNaN(schedTime.getTime()) || schedTime <= new Date()) {
@@ -185,6 +183,8 @@ export const createBroadcast = async (req, res) => {
           body_message,
           status: scheduled_at ? "scheduled" : "draft",
           scheduled_at: scheduled_at || null,
+          // ✅ simpan recipient_emails — null = semua
+          recipient_emails: recipient_emails?.length ? recipient_emails : null,
           created_by: req.admin.id,
         },
       ])
@@ -202,7 +202,7 @@ export const createBroadcast = async (req, res) => {
 
 export const updateBroadcast = async (req, res) => {
   const { id } = req.params;
-  const { subject, body_message, scheduled_at } = req.body;
+  const { subject, body_message, scheduled_at, recipient_emails } = req.body;
 
   try {
     const { data: existing } = await supabase
@@ -241,6 +241,8 @@ export const updateBroadcast = async (req, res) => {
         ...(body_message !== undefined && { body_message }),
         scheduled_at: scheduled_at || null,
         status: scheduled_at ? "scheduled" : "draft",
+        // ✅ update recipient_emails
+        recipient_emails: recipient_emails?.length ? recipient_emails : null,
       })
       .eq("id", id)
       .select()
@@ -292,7 +294,8 @@ export const deleteBroadcast = async (req, res) => {
   }
 };
 
-export const getRecipientPreview = async (req, res) => {
+// ✅ Ganti getRecipientPreview → getRecipients (return semua data, bukan hanya preview)
+export const getRecipients = async (req, res) => {
   try {
     const { data: orders, error } = await supabase
       .from("orders")
@@ -301,13 +304,15 @@ export const getRecipientPreview = async (req, res) => {
 
     if (error) throw error;
 
+    // Deduplicate by email
     const unique = [...new Map(orders.map((o) => [o.buyer_email, o])).values()];
 
     return res.status(200).json({
       success: true,
       data: {
         count: unique.length,
-        preview: unique.slice(0, 5).map((r) => ({
+        // ✅ Return semua recipients (bukan hanya 5 preview)
+        recipients: unique.map((r) => ({
           email: r.buyer_email,
           name: r.buyer_name,
         })),
@@ -318,6 +323,7 @@ export const getRecipientPreview = async (req, res) => {
   }
 };
 
+// ✅ sendBroadcast terima selected_emails (opsional) untuk kirim ke subset
 export const sendBroadcast = async (req, res) => {
   const { id } = req.params;
 
@@ -346,7 +352,6 @@ export const sendBroadcast = async (req, res) => {
         .json({ success: false, message: "Broadcast is already being sent" });
     }
 
-    // Ambil semua penerima
     const { data: orders, error: ordersError } = await supabase
       .from("orders")
       .select("buyer_email, buyer_name")
@@ -354,9 +359,16 @@ export const sendBroadcast = async (req, res) => {
 
     if (ordersError) throw ordersError;
 
-    const recipients = [
+    const allRecipients = [
       ...new Map(orders.map((o) => [o.buyer_email, o])).values(),
     ];
+
+    // ✅ Gunakan recipient_emails dari database (bukan dari request body)
+    const recipients = broadcast.recipient_emails?.length
+      ? allRecipients.filter((r) =>
+          broadcast.recipient_emails.includes(r.buyer_email),
+        )
+      : allRecipients;
 
     if (!recipients.length) {
       return res.status(400).json({
@@ -365,23 +377,19 @@ export const sendBroadcast = async (req, res) => {
       });
     }
 
-    // Update status jadi sending dulu
     await supabase
       .from("email_broadcasts")
       .update({ status: "sending" })
       .eq("id", id);
 
-    // Return response dulu, kirim email di background
     res.status(200).json({
       success: true,
       message: `Sending broadcast to ${recipients.length} recipients...`,
       data: { recipientCount: recipients.length },
     });
 
-    // Kirim email di background
     const { sent, failed } = await sendBroadcastEmail(broadcast, recipients);
 
-    // Update status final
     await supabase
       .from("email_broadcasts")
       .update({
@@ -397,7 +405,6 @@ export const sendBroadcast = async (req, res) => {
       .from("email_broadcasts")
       .update({ status: "failed" })
       .eq("id", id);
-
     console.error("sendBroadcast error:", err);
   }
 };
