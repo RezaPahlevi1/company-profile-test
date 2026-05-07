@@ -50,7 +50,6 @@ const statusColors = {
   cancelled: "bg-gray-100 text-gray-700",
 };
 
-// Flag emoji dari kode negara
 const getFlagEmoji = (countryCode) => {
   if (!countryCode) return "🌐";
   return countryCode
@@ -110,12 +109,14 @@ export default function Dashboard() {
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <h1 className="text-xl lg:text-2xl font-bold text-gray-900">
+          Dashboard
+        </h1>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
           {[...Array(4)].map((_, i) => (
             <div
               key={i}
-              className="bg-white rounded-xl p-6 animate-pulse h-28"
+              className="bg-white rounded-xl p-5 animate-pulse h-24 lg:h-28"
             />
           ))}
         </div>
@@ -124,39 +125,43 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+    <div className="space-y-5 lg:space-y-6">
+      <h1 className="text-xl lg:text-2xl font-bold text-gray-900">Dashboard</h1>
 
-      {/* Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Stat Cards — 2 kolom di mobile, 4 di desktop */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
         {statCards.map(({ label, value, icon: Icon, color }) => (
-          <div key={label} className="bg-white rounded-xl p-6 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">{label}</p>
-                <p className="text-3xl font-bold text-gray-900 mt-1">{value}</p>
+          <div key={label} className="bg-white rounded-xl p-4 lg:p-6 shadow-sm">
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-xs lg:text-sm text-gray-500 truncate">
+                  {label}
+                </p>
+                <p className="text-2xl lg:text-3xl font-bold text-gray-900 mt-1">
+                  {value}
+                </p>
               </div>
-              <div className={`p-3 rounded-lg ${color}`}>
-                <Icon size={22} />
+              <div className={`p-2 lg:p-3 rounded-lg shrink-0 ${color}`}>
+                <Icon size={18} className="lg:w-[22px] lg:h-[22px]" />
               </div>
             </div>
           </div>
         ))}
       </div>
 
-      {/* Analytics Section — Superadmin only */}
+      {/* Analytics — superadmin only */}
       {isSuperAdmin && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              <TrendingUp size={20} className="text-brand-600" />
-              <h2 className="text-lg font-semibold text-gray-900">
+              <TrendingUp size={18} className="text-brand-600" />
+              <h2 className="text-base lg:text-lg font-semibold text-gray-900">
                 Visitor Analytics
               </h2>
             </div>
 
             {/* Range selector */}
-            <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
+            <div className="flex gap-1 bg-gray-100 rounded-lg p-1 w-fit">
               {[
                 { label: "7 Hari", value: "7d" },
                 { label: "30 Hari", value: "30d" },
@@ -165,7 +170,7 @@ export default function Dashboard() {
                 <button
                   key={opt.value}
                   onClick={() => setAnalyticsRange(opt.value)}
-                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                  className={`px-2.5 lg:px-3 py-1.5 rounded-md text-xs lg:text-sm font-medium transition-colors ${
                     analyticsRange === opt.value
                       ? "bg-white text-brand-600 shadow-sm"
                       : "text-gray-500 hover:text-gray-700"
@@ -178,39 +183,43 @@ export default function Dashboard() {
           </div>
 
           {analyticsLoading ? (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              {[...Array(3)].map((_, i) => (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {[...Array(2)].map((_, i) => (
                 <div
                   key={i}
-                  className="bg-white rounded-xl h-32 animate-pulse"
+                  className="bg-white rounded-xl h-24 animate-pulse"
                 />
               ))}
             </div>
           ) : analytics ? (
             <>
               {/* Summary cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="bg-white rounded-xl p-5 shadow-sm">
+              <div className="grid grid-cols-2 gap-3 lg:gap-4">
+                <div className="bg-white rounded-xl p-4 lg:p-5 shadow-sm">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-brand-50 rounded-xl flex items-center justify-center">
-                      <TrendingUp size={18} className="text-brand-600" />
+                    <div className="w-9 h-9 lg:w-10 lg:h-10 bg-brand-50 rounded-xl flex items-center justify-center shrink-0">
+                      <TrendingUp size={16} className="text-brand-600" />
                     </div>
-                    <div>
-                      <p className="text-xs text-gray-400">Total Kunjungan</p>
-                      <p className="text-2xl font-bold text-gray-900">
+                    <div className="min-w-0">
+                      <p className="text-xs text-gray-400 truncate">
+                        Total Kunjungan
+                      </p>
+                      <p className="text-xl lg:text-2xl font-bold text-gray-900">
                         {analytics.summary.totalVisits.toLocaleString("id-ID")}
                       </p>
                     </div>
                   </div>
                 </div>
-                <div className="bg-white rounded-xl p-5 shadow-sm">
+                <div className="bg-white rounded-xl p-4 lg:p-5 shadow-sm">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-purple-50 rounded-xl flex items-center justify-center">
-                      <Users size={18} className="text-purple-600" />
+                    <div className="w-9 h-9 lg:w-10 lg:h-10 bg-purple-50 rounded-xl flex items-center justify-center shrink-0">
+                      <Users size={16} className="text-purple-600" />
                     </div>
-                    <div>
-                      <p className="text-xs text-gray-400">Unique Visitor</p>
-                      <p className="text-2xl font-bold text-gray-900">
+                    <div className="min-w-0">
+                      <p className="text-xs text-gray-400 truncate">
+                        Unique Visitor
+                      </p>
+                      <p className="text-xl lg:text-2xl font-bold text-gray-900">
                         {analytics.summary.uniqueVisitors.toLocaleString(
                           "id-ID",
                         )}
@@ -220,140 +229,157 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* Line Chart */}
-              <div className="bg-white rounded-xl p-6 shadow-sm">
+              {/* Line Chart — scroll horizontal di mobile */}
+              <div className="bg-white rounded-xl p-4 lg:p-6 shadow-sm">
                 <h3 className="text-sm font-semibold text-gray-700 mb-4">
                   Kunjungan Harian
                 </h3>
-                <ResponsiveContainer width="100%" height={220}>
-                  <LineChart data={analytics.dailyVisits}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis
-                      dataKey="date"
-                      tick={{ fontSize: 11, fill: "#94a3b8" }}
-                      tickFormatter={(val) => {
-                        const d = new Date(val);
-                        return `${d.getDate()}/${d.getMonth() + 1}`;
-                      }}
-                    />
-                    <YAxis
-                      tick={{ fontSize: 11, fill: "#94a3b8" }}
-                      allowDecimals={false}
-                    />
-                    <Tooltip
-                      formatter={(value, name) => [
-                        value,
-                        name === "total" ? "Total Kunjungan" : "Unique Visitor",
-                      ]}
-                      labelFormatter={(label) => {
-                        const d = new Date(label);
-                        return d.toLocaleDateString("id-ID", {
-                          day: "numeric",
-                          month: "long",
-                          year: "numeric",
-                        });
-                      }}
-                    />
-                    <Legend
-                      formatter={(val) =>
-                        val === "total" ? "Total Kunjungan" : "Unique Visitor"
-                      }
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="total"
-                      stroke="#2563eb"
-                      strokeWidth={2}
-                      dot={false}
-                      activeDot={{ r: 4 }}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="unique"
-                      stroke="#8b5cf6"
-                      strokeWidth={2}
-                      dot={false}
-                      activeDot={{ r: 4 }}
-                      strokeDasharray="4 2"
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
+                <div className="overflow-x-auto -mx-4 lg:mx-0 px-4 lg:px-0">
+                  <div className="min-w-[480px] lg:min-w-0">
+                    <ResponsiveContainer width="100%" height={200}>
+                      <LineChart data={analytics.dailyVisits}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                        <XAxis
+                          dataKey="date"
+                          tick={{ fontSize: 10, fill: "#94a3b8" }}
+                          tickFormatter={(val) => {
+                            const d = new Date(val);
+                            return `${d.getDate()}/${d.getMonth() + 1}`;
+                          }}
+                        />
+                        <YAxis
+                          tick={{ fontSize: 10, fill: "#94a3b8" }}
+                          allowDecimals={false}
+                          width={30}
+                        />
+                        <Tooltip
+                          formatter={(value, name) => [
+                            value,
+                            name === "total"
+                              ? "Total Kunjungan"
+                              : "Unique Visitor",
+                          ]}
+                          labelFormatter={(label) => {
+                            const d = new Date(label);
+                            return d.toLocaleDateString("id-ID", {
+                              day: "numeric",
+                              month: "long",
+                              year: "numeric",
+                            });
+                          }}
+                        />
+                        <Legend
+                          formatter={(val) =>
+                            val === "total"
+                              ? "Total Kunjungan"
+                              : "Unique Visitor"
+                          }
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="total"
+                          stroke="#2563eb"
+                          strokeWidth={2}
+                          dot={false}
+                          activeDot={{ r: 4 }}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="unique"
+                          stroke="#8b5cf6"
+                          strokeWidth={2}
+                          dot={false}
+                          activeDot={{ r: 4 }}
+                          strokeDasharray="4 2"
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
               </div>
 
-              {/* Weekly & Monthly — hanya kalau range cukup */}
+              {/* Weekly chart */}
               {analytics.weeklyVisits?.length > 0 && (
-                <div className="bg-white rounded-xl p-6 shadow-sm">
+                <div className="bg-white rounded-xl p-4 lg:p-6 shadow-sm">
                   <h3 className="text-sm font-semibold text-gray-700 mb-4">
                     Kunjungan Mingguan
                   </h3>
-                  <ResponsiveContainer width="100%" height={180}>
-                    <LineChart data={analytics.weeklyVisits}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                      <XAxis
-                        dataKey="week"
-                        tick={{ fontSize: 11, fill: "#94a3b8" }}
-                        tickFormatter={(val) => {
-                          const d = new Date(val);
-                          return `${d.getDate()}/${d.getMonth() + 1}`;
-                        }}
-                      />
-                      <YAxis
-                        tick={{ fontSize: 11, fill: "#94a3b8" }}
-                        allowDecimals={false}
-                      />
-                      <Tooltip
-                        formatter={(value, name) => [
-                          value,
-                          name === "total" ? "Total" : "Unique",
-                        ]}
-                        labelFormatter={(label) =>
-                          `Minggu ${new Date(label).toLocaleDateString("id-ID")}`
-                        }
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="total"
-                        stroke="#2563eb"
-                        strokeWidth={2}
-                        dot={{ r: 3 }}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="unique"
-                        stroke="#8b5cf6"
-                        strokeWidth={2}
-                        dot={{ r: 3 }}
-                        strokeDasharray="4 2"
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
+                  <div className="overflow-x-auto -mx-4 lg:mx-0 px-4 lg:px-0">
+                    <div className="min-w-[400px] lg:min-w-0">
+                      <ResponsiveContainer width="100%" height={160}>
+                        <LineChart data={analytics.weeklyVisits}>
+                          <CartesianGrid
+                            strokeDasharray="3 3"
+                            stroke="#f1f5f9"
+                          />
+                          <XAxis
+                            dataKey="week"
+                            tick={{ fontSize: 10, fill: "#94a3b8" }}
+                            tickFormatter={(val) => {
+                              const d = new Date(val);
+                              return `${d.getDate()}/${d.getMonth() + 1}`;
+                            }}
+                          />
+                          <YAxis
+                            tick={{ fontSize: 10, fill: "#94a3b8" }}
+                            allowDecimals={false}
+                            width={30}
+                          />
+                          <Tooltip
+                            formatter={(value, name) => [
+                              value,
+                              name === "total" ? "Total" : "Unique",
+                            ]}
+                            labelFormatter={(label) =>
+                              `Minggu ${new Date(label).toLocaleDateString("id-ID")}`
+                            }
+                          />
+                          <Line
+                            type="monotone"
+                            dataKey="total"
+                            stroke="#2563eb"
+                            strokeWidth={2}
+                            dot={{ r: 3 }}
+                          />
+                          <Line
+                            type="monotone"
+                            dataKey="unique"
+                            stroke="#8b5cf6"
+                            strokeWidth={2}
+                            dot={{ r: 3 }}
+                            strokeDasharray="4 2"
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
                 </div>
               )}
 
               {/* Top Countries */}
               {analytics.topCountries?.length > 0 && (
-                <div className="bg-white rounded-xl p-6 shadow-sm">
+                <div className="bg-white rounded-xl p-4 lg:p-6 shadow-sm">
                   <div className="flex items-center gap-2 mb-4">
-                    <Globe size={16} className="text-gray-500" />
+                    <Globe size={15} className="text-gray-500" />
                     <h3 className="text-sm font-semibold text-gray-700">
                       Asal Pengunjung
                     </h3>
                   </div>
                   <div className="space-y-3">
-                    {analytics.topCountries.map((country, i) => (
+                    {analytics.topCountries.map((country) => (
                       <div
                         key={country.country_code}
                         className="flex items-center gap-3"
                       >
-                        <span className="text-lg w-7 text-center">
+                        <span className="text-base lg:text-lg w-6 lg:w-7 text-center shrink-0">
                           {getFlagEmoji(country.country_code)}
                         </span>
-                        <div className="flex-1">
-                          <div className="flex justify-between items-center mb-1">
-                            <span className="text-sm font-medium text-gray-700">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex justify-between items-center mb-1 gap-2">
+                            <span className="text-xs lg:text-sm font-medium text-gray-700 truncate">
                               {country.country_name || country.country_code}
                             </span>
-                            <span className="text-xs text-gray-400">
+                            <span className="text-xs text-gray-400 shrink-0">
                               {country.count} ({country.percentage}%)
                             </span>
                           </div>
@@ -371,24 +397,25 @@ export default function Dashboard() {
               )}
             </>
           ) : (
-            <div className="bg-white rounded-xl p-12 text-center">
-              <TrendingUp size={32} className="text-gray-200 mx-auto mb-3" />
-              <p className="text-gray-400">Belum ada data kunjungan.</p>
+            <div className="bg-white rounded-xl p-10 lg:p-12 text-center">
+              <TrendingUp size={28} className="text-gray-200 mx-auto mb-3" />
+              <p className="text-gray-400 text-sm">Belum ada data kunjungan.</p>
             </div>
           )}
         </div>
       )}
 
       {/* Recent Orders */}
-      <div className="bg-white rounded-xl shadow-sm p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">
+      <div className="bg-white rounded-xl shadow-sm p-4 lg:p-6">
+        <h2 className="text-base lg:text-lg font-semibold text-gray-900 mb-4">
           Recent Orders
         </h2>
         {!stats?.recentOrders?.length ? (
           <p className="text-gray-400 text-sm">No orders yet.</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+          /* Scroll horizontal di mobile untuk tabel */
+          <div className="overflow-x-auto -mx-4 lg:mx-0 px-4 lg:px-0">
+            <table className="w-full text-sm min-w-[480px]">
               <thead>
                 <tr className="text-left text-gray-500 border-b border-gray-100">
                   <th className="pb-3 font-medium">Order Number</th>
@@ -403,13 +430,15 @@ export default function Dashboard() {
                     <td className="py-3 font-mono text-xs text-gray-600">
                       {order.order_number}
                     </td>
-                    <td className="py-3 text-gray-700">{order.buyer_name}</td>
-                    <td className="py-3 text-gray-700">
+                    <td className="py-3 text-gray-700 max-w-[120px] truncate">
+                      {order.buyer_name}
+                    </td>
+                    <td className="py-3 text-gray-700 whitespace-nowrap">
                       Rp {Number(order.total_amount).toLocaleString("id-ID")}
                     </td>
                     <td className="py-3">
                       <span
-                        className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[order.status]}`}
+                        className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${statusColors[order.status]}`}
                       >
                         {order.status}
                       </span>
