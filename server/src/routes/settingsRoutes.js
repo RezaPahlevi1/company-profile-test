@@ -10,10 +10,11 @@ import {
 import authMiddleware from "../middlewares/authMiddleware.js";
 import { requireRole } from "../middlewares/roleMiddleware.js";
 import upload from "../middlewares/uploadMiddleware.js";
+import { sanitizeBody, checkBounds } from "../middlewares/sanitize.js";
 
 const router = Router();
 
-// Public — dibutuhkan Navbar dan halaman publik
+// Public
 router.get("/site", getSiteSettings);
 router.get("/pages", getPageSettings);
 
@@ -22,8 +23,15 @@ router.put(
   "/site",
   authMiddleware,
   requireRole("superadmin"),
+  sanitizeBody,
+  checkBounds({
+    site_name: { max: 100 },
+    site_description: { max: 500 },
+    delivery_estimation: { max: 100 },
+  }),
   updateSiteSettings,
 );
+
 router.post(
   "/logo",
   authMiddleware,
@@ -31,11 +39,18 @@ router.post(
   upload.single("logo"),
   uploadLogo,
 );
+
 router.delete("/logo", authMiddleware, requireRole("superadmin"), deleteLogo);
+
 router.put(
   "/pages/:key",
   authMiddleware,
   requireRole("superadmin"),
+  sanitizeBody,
+  checkBounds({
+    title: { min: 1, max: 100 },
+    navbar_label: { min: 1, max: 50 },
+  }),
   updatePageSetting,
 );
 

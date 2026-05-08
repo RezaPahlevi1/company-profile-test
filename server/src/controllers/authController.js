@@ -9,13 +9,39 @@ const cookieOptions = {
   maxAge: 24 * 60 * 60 * 1000,
 };
 
-export const login = async (req, res) => {
-  const { email, password } = req.body;
+// ✅ Helper sanitasi sederhana
+const sanitizeString = (str) =>
+  typeof str === "string" ? str.trim().replace(/\s+/g, " ") : "";
 
+export const login = async (req, res) => {
+  let { email, password } = req.body;
+
+  // ✅ Sanitasi
+  email = sanitizeString(email).toLowerCase();
+  password = sanitizeString(password);
+
+  // ✅ Validasi keberadaan
   if (!email || !password) {
     return res.status(400).json({
       success: false,
       message: "Email and password are required",
+    });
+  }
+
+  // ✅ Bounds checking — tolak input terlalu panjang
+  if (email.length > 254 || password.length > 128) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid email or password",
+    });
+  }
+
+  // ✅ Format email dasar
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid email or password",
     });
   }
 

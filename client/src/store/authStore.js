@@ -14,6 +14,11 @@ const useAuthStore = create(
     }),
     {
       name: "admin-auth",
+      // ✅ Hanya persist isAuthenticated — bukan data admin
+      // Data admin di-refetch dari server via useAuthVerify setiap load
+      partialize: (state) => ({
+        isAuthenticated: state.isAuthenticated,
+      }),
       onRehydrateStorage: () => (state) => {
         state?.setHasHydrated(true);
       },

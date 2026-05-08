@@ -4,21 +4,25 @@ import useAuthStore from "../store/authStore";
 import { getMe } from "../api/auth";
 
 const useAuthVerify = () => {
-  const { isAuthenticated, clearAdmin, _hasHydrated } = useAuthStore();
+  const { isAuthenticated, setAdmin, clearAdmin, _hasHydrated } =
+    useAuthStore();
   const queryClient = useQueryClient();
 
   useEffect(() => {
     if (!_hasHydrated) return;
     if (!isAuthenticated) return;
 
-    // Verifikasi token ke backend saat app load
     getMe()
-      .then(() => {
-        // Token valid, tidak perlu lakukan apa-apa
+      .then((res) => {
+        // ✅ Setelah kita ubah authStore untuk tidak persist data admin,
+        // data admin harus diisi ulang dari server setiap app load
+        const adminData = res.data?.data;
+        if (adminData) {
+          setAdmin(adminData);
+        }
       })
       .catch((err) => {
         if (err.response?.status === 401) {
-          // Token tidak valid — clear semua
           queryClient.clear();
           clearAdmin();
         }

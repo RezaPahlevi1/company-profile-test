@@ -11,8 +11,21 @@ const axiosInstance = axios.create({
 axiosInstance.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Jangan redirect di sini — biarkan useAuthVerify yang handle
-    // Hanya reject agar caller bisa handle sendiri
+    const status = error.response?.status;
+    const url = error.config?.url || "";
+
+    // ✅ Kalau 401 dan bukan dari endpoint login atau getMe
+    // berarti token expired — redirect ke login
+    const isAuthEndpoint =
+      url.includes("/auth/login") || url.includes("/auth/me");
+
+    if (status === 401 && !isAuthEndpoint) {
+      // ✅ Hanya redirect kalau sedang di halaman admin
+      if (window.location.pathname.startsWith("/admin")) {
+        window.location.href = "/admin/login";
+      }
+    }
+
     return Promise.reject(error);
   },
 );
