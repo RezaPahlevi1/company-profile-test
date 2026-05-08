@@ -39,6 +39,10 @@ export default function Navbar() {
   const showLogo = logoUrl && logoUrl !== "";
   const showSiteName = !showLogo || settings.show_site_name !== "false";
   const waNumber = import.meta.env.VITE_WA_NUMBER || "628123456789";
+  const waFormatted = waNumber.replace(
+    /(\d{2})(\d{3})(\d{4})(\d+)/,
+    "$1 $2-$3-$4",
+  );
 
   return (
     <nav
@@ -50,16 +54,17 @@ export default function Navbar() {
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16 lg:h-20">
-          {/* Brand kiri — logo + nama + WA */}
-          <Link to="/" className="flex items-center gap-3 min-w-0">
-            {showLogo && (
-              <img
-                src={logoUrl}
-                alt={siteName}
-                className="h-9 w-auto object-contain shrink-0"
-              />
-            )}
-            <div className="flex flex-col min-w-0">
+          {/* ✅ Brand kiri — pisah jadi dua elemen, tidak nested */}
+          <div className="flex items-center gap-3 min-w-0">
+            {/* Logo + nama — hanya ini yang jadi Link */}
+            <Link to="/" className="flex items-center gap-2 min-w-0">
+              {showLogo && (
+                <img
+                  src={logoUrl}
+                  alt={siteName}
+                  className="h-9 w-auto object-contain shrink-0"
+                />
+              )}
               {showSiteName && (
                 <span className="font-bold text-lg leading-tight text-slate-900 truncate">
                   <span className="text-brand-600">
@@ -68,26 +73,19 @@ export default function Navbar() {
                   {siteName.slice(Math.ceil(siteName.length / 2))}
                 </span>
               )}
-              <a
-                href={`https://wa.me/${waNumber}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(e) => e.stopPropagation()}
-                className={`flex items-center gap-1 text-green-600 hover:text-green-700 transition-colors ${
-                  showSiteName ? "text-xs" : "text-sm font-medium"
-                }`}
-              >
-                <MessageCircle size={10} className="shrink-0" />
-                <span className="truncate">
-                  +
-                  {waNumber.replace(
-                    /(\d{2})(\d{3})(\d{4})(\d+)/,
-                    "$1 $2-$3-$4",
-                  )}
-                </span>
-              </a>
-            </div>
-          </Link>
+            </Link>
+
+            {/* ✅ WA button — elemen terpisah, bukan di dalam Link */}
+            <a
+              href={`https://wa.me/${waNumber}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hidden sm:flex items-center gap-1 text-green-600 hover:text-green-700 transition-colors text-xs"
+            >
+              <MessageCircle size={10} className="shrink-0" />
+              <span>+{waFormatted}</span>
+            </a>
+          </div>
 
           {/* Desktop nav */}
           <div className="hidden lg:flex items-center gap-6">
@@ -121,7 +119,6 @@ export default function Navbar() {
               </NavLink>
             ))}
 
-            {/* Track Order */}
             <NavLink
               to="/order/track"
               className={({ isActive }) =>
@@ -190,7 +187,6 @@ export default function Navbar() {
                 </NavLink>
               ))}
 
-              {/* Track Order mobile */}
               <NavLink
                 to="/order/track"
                 onClick={() => setIsOpen(false)}
@@ -206,16 +202,14 @@ export default function Navbar() {
                 Track Order
               </NavLink>
 
-              {/* WA mobile */}
               <a
                 href={`https://wa.me/${waNumber}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-green-600 hover:bg-green-50 transition-colors"
                 onClick={() => setIsOpen(false)}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-green-600 hover:bg-green-50 transition-colors"
               >
-                <MessageCircle size={15} />+
-                {waNumber.replace(/(\d{2})(\d{3})(\d{4})(\d+)/, "$1 $2-$3-$4")}
+                <MessageCircle size={15} />+{waFormatted}
               </a>
             </div>
           </motion.div>
