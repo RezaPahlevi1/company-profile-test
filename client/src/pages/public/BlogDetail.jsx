@@ -1,7 +1,7 @@
 import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { Calendar, Tag, ArrowLeft, User } from "lucide-react";
+import { Calendar, Tag, ArrowLeft } from "lucide-react";
 import { getBlogBySlug } from "../../api/blogs";
 import Spinner from "../../components/ui/Spinner";
 import sanitizeHtml from "../../utils/sanitizeHtml";
@@ -42,7 +42,7 @@ export default function BlogDetail() {
   return (
     <main className="pt-16 lg:pt-20">
       {/* Hero */}
-      <section className="section-padding bg-gradient-to-br from-slate-900 via-brand-950 to-slate-900 relative overflow-hidden">
+      <section className="section-padding bg-linear-to-br from-slate-900 via-brand-950 to-slate-900 relative overflow-hidden">
         <div
           className="absolute inset-0 opacity-20"
           style={{

@@ -142,7 +142,7 @@ export default function Dashboard() {
                 </p>
               </div>
               <div className={`p-2 lg:p-3 rounded-lg shrink-0 ${color}`}>
-                <Icon size={18} className="lg:w-[22px] lg:h-[22px]" />
+                <Icon size={18} className="lg:w-5.5 lg:h-5.5" />
               </div>
             </div>
           </div>
@@ -235,7 +235,7 @@ export default function Dashboard() {
                   Kunjungan Harian
                 </h3>
                 <div className="overflow-x-auto -mx-4 lg:mx-0 px-4 lg:px-0">
-                  <div className="min-w-[480px] lg:min-w-0">
+                  <div className="min-w-120 lg:min-w-0">
                     <ResponsiveContainer width="100%" height={200}>
                       <LineChart data={analytics.dailyVisits}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
@@ -305,7 +305,7 @@ export default function Dashboard() {
                     Kunjungan Mingguan
                   </h3>
                   <div className="overflow-x-auto -mx-4 lg:mx-0 px-4 lg:px-0">
-                    <div className="min-w-[400px] lg:min-w-0">
+                    <div className="min-w-100 lg:min-w-0">
                       <ResponsiveContainer width="100%" height={160}>
                         <LineChart data={analytics.weeklyVisits}>
                           <CartesianGrid
@@ -415,7 +415,7 @@ export default function Dashboard() {
         ) : (
           /* Scroll horizontal di mobile untuk tabel */
           <div className="overflow-x-auto -mx-4 lg:mx-0 px-4 lg:px-0">
-            <table className="w-full text-sm min-w-[480px]">
+            <table className="w-full text-sm min-w-120">
               <thead>
                 <tr className="text-left text-gray-500 border-b border-gray-100">
                   <th className="pb-3 font-medium">Order Number</th>
@@ -430,7 +430,7 @@ export default function Dashboard() {
                     <td className="py-3 font-mono text-xs text-gray-600">
                       {order.order_number}
                     </td>
-                    <td className="py-3 text-gray-700 max-w-[120px] truncate">
+                    <td className="py-3 text-gray-700 max-w-30 truncate">
                       {order.buyer_name}
                     </td>
                     <td className="py-3 text-gray-700 whitespace-nowrap">

@@ -27,7 +27,7 @@ const useAuthVerify = () => {
           clearAdmin();
         }
       });
-  }, [_hasHydrated]);
+  }, [_hasHydrated, isAuthenticated]);
 };
 
 export default useAuthVerify;
