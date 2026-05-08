@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
@@ -7,8 +7,24 @@ import toast from "react-hot-toast";
 import { createService, updateService } from "../../../api/services";
 import { serviceSchema } from "../../../validations/serviceSchema";
 
+const ALLOWED_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+const MAX_SIZE_MB = 5;
+
+const validateImageFile = (file) => {
+  if (!file) return null;
+  if (!ALLOWED_TYPES.includes(file.type)) {
+    return "Hanya JPEG, PNG, dan WebP yang diperbolehkan";
+  }
+  if (file.size > MAX_SIZE_MB * 1024 * 1024) {
+    return `Ukuran file maksimal ${MAX_SIZE_MB}MB`;
+  }
+  return null;
+};
+
 export default function ServiceForm({ service, onClose, onSuccess }) {
   const isEdit = Boolean(service);
+  const imageRef = useRef(null);
+  const [imageError, setImageError] = useState(null);
 
   const {
     register,
@@ -48,25 +64,34 @@ export default function ServiceForm({ service, onClose, onSuccess }) {
   });
 
   const onSubmit = (data) => {
+    const file = imageRef.current?.files[0];
+    if (file) {
+      const fileError = validateImageFile(file);
+      if (fileError) {
+        setImageError(fileError);
+        return;
+      }
+    }
+    setImageError(null);
+
     const formData = new FormData();
     formData.append("name", data.name);
     formData.append("description", data.description || "");
     formData.append("is_active", String(data.is_active));
     formData.append("is_promo", String(data.is_promo));
 
-    const imageInput = document.getElementById("service-image");
-    if (imageInput?.files[0]) {
-      formData.append("image", imageInput.files[0]);
+    if (file) {
+      formData.append("image", file);
     }
 
     mutate(formData);
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <h2 className="text-lg font-semibold text-gray-900">
+    <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 px-0 sm:px-4">
+      <div className="bg-white rounded-t-2xl sm:rounded-xl shadow-xl w-full sm:max-w-lg max-h-[92vh] sm:max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 sticky top-0 bg-white z-10">
+          <h2 className="text-base lg:text-lg font-semibold text-gray-900">
             {isEdit ? "Edit Service" : "Add Service"}
           </h2>
           <button
@@ -77,7 +102,7 @@ export default function ServiceForm({ service, onClose, onSuccess }) {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-5">
+        <form onSubmit={handleSubmit(onSubmit)} className="p-5 space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Service Name <span className="text-red-500">*</span>
@@ -112,17 +137,21 @@ export default function ServiceForm({ service, onClose, onSuccess }) {
               <img
                 src={service.image_url}
                 alt="Current"
-                className="w-full h-40 object-cover rounded-lg mb-2"
+                className="w-full h-36 object-cover rounded-lg mb-2"
               />
             )}
             <input
-              id="service-image"
+              ref={imageRef}
               type="file"
               accept="image/jpeg,image/png,image/webp"
+              onChange={() => setImageError(null)}
               className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
             />
+            {imageError && (
+              <p className="text-red-500 text-xs mt-1">{imageError}</p>
+            )}
             <p className="text-xs text-gray-400 mt-1">
-              {isEdit ? "Leave empty to keep current image." : ""} Max 5MB.
+              {isEdit ? "Leave empty to keep current image. " : ""}Max 5MB.
               JPEG, PNG, WebP.
             </p>
           </div>
@@ -147,7 +176,8 @@ export default function ServiceForm({ service, onClose, onSuccess }) {
             </span>
           </label>
 
-          <div className="flex gap-3 pt-2">
+          {/* Sticky footer */}
+          <div className="flex gap-3 pt-2 sticky bottom-0 bg-white pb-2">
             <button
               type="button"
               onClick={onClose}
