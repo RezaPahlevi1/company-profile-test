@@ -122,11 +122,7 @@ const MenuBar = ({ editor }) => {
           type="button"
           onClick={action}
           title={title}
-          className={`p-2 rounded text-sm transition-colors ${
-            active
-              ? "bg-blue-100 text-blue-700"
-              : "text-gray-600 hover:bg-gray-200"
-          }`}
+          className={`p-2 rounded text-sm transition-colors ${active ? "bg-blue-100 text-blue-700" : "text-gray-600 hover:bg-gray-200"}`}
         >
           {icon}
         </button>
@@ -135,8 +131,6 @@ const MenuBar = ({ editor }) => {
   );
 };
 
-// ✅ Tambahkan directive ini untuk disable React Compiler pada component ini
-// karena React Hook Form dan TipTap belum fully compatible
 ("use no memo");
 
 export default function BlogForm({ blog, onClose, onSuccess }) {
@@ -153,15 +147,12 @@ export default function BlogForm({ blog, onClose, onSuccess }) {
   });
   const { data: tagsData } = useQuery({ queryKey: ["tags"], queryFn: getTags });
 
-  // ✅ Wrap dengan useMemo agar tidak membuat array baru setiap render
   const categories = useMemo(
     () => categoriesData?.data?.data || [],
     [categoriesData],
   );
   const tags = useMemo(() => tagsData?.data?.data || [], [tagsData]);
 
-  // ✅ Derive selectedTags dari blog data — tidak perlu useState terpisah
-  // karena ini hanya berubah saat blog prop berubah
   const [selectedTags, setSelectedTags] = useState(
     () => blog?.blog_tags?.map((bt) => bt.tags).filter(Boolean) || [],
   );
@@ -196,8 +187,6 @@ export default function BlogForm({ blog, onClose, onSuccess }) {
     onUpdate: ({ editor }) => setValue("content", editor.getHTML()),
   });
 
-  // ✅ Pisah useEffect menjadi dua yang fokus:
-  // satu untuk reset form values, satu untuk editor content
   useEffect(() => {
     if (!blog) return;
     reset({
@@ -207,8 +196,6 @@ export default function BlogForm({ blog, onClose, onSuccess }) {
       status: blog.status,
       tags: blog.blog_tags?.map((bt) => bt.tags?.id).filter(Boolean) || [],
     });
-    // ✅ setSelectedTags di sini masih di dalam effect tapi setelah reset
-    // ini acceptable karena triggered oleh blog prop change, bukan render
     setSelectedTags(blog.blog_tags?.map((bt) => bt.tags).filter(Boolean) || []);
   }, [blog, reset]);
 
@@ -281,7 +268,6 @@ export default function BlogForm({ blog, onClose, onSuccess }) {
     });
   }, []);
 
-  // ✅ Gunakan useCallback agar handler stabil antar render
   const handleFormSubmit = useCallback(
     (e) => {
       e?.preventDefault?.();
@@ -318,6 +304,7 @@ export default function BlogForm({ blog, onClose, onSuccess }) {
         },
         (validationErrors) => {
           if (validationErrors.title) toast.error("Title is required");
+          if (validationErrors.category_id) toast.error("Category is required");
           if (validationErrors.content) toast.error("Content is required");
         },
       )(e);
@@ -345,6 +332,7 @@ export default function BlogForm({ blog, onClose, onSuccess }) {
         {/* Scrollable content */}
         <div className="flex-1 overflow-y-auto">
           <form onSubmit={handleFormSubmit} className="p-4 sm:p-6 space-y-5">
+            {/* Title */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Title <span className="text-red-500">*</span>
@@ -361,6 +349,7 @@ export default function BlogForm({ blog, onClose, onSuccess }) {
               )}
             </div>
 
+            {/* Cover Image */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Cover Image
@@ -387,6 +376,7 @@ export default function BlogForm({ blog, onClose, onSuccess }) {
               </p>
             </div>
 
+            {/* Content */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Content <span className="text-red-500">*</span>
@@ -400,22 +390,30 @@ export default function BlogForm({ blog, onClose, onSuccess }) {
               </div>
             </div>
 
+            {/* Category */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Category
+                Category <span className="text-red-500">*</span>
               </label>
               <div className="flex flex-col sm:flex-row gap-2">
-                <select
-                  {...register("category_id")}
-                  className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">No category</option>
-                  {categories.map((cat) => (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </option>
-                  ))}
-                </select>
+                <div className="flex-1">
+                  <select
+                    {...register("category_id")}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">-- Pilih Kategori --</option>
+                    {categories.map((cat) => (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.name}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.category_id && (
+                    <p className="text-red-500 text-xs mt-1">
+                      {errors.category_id.message}
+                    </p>
+                  )}
+                </div>
                 <div className="flex gap-2">
                   <input
                     value={newCategory}
@@ -433,35 +431,36 @@ export default function BlogForm({ blog, onClose, onSuccess }) {
                   </button>
                 </div>
               </div>
-              {categories.filter((c) => c.slug !== "general").length > 0 && (
+
+              {/* ✅ Daftar kategori yang bisa dihapus — semua kategori tampil */}
+              {categories.length > 0 && (
                 <div className="flex flex-wrap gap-2 mt-2">
-                  {categories
-                    .filter((c) => c.slug !== "general")
-                    .map((cat) => (
-                      <div
-                        key={cat.id}
-                        className="flex items-center gap-1 bg-gray-100 rounded-lg px-2 py-1"
+                  {categories.map((cat) => (
+                    <div
+                      key={cat.id}
+                      className="flex items-center gap-1 bg-gray-100 rounded-lg px-2 py-1"
+                    >
+                      <span className="text-xs text-gray-600">{cat.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => deleteCategory(cat.id)}
+                        className="text-gray-400 hover:text-red-500 transition-colors"
                       >
-                        <span className="text-xs text-gray-600">
-                          {cat.name}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => deleteCategory(cat.id)}
-                          className="text-gray-400 hover:text-red-500 transition-colors"
-                        >
-                          <X size={12} />
-                        </button>
-                      </div>
-                    ))}
+                        <X size={12} />
+                      </button>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
 
+            {/* Tags */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Tags
               </label>
+
+              {/* ✅ Daftar tag — semua tag bisa dipilih dan dihapus, tidak ada filter general */}
               <div className="flex flex-wrap gap-2 mb-3">
                 {tags.map((tag) => {
                   const isSelected = selectedTags.some((t) => t.id === tag.id);
@@ -478,19 +477,18 @@ export default function BlogForm({ blog, onClose, onSuccess }) {
                       >
                         {tag.name}
                       </button>
-                      {tag.slug !== "general" && (
-                        <button
-                          type="button"
-                          onClick={() => removeTag(tag.id)}
-                          className="text-gray-300 hover:text-red-500 transition-colors"
-                        >
-                          <X size={11} />
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => removeTag(tag.id)}
+                        className="text-gray-300 hover:text-red-500 transition-colors"
+                      >
+                        <X size={11} />
+                      </button>
                     </div>
                   );
                 })}
               </div>
+
               <div className="flex gap-2">
                 <input
                   value={newTag}
@@ -509,6 +507,7 @@ export default function BlogForm({ blog, onClose, onSuccess }) {
               </div>
             </div>
 
+            {/* Status */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Status
