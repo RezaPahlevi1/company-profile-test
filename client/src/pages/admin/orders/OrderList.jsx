@@ -1,16 +1,7 @@
-import { useState, useCallback } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  Eye,
-  ChevronDown,
-  Search,
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
-  X,
-} from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { Eye, Search, X, ChevronDown } from "lucide-react";
 import { getOrders } from "../../../api/orders";
 import { useDebounce } from "../../../hooks/useDebounce";
 
@@ -22,7 +13,7 @@ const statusStyles = {
 };
 
 const statusOptions = [
-  { label: "All Orders", value: "" },
+  { label: "Semua", value: "" },
   { label: "Pending", value: "pending" },
   { label: "Paid", value: "paid" },
   { label: "Failed", value: "failed" },
@@ -49,125 +40,115 @@ export default function OrderList() {
         limit: LIMIT,
       }),
     retry: false,
-    keepPreviousData: true,
+    placeholderData: (prev) => prev, // ganti keepPreviousData (deprecated di v5)
   });
 
   const orders = data?.data?.data || [];
   const pagination = data?.data?.pagination;
 
-  const handleSearchChange = (e) => {
-    setSearch(e.target.value);
+  const handleSearch = (val) => {
+    setSearch(val);
     setPage(1);
   };
 
-  const handleStatusChange = (e) => {
-    setStatusFilter(e.target.value);
+  const handleFilter = (val) => {
+    setStatusFilter(val);
     setPage(1);
   };
 
-  const handleClearSearch = () => {
-    setSearch("");
-    setPage(1);
-  };
+  const totalPages = pagination?.totalPages ?? 0;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Orders</h1>
-          {pagination && (
-            <p className="text-sm text-gray-400 mt-0.5">
-              {pagination.total} total orders
-            </p>
-          )}
-        </div>
-      </div>
-
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search
-            size={16}
-            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400"
-          />
-          <input
-            type="text"
-            value={search}
-            onChange={handleSearchChange}
-            placeholder="Cari nama, email, atau nomor order..."
-            className="w-full pl-10 pr-10 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-          />
-          {search && (
-            <button
-              onClick={handleClearSearch}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-            >
-              <X size={16} />
-            </button>
-          )}
-        </div>
-
-        <div className="relative">
-          <select
-            value={statusFilter}
-            onChange={handleStatusChange}
-            className="appearance-none pl-4 pr-10 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white w-full sm:w-auto"
-          >
-            {statusOptions.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-          <ChevronDown
-            size={16}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
-          />
-        </div>
-      </div>
-
-      {/* Table */}
-      <div
-        className={`bg-white rounded-xl shadow-sm overflow-hidden transition-opacity duration-200 ${isFetching ? "opacity-60" : "opacity-100"}`}
-      >
-        {isLoading ? (
-          <div className="space-y-0">
-            {[...Array(LIMIT)].map((_, i) => (
-              <div
-                key={i}
-                className="h-16 border-b border-gray-50 animate-pulse bg-white last:border-0"
-              >
-                <div className="flex items-center gap-4 px-6 py-4">
-                  <div className="h-3 w-32 bg-gray-100 rounded" />
-                  <div className="h-3 w-24 bg-gray-100 rounded" />
-                  <div className="h-3 w-20 bg-gray-100 rounded ml-auto" />
-                </div>
-              </div>
-            ))}
+    <div className="space-y-4 lg:space-y-6">
+      {/* Header sticky — sama persis dengan BlogList */}
+      <div className="sticky top-0 z-10 bg-gray-100 pt-1 pb-3 lg:relative lg:bg-transparent lg:pt-0 lg:pb-0">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h1 className="text-xl lg:text-2xl font-bold text-gray-900">
+              Orders
+            </h1>
+            {pagination && (
+              <p className="text-xs text-gray-400 mt-0.5">
+                {pagination.total} total orders
+              </p>
+            )}
           </div>
-        ) : orders.length === 0 ? (
-          <div className="p-12 text-center">
-            <Search size={32} className="text-gray-200 mx-auto mb-3" />
-            <p className="text-gray-400 font-medium">
-              {search || statusFilter
-                ? "Tidak ada order yang sesuai"
-                : "Belum ada order"}
-            </p>
-            {(search || statusFilter) && (
+        </div>
+
+        {/* Search + Filter */}
+        <div className="flex gap-2">
+          <div className="flex-1 relative">
+            <Search
+              size={14}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+            />
+            <input
+              value={search}
+              onChange={(e) => handleSearch(e.target.value)}
+              placeholder="Cari nama, email, atau nomor order..."
+              className="w-full pl-9 pr-9 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            {search && (
               <button
-                onClick={() => {
-                  setSearch("");
-                  setStatusFilter("");
-                  setPage(1);
-                }}
-                className="text-blue-600 text-sm mt-2 hover:underline"
+                onClick={() => handleSearch("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
               >
-                Reset filter
+                <X size={14} />
               </button>
             )}
           </div>
-        ) : (
-          <div className="overflow-x-auto">
+          <div className="relative">
+            <select
+              value={statusFilter}
+              onChange={(e) => handleFilter(e.target.value)}
+              className="appearance-none text-sm border border-gray-200 rounded-lg bg-white pl-3 pr-8 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-600"
+            >
+              {statusOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+            <ChevronDown
+              size={14}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Content */}
+      {isLoading ? (
+        <div className="space-y-3">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="bg-white rounded-xl h-20 animate-pulse" />
+          ))}
+        </div>
+      ) : orders.length === 0 ? (
+        <div className="bg-white rounded-xl p-10 text-center">
+          <p className="text-gray-400 text-sm">
+            {search || statusFilter
+              ? "Tidak ada order yang sesuai filter."
+              : "Belum ada order masuk."}
+          </p>
+          {(search || statusFilter) && (
+            <button
+              onClick={() => {
+                handleSearch("");
+                handleFilter("");
+              }}
+              className="mt-3 text-blue-600 text-sm hover:underline"
+            >
+              Reset filter
+            </button>
+          )}
+        </div>
+      ) : (
+        <>
+          {/* ✅ Table di desktop */}
+          <div
+            className={`hidden lg:block bg-white rounded-xl shadow-sm overflow-hidden transition-opacity duration-200 ${isFetching ? "opacity-60" : "opacity-100"}`}
+          >
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-gray-500 border-b border-gray-100 bg-gray-50">
@@ -237,94 +218,129 @@ export default function OrderList() {
               </tbody>
             </table>
           </div>
-        )}
-      </div>
 
-      {/* Pagination */}
-      {pagination && pagination.totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-gray-500">
-            Showing {(page - 1) * LIMIT + 1}–
-            {Math.min(page * LIMIT, pagination.total)} of {pagination.total}{" "}
-            orders
-          </p>
-
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => setPage(1)}
-              disabled={page === 1}
-              className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-              title="First page"
-            >
-              <ChevronsLeft size={16} />
-            </button>
-            <button
-              onClick={() => setPage((p) => p - 1)}
-              disabled={page === 1}
-              className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-              title="Previous page"
-            >
-              <ChevronLeft size={16} />
-            </button>
-
-            {/* Page numbers */}
-            <div className="flex items-center gap-1 mx-1">
-              {Array.from({ length: pagination.totalPages }, (_, i) => i + 1)
-                .filter((p) => {
-                  if (pagination.totalPages <= 5) return true;
-                  if (p === 1 || p === pagination.totalPages) return true;
-                  if (Math.abs(p - page) <= 1) return true;
-                  return false;
-                })
-                .reduce((acc, p, idx, arr) => {
-                  if (idx > 0 && p - arr[idx - 1] > 1) {
-                    acc.push("...");
-                  }
-                  acc.push(p);
-                  return acc;
-                }, [])
-                .map((p, idx) =>
-                  p === "..." ? (
-                    <span
-                      key={`dots-${idx}`}
-                      className="px-1 text-gray-400 text-sm"
-                    >
-                      ...
+          {/* ✅ Card list di mobile */}
+          <div
+            className={`lg:hidden space-y-2 transition-opacity duration-200 ${isFetching ? "opacity-60" : "opacity-100"}`}
+          >
+            {orders.map((order) => (
+              <div
+                key={order.id}
+                className="bg-white rounded-xl shadow-sm p-3 flex items-center gap-3"
+              >
+                {/* Info */}
+                <div className="flex-1 min-w-0">
+                  {/* Row 1: order number + status */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-mono text-[11px] text-gray-500">
+                      {order.order_number}
                     </span>
-                  ) : (
-                    <button
-                      key={p}
-                      onClick={() => setPage(p)}
-                      className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${
-                        page === p
-                          ? "bg-blue-600 text-white"
-                          : "hover:bg-gray-100 text-gray-600"
-                      }`}
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${statusStyles[order.status]}`}
                     >
-                      {p}
-                    </button>
-                  ),
-                )}
-            </div>
+                      {order.status}
+                    </span>
+                  </div>
 
-            <button
-              onClick={() => setPage((p) => p + 1)}
-              disabled={page === pagination.totalPages}
-              className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-              title="Next page"
-            >
-              <ChevronRight size={16} />
-            </button>
-            <button
-              onClick={() => setPage(pagination.totalPages)}
-              disabled={page === pagination.totalPages}
-              className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-              title="Last page"
-            >
-              <ChevronsRight size={16} />
-            </button>
+                  {/* Row 2: nama + email */}
+                  <p className="font-medium text-gray-900 text-sm mt-1 line-clamp-1">
+                    {order.buyer_name}
+                  </p>
+                  <p className="text-[11px] text-gray-400 line-clamp-1">
+                    {order.buyer_email}
+                  </p>
+
+                  {/* Row 3: total + tanggal */}
+                  <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                    <span className="text-sm font-semibold text-gray-800">
+                      Rp {Number(order.total_amount).toLocaleString("id-ID")}
+                    </span>
+                    <span className="text-[10px] text-gray-400">
+                      {new Date(order.created_at).toLocaleDateString("id-ID", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                    </span>
+                  </div>
+
+                  {/* Row 4: payment method */}
+                  <p className="text-[10px] text-gray-400 mt-0.5">
+                    {order.midtrans_payment_type
+                      ? order.midtrans_payment_type.replace(/_/g, " ")
+                      : "—"}
+                  </p>
+                </div>
+
+                {/* Action */}
+                <button
+                  onClick={() => navigate(`/admin/orders/${order.id}`)}
+                  className="p-2 hover:bg-blue-50 hover:text-blue-600 text-gray-400 rounded-lg transition-colors border border-gray-100 shrink-0"
+                  title="View Detail"
+                >
+                  <Eye size={15} />
+                </button>
+              </div>
+            ))}
           </div>
-        </div>
+
+          {/* Pagination — sama persis dengan BlogList */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between pt-2">
+              <p className="text-xs text-gray-400">
+                {pagination.total} order · halaman {page} dari {totalPages}
+              </p>
+              <div className="flex gap-1">
+                <button
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  className="px-3 py-1.5 text-xs border border-gray-200 rounded-lg disabled:opacity-40 hover:bg-gray-50 transition-colors"
+                >
+                  ← Prev
+                </button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter(
+                    (p) =>
+                      p === 1 || p === totalPages || Math.abs(p - page) <= 1,
+                  )
+                  .reduce((acc, p, idx, arr) => {
+                    if (idx > 0 && p - arr[idx - 1] > 1) acc.push("...");
+                    acc.push(p);
+                    return acc;
+                  }, [])
+                  .map((p, idx) =>
+                    p === "..." ? (
+                      <span
+                        key={`e-${idx}`}
+                        className="px-2 py-1.5 text-xs text-gray-400"
+                      >
+                        ...
+                      </span>
+                    ) : (
+                      <button
+                        key={p}
+                        onClick={() => setPage(p)}
+                        className={`px-3 py-1.5 text-xs border rounded-lg transition-colors ${
+                          page === p
+                            ? "bg-blue-600 text-white border-blue-600"
+                            : "border-gray-200 hover:bg-gray-50"
+                        }`}
+                      >
+                        {p}
+                      </button>
+                    ),
+                  )}
+                <button
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                  className="px-3 py-1.5 text-xs border border-gray-200 rounded-lg disabled:opacity-40 hover:bg-gray-50 transition-colors"
+                >
+                  Next →
+                </button>
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
