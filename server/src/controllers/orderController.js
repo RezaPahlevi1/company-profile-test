@@ -375,6 +375,31 @@ export const repayOrder = async (req, res) => {
       });
     }
 
+    // ✅ Ambil expiry setting dari database — sama seperti createOrder
+    const { data: expirySetting } = await supabase
+      .from("site_settings")
+      .select("value")
+      .eq("key", "payment_expiry_hours")
+      .single();
+
+    const expiryHours = Number(expirySetting?.value) || 24;
+
+    // ✅ Hitung sisa waktu dari created_at order, bukan dari sekarang
+    // Supaya total window pembayaran tetap = expiryHours sejak order dibuat
+    const orderCreatedAt = new Date(order.created_at).getTime();
+    const expiredAt = orderCreatedAt + expiryHours * 60 * 60 * 1000;
+    const now = Date.now();
+    const remainingMs = expiredAt - now;
+    // Minimal 1 menit agar Midtrans tidak reject, maksimal expiryHours penuh
+    const remainingMinutes = Math.floor(remainingMs / 1000 / 60);
+
+    if (remainingMinutes < 1) {
+      return res.status(400).json({
+        success: false,
+        message: "Waktu pembayaran telah habis. Silakan buat order baru.",
+      });
+    }
+
     const midtransOrderId = `${order.order_number}-R${Date.now()}`;
 
     const midtransItems = order.order_items.map((item) => ({
@@ -396,6 +421,11 @@ export const repayOrder = async (req, res) => {
         billing_address: { address: order.buyer_address },
       },
       item_details: midtransItems,
+      // ✅ Gunakan sisa menit, bukan expiryHours penuh dari sekarang
+      expiry: {
+        unit: "minute",
+        duration: remainingMinutes,
+      },
     };
 
     const snapToken = await snap.createTransaction(midtransParameter);
@@ -406,6 +436,7 @@ export const repayOrder = async (req, res) => {
       data: {
         snap_token: snapToken.token,
         snap_redirect_url: snapToken.redirect_url,
+        remaining_minutes: remainingMinutes, // opsional — bisa dipakai frontend untuk info
       },
     });
   } catch (err) {

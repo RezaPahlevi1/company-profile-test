@@ -38,7 +38,6 @@ export default function AdminList() {
     name: "",
   });
 
-  // ✅ queryFn pakai fungsi terpisah agar konsisten dengan pola api/ folder
   const { data: admins, isLoading } = useQuery({
     queryKey: ["admins"],
     queryFn: fetchAdmins,
@@ -103,11 +102,10 @@ export default function AdminList() {
   };
 
   const handleSubmit = (e) => {
-    e.preventDefault();
+    e?.preventDefault?.();
     if (modalMode === "add") {
       createMutation.mutate(formData);
     } else {
-      // Jika password kosong saat edit, jangan kirim field password
       const payload = { ...formData };
       if (!payload.password) delete payload.password;
       updateMutation.mutate({ id: selectedAdmin.id, data: payload });
@@ -118,7 +116,7 @@ export default function AdminList() {
 
   return (
     <div className="space-y-4 lg:space-y-6">
-      {/* Header — sama persis dengan BlogList & OrderList */}
+      {/* Header */}
       <div className="sticky top-0 z-10 bg-gray-100 pt-1 pb-3 lg:relative lg:bg-transparent lg:pt-0 lg:pb-0">
         <div className="flex items-center justify-between">
           <h1 className="text-xl lg:text-2xl font-bold text-gray-900">
@@ -148,7 +146,7 @@ export default function AdminList() {
         </div>
       ) : (
         <>
-          {/* ✅ Table di desktop */}
+          {/* Table di desktop */}
           <div className="hidden lg:block bg-white rounded-xl shadow-sm overflow-hidden">
             <table className="w-full text-sm">
               <thead>
@@ -237,7 +235,7 @@ export default function AdminList() {
             </table>
           </div>
 
-          {/* ✅ Card list di mobile */}
+          {/* Card list di mobile */}
           <div className="lg:hidden space-y-2">
             {admins.map((admin) => {
               const isSelf = currentAdmin?.id === admin.id;
@@ -247,7 +245,6 @@ export default function AdminList() {
                   key={admin.id}
                   className="bg-white rounded-xl shadow-sm p-3 flex items-center gap-3"
                 >
-                  {/* Info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="font-medium text-gray-900 text-sm">
@@ -274,7 +271,6 @@ export default function AdminList() {
                     </p>
                   </div>
 
-                  {/* Actions */}
                   <div className="flex flex-col gap-1.5 shrink-0">
                     <button
                       onClick={() => openEditModal(admin)}
@@ -308,136 +304,141 @@ export default function AdminList() {
         </>
       )}
 
-      {/* ✅ Modal Add / Edit — style seragam dengan BlogForm */}
+      {/* Modal Add / Edit — layout sama dengan BlogForm */}
       {modalMode && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-lg w-full max-w-md">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-              <h2 className="text-base font-semibold text-gray-900">
+        <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 sm:px-4 sm:py-6">
+          <div className="bg-white w-full sm:rounded-xl shadow-xl sm:max-w-md h-full sm:h-auto sm:max-h-[92vh] flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-gray-100 shrink-0">
+              <h2 className="text-base sm:text-lg font-semibold text-gray-900">
                 {modalMode === "add" ? "Tambah Admin" : "Edit Admin"}
               </h2>
               <button
                 onClick={closeModal}
-                className="p-1.5 hover:bg-gray-100 text-gray-400 rounded-lg transition-colors"
+                className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
               >
-                <X size={16} />
+                <X size={18} />
               </button>
             </div>
 
-            {/* Modal Body */}
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
-              {/* Name */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Nama <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formData.name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
-                  }
-                  placeholder="Nama lengkap"
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
+            {/* Scrollable content */}
+            <div className="flex-1 overflow-y-auto">
+              <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-5">
+                {/* Name */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Nama <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.name}
+                    onChange={(e) =>
+                      setFormData({ ...formData, name: e.target.value })
+                    }
+                    placeholder="Nama lengkap"
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
 
-              {/* Email */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Email <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="email"
-                  required
-                  value={formData.email}
-                  onChange={(e) =>
-                    setFormData({ ...formData, email: e.target.value })
-                  }
-                  placeholder="email@contoh.com"
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
+                {/* Email */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Email <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={formData.email}
+                    onChange={(e) =>
+                      setFormData({ ...formData, email: e.target.value })
+                    }
+                    placeholder="email@contoh.com"
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
 
-              {/* Password */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Password{" "}
-                  {modalMode === "add" ? (
-                    <span className="text-red-500">*</span>
-                  ) : (
-                    <span className="text-gray-400 font-normal text-xs">
-                      (kosongkan jika tidak ingin mengubah)
-                    </span>
-                  )}
-                </label>
-                <input
-                  type="password"
-                  required={modalMode === "add"}
-                  value={formData.password}
-                  onChange={(e) =>
-                    setFormData({ ...formData, password: e.target.value })
-                  }
-                  placeholder={
-                    modalMode === "edit" ? "••••••••" : "Minimal 8 karakter"
-                  }
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
+                {/* Password */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Password{" "}
+                    {modalMode === "add" ? (
+                      <span className="text-red-500">*</span>
+                    ) : (
+                      <span className="text-gray-400 font-normal text-xs">
+                        (kosongkan jika tidak ingin mengubah)
+                      </span>
+                    )}
+                  </label>
+                  <input
+                    type="password"
+                    required={modalMode === "add"}
+                    value={formData.password}
+                    onChange={(e) =>
+                      setFormData({ ...formData, password: e.target.value })
+                    }
+                    placeholder={
+                      modalMode === "edit" ? "••••••••" : "Minimal 8 karakter"
+                    }
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
 
-              {/* Role */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Role <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={formData.role}
-                  onChange={(e) =>
-                    setFormData({ ...formData, role: e.target.value })
-                  }
-                  disabled={
-                    modalMode === "edit" &&
-                    selectedAdmin?.id === currentAdmin?.id
-                  }
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-400"
-                >
-                  <option value="superadmin">Superadmin</option>
-                  <option value="admin_konten">Admin Konten</option>
-                  <option value="admin_order">Admin Order</option>
-                </select>
-                {modalMode === "edit" &&
-                  selectedAdmin?.id === currentAdmin?.id && (
-                    <p className="text-[11px] text-gray-400 mt-1">
-                      Tidak bisa mengubah role akun sendiri.
-                    </p>
-                  )}
-              </div>
+                {/* Role */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Role <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={formData.role}
+                    onChange={(e) =>
+                      setFormData({ ...formData, role: e.target.value })
+                    }
+                    disabled={
+                      modalMode === "edit" &&
+                      selectedAdmin?.id === currentAdmin?.id
+                    }
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-400"
+                  >
+                    <option value="superadmin">Superadmin</option>
+                    <option value="admin_konten">Admin Konten</option>
+                    <option value="admin_order">Admin Order</option>
+                  </select>
+                  {modalMode === "edit" &&
+                    selectedAdmin?.id === currentAdmin?.id && (
+                      <p className="text-[11px] text-gray-400 mt-1">
+                        Tidak bisa mengubah role akun sendiri.
+                      </p>
+                    )}
+                </div>
 
-              {/* Footer */}
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={closeModal}
-                  className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  disabled={isPending}
-                  className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-60"
-                >
-                  {isPending ? "Menyimpan..." : "Simpan"}
-                </button>
-              </div>
-            </form>
+                <div className="h-2" />
+              </form>
+            </div>
+
+            {/* Sticky footer */}
+            <div className="flex gap-3 px-4 sm:px-6 py-4 border-t border-gray-100 bg-white shrink-0">
+              <button
+                type="button"
+                onClick={closeModal}
+                className="flex-1 border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-medium py-2.5 rounded-lg transition-colors"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={isPending}
+                className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-medium py-2.5 rounded-lg transition-colors"
+              >
+                {isPending ? "Menyimpan..." : "Simpan"}
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* ✅ Confirm Delete — pakai ConfirmModal, bukan window.confirm */}
+      {/* Confirm Delete */}
       <ConfirmModal
         isOpen={confirmModal.isOpen}
         title="Hapus Admin"
