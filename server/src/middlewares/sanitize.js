@@ -1,27 +1,36 @@
-// ✅ Buat file baru: middlewares/sanitize.js
-
 const sanitizeString = (val) => {
   if (typeof val !== "string") return val;
   return val.trim().replace(/\s+/g, " ");
+};
+
+const sanitizeValue = (val) => {
+  if (typeof val === "string") {
+    return sanitizeString(val);
+  }
+
+  if (Array.isArray(val)) {
+    // ✅ Rekursif untuk array — cover recipient_emails, items, tags, dll
+    return val.map((item) => sanitizeValue(item));
+  }
+
+  if (val !== null && typeof val === "object") {
+    return sanitizeObject(val);
+  }
+
+  // number, boolean, null — pass through
+  return val;
 };
 
 const sanitizeObject = (obj) => {
   if (!obj || typeof obj !== "object") return obj;
   const result = {};
   for (const key of Object.keys(obj)) {
-    const val = obj[key];
-    if (typeof val === "string") {
-      result[key] = sanitizeString(val);
-    } else if (typeof val === "object" && !Array.isArray(val)) {
-      result[key] = sanitizeObject(val);
-    } else {
-      result[key] = val;
-    }
+    result[key] = sanitizeValue(obj[key]);
   }
   return result;
 };
 
-// ✅ Middleware — sanitasi semua string di req.body
+// ✅ Middleware — sanitasi semua string di req.body termasuk nested array/object
 export const sanitizeBody = (req, res, next) => {
   if (req.body) {
     req.body = sanitizeObject(req.body);

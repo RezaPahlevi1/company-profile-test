@@ -6,6 +6,36 @@ import {
   sendPaymentSuccessEmail,
 } from "../utils/emailService.js";
 
+// ✅ Helper — cek apakah order pending sudah melewati expiry window
+// Jika ya, update status ke failed di database dan return true
+async function checkAndExpireOrder(order, expiryHours) {
+  if (order.status !== "pending") return false;
+
+  const orderCreatedAt = new Date(order.created_at).getTime();
+  const expiredAt = orderCreatedAt + expiryHours * 60 * 60 * 1000;
+  const isExpired = Date.now() > expiredAt;
+
+  if (isExpired) {
+    await supabase
+      .from("orders")
+      .update({ status: "failed" })
+      .eq("order_number", order.order_number);
+    return true;
+  }
+
+  return false;
+}
+
+// ✅ Helper — ambil expiry hours dari site_settings
+async function getExpiryHours() {
+  const { data } = await supabase
+    .from("site_settings")
+    .select("value")
+    .eq("key", "payment_expiry_hours")
+    .single();
+  return Number(data?.value) || 24;
+}
+
 export const createOrder = async (req, res) => {
   const { buyer_name, buyer_email, buyer_phone, buyer_address, items } =
     req.body;
@@ -51,8 +81,6 @@ export const createOrder = async (req, res) => {
 
     const orderItems = items.map((item) => {
       const product = products.find((p) => p.id === item.product_id);
-
-      // Hitung harga efektif dengan mempertimbangkan promo
       const effectivePrice =
         product.is_promo && product.discount_percent > 0
           ? product.price - (product.price * product.discount_percent) / 100
@@ -61,7 +89,7 @@ export const createOrder = async (req, res) => {
       return {
         product_id: item.product_id,
         product_name: product.name,
-        price_at_purchase: Math.round(effectivePrice), // ✅ harga promo
+        price_at_purchase: Math.round(effectivePrice),
         quantity: item.quantity || 1,
       };
     });
@@ -112,13 +140,7 @@ export const createOrder = async (req, res) => {
       name: item.product_name.substring(0, 50),
     }));
 
-    const { data: expirySetting } = await supabase
-      .from("site_settings")
-      .select("value")
-      .eq("key", "payment_expiry_hours")
-      .single();
-
-    const expiryHours = Number(expirySetting?.value) || 24;
+    const expiryHours = await getExpiryHours();
 
     const midtransParameter = {
       transaction_details: {
@@ -140,8 +162,6 @@ export const createOrder = async (req, res) => {
 
     const snapToken = await snap.createTransaction(midtransParameter);
 
-    // ✅ Email dikirim SETELAH semua proses berhasil
-    // ✅ Re-fetch order untuk pastikan created_at dan semua field lengkap
     const { data: freshOrder } = await supabase
       .from("orders")
       .select("*")
@@ -194,6 +214,15 @@ export const trackOrder = async (req, res) => {
         success: false,
         message: "Order not found",
       });
+    }
+
+    // ✅ Cek dan update ke failed jika sudah expired sebelum return ke frontend
+    if (order.status === "pending") {
+      const expiryHours = await getExpiryHours();
+      const expired = await checkAndExpireOrder(order, expiryHours);
+      if (expired) {
+        order.status = "failed";
+      }
     }
 
     return res.status(200).json({ success: true, data: order });
@@ -338,6 +367,15 @@ export const getOrderById = async (req, res) => {
       });
     }
 
+    // ✅ Cek dan update ke failed jika sudah expired — admin juga dapat status akurat
+    if (order.status === "pending") {
+      const expiryHours = await getExpiryHours();
+      const expired = await checkAndExpireOrder(order, expiryHours);
+      if (expired) {
+        order.status = "failed";
+      }
+    }
+
     return res.status(200).json({ success: true, data: order });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
@@ -375,30 +413,21 @@ export const repayOrder = async (req, res) => {
       });
     }
 
-    // ✅ Ambil expiry setting dari database — sama seperti createOrder
-    const { data: expirySetting } = await supabase
-      .from("site_settings")
-      .select("value")
-      .eq("key", "payment_expiry_hours")
-      .single();
+    const expiryHours = await getExpiryHours();
 
-    const expiryHours = Number(expirySetting?.value) || 24;
-
-    // ✅ Hitung sisa waktu dari created_at order, bukan dari sekarang
-    // Supaya total window pembayaran tetap = expiryHours sejak order dibuat
-    const orderCreatedAt = new Date(order.created_at).getTime();
-    const expiredAt = orderCreatedAt + expiryHours * 60 * 60 * 1000;
-    const now = Date.now();
-    const remainingMs = expiredAt - now;
-    // Minimal 1 menit agar Midtrans tidak reject, maksimal expiryHours penuh
-    const remainingMinutes = Math.floor(remainingMs / 1000 / 60);
-
-    if (remainingMinutes < 1) {
+    // ✅ Cek expired — update DB ke failed dan return error ke frontend
+    const expired = await checkAndExpireOrder(order, expiryHours);
+    if (expired) {
       return res.status(400).json({
         success: false,
         message: "Waktu pembayaran telah habis. Silakan buat order baru.",
       });
     }
+
+    // Hitung sisa menit untuk token Midtrans baru
+    const orderCreatedAt = new Date(order.created_at).getTime();
+    const expiredAt = orderCreatedAt + expiryHours * 60 * 60 * 1000;
+    const remainingMinutes = Math.floor((expiredAt - Date.now()) / 1000 / 60);
 
     const midtransOrderId = `${order.order_number}-R${Date.now()}`;
 
@@ -421,7 +450,7 @@ export const repayOrder = async (req, res) => {
         billing_address: { address: order.buyer_address },
       },
       item_details: midtransItems,
-      // ✅ Gunakan sisa menit, bukan expiryHours penuh dari sekarang
+      // ✅ Sisa waktu dari window original, bukan reset dari sekarang
       expiry: {
         unit: "minute",
         duration: remainingMinutes,
@@ -436,7 +465,7 @@ export const repayOrder = async (req, res) => {
       data: {
         snap_token: snapToken.token,
         snap_redirect_url: snapToken.redirect_url,
-        remaining_minutes: remainingMinutes, // opsional — bisa dipakai frontend untuk info
+        remaining_minutes: remainingMinutes,
       },
     });
   } catch (err) {
@@ -474,6 +503,8 @@ export const updateOrderStatus = async (req, res) => {
       });
     }
 
+    // ✅ Admin tidak bisa ubah status order yang sudah failed atau paid
+    // kecuali superadmin — tapi ini enforced di roleMiddleware, bukan di sini
     const updatePayload = {
       status,
       ...(status === "paid" &&

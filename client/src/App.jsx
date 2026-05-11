@@ -1,37 +1,69 @@
+import { lazy, Suspense } from "react";
 import { Routes, Route, Navigate, Link } from "react-router-dom";
 import useAuthStore from "./store/authStore";
-
-import Home from "./pages/public/Home";
-import About from "./pages/public/About";
-import Products from "./pages/public/Products";
-import ProductDetail from "./pages/public/ProductDetail";
-import Services from "./pages/public/Services";
-import Blog from "./pages/public/Blog";
-import BlogDetail from "./pages/public/BlogDetail";
-import Contact from "./pages/public/Contact";
-import Checkout from "./pages/public/Checkout";
-import OrderStatus from "./pages/public/OrderStatus";
-import NotFound from "./pages/public/NotFound";
-
-import Login from "./pages/admin/Login";
-import Dashboard from "./pages/admin/Dashboard";
-import ProductList from "./pages/admin/products/ProductList";
-import ServiceList from "./pages/admin/services/ServiceList";
-import BlogList from "./pages/admin/blogs/BlogList";
-import OrderList from "./pages/admin/orders/OrderList";
-import OrderDetail from "./pages/admin/orders/OrderDetail";
-import AdminList from "./pages/admin/settings/AdminList";
-import SiteSettings from "./pages/admin/settings/SiteSettings";
-import EmailSettings from "./pages/admin/settings/EmailSettings";
-
-import Navbar from "./components/layout/Navbar";
-import Footer from "./components/layout/Footer";
-import AdminLayout from "./components/layout/AdminLayout";
 import useAuthVerify from "./hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import { getPageSettings } from "./api/settings";
-import PromoPopup from "./components/shared/PromoPopup";
 import useTrackVisit from "./hooks/useTrackVisit";
+
+// ✅ Lazy load semua halaman — public dan admin
+// Public
+const Home = lazy(() => import("./pages/public/Home"));
+const About = lazy(() => import("./pages/public/About"));
+const Products = lazy(() => import("./pages/public/Products"));
+const ProductDetail = lazy(() => import("./pages/public/ProductDetail"));
+const Services = lazy(() => import("./pages/public/Services"));
+const Blog = lazy(() => import("./pages/public/Blog"));
+const BlogDetail = lazy(() => import("./pages/public/BlogDetail"));
+const Contact = lazy(() => import("./pages/public/Contact"));
+const Checkout = lazy(() => import("./pages/public/Checkout"));
+const OrderStatus = lazy(() => import("./pages/public/OrderStatus"));
+const NotFound = lazy(() => import("./pages/public/NotFound"));
+
+// Admin
+const Login = lazy(() => import("./pages/admin/Login"));
+const Dashboard = lazy(() => import("./pages/admin/Dashboard"));
+const ProductList = lazy(() => import("./pages/admin/products/ProductList"));
+const ServiceList = lazy(() => import("./pages/admin/services/ServiceList"));
+const BlogList = lazy(() => import("./pages/admin/blogs/BlogList"));
+const OrderList = lazy(() => import("./pages/admin/orders/OrderList"));
+const OrderDetail = lazy(() => import("./pages/admin/orders/OrderDetail"));
+const AdminList = lazy(() => import("./pages/admin/settings/AdminList"));
+const SiteSettings = lazy(() => import("./pages/admin/settings/SiteSettings"));
+const EmailSettings = lazy(
+  () => import("./pages/admin/settings/emailSettings"),
+);
+
+// Layout — tidak di-lazy karena dipakai di semua route
+import Navbar from "./components/layout/Navbar";
+import Footer from "./components/layout/Footer";
+import AdminLayout from "./components/layout/AdminLayout";
+import PromoPopup from "./components/shared/PromoPopup";
+
+// ✅ Spinner fallback saat lazy load
+const PageSpinner = () => (
+  <div className="min-h-screen flex items-center justify-center bg-gray-100">
+    <svg
+      className="animate-spin h-8 w-8 text-brand-600"
+      fill="none"
+      viewBox="0 0 24 24"
+    >
+      <circle
+        className="opacity-25"
+        cx="12"
+        cy="12"
+        r="10"
+        stroke="currentColor"
+        strokeWidth="4"
+      />
+      <path
+        className="opacity-75"
+        fill="currentColor"
+        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+      />
+    </svg>
+  </div>
+);
 
 const PageGuard = ({ pageKey, children }) => {
   const { data, isLoading } = useQuery({
@@ -70,39 +102,32 @@ const ProtectedRoute = ({ children }) => {
   useTrackVisit();
 
   if (!_hasHydrated) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
-        <svg
-          className="animate-spin h-8 w-8 text-brand-600"
-          fill="none"
-          viewBox="0 0 24 24"
-        >
-          <circle
-            className="opacity-25"
-            cx="12"
-            cy="12"
-            r="10"
-            stroke="currentColor"
-            strokeWidth="4"
-          />
-          <path
-            className="opacity-75"
-            fill="currentColor"
-            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-          />
-        </svg>
-      </div>
-    );
+    return <PageSpinner />;
   }
+
   return isAuthenticated ? children : <Navigate to="/admin/login" replace />;
 };
 
 const RoleProtectedRoute = ({ allowedRoles, children }) => {
-  const { admin } = useAuthStore();
-  const role = admin?.role || "superadmin";
+  const { admin, _hasHydrated } = useAuthStore();
+
+  // ✅ Tunggu hydration selesai dulu sebelum cek role
+  // Mencegah race condition yang dulu default ke "superadmin"
+  if (!_hasHydrated) {
+    return <PageSpinner />;
+  }
+
+  const role = admin?.role;
+
+  // ✅ Tidak ada role = data admin belum masuk atau token invalid
+  if (!role) {
+    return <Navigate to="/admin/login" replace />;
+  }
+
   if (!allowedRoles.includes(role)) {
     return <Navigate to="/admin/dashboard" replace />;
   }
+
   return children;
 };
 
@@ -116,7 +141,8 @@ const PublicLayout = ({ children }) => (
 
 export default function App() {
   return (
-    <>
+    // ✅ Suspense wraps semua Routes agar lazy load bisa jalan
+    <Suspense fallback={<PageSpinner />}>
       <Routes>
         {/* Public routes */}
         <Route
@@ -306,6 +332,6 @@ export default function App() {
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-    </>
+    </Suspense>
   );
 }

@@ -26,6 +26,7 @@ export const createAdmin = async (req, res) => {
     });
   }
 
+  // ✅ Hanya admin_konten dan admin_order yang bisa dibuat
   const allowedRoles = ["admin_konten", "admin_order"];
   if (!allowedRoles.includes(role)) {
     return res.status(400).json({
@@ -94,7 +95,15 @@ export const updateAdmin = async (req, res) => {
       });
     }
 
-    // Superadmin tidak bisa ubah role dirinya sendiri
+    // ✅ Tidak bisa upgrade role siapapun menjadi superadmin
+    if (role === "superadmin") {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot assign superadmin role",
+      });
+    }
+
+    // ✅ Tidak bisa ubah role diri sendiri
     if (id === requesterId && role && role !== existing.role) {
       return res.status(400).json({
         success: false,
@@ -102,7 +111,7 @@ export const updateAdmin = async (req, res) => {
       });
     }
 
-    // Tidak bisa ubah role superadmin lain
+    // ✅ Tidak bisa edit superadmin lain (nama, email, password sekalipun)
     if (existing.role === "superadmin" && id !== requesterId) {
       return res.status(400).json({
         success: false,

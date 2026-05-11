@@ -25,6 +25,7 @@
     "jsonwebtoken": "^9.0.3",
     "midtrans-client": "^1.4.3",
     "multer": "^2.1.1",
+    "node-cron": "^4.2.1",
     "resend": "^6.12.2",
     "slugify": "^1.6.9",
     "useragent": "^2.3.0",

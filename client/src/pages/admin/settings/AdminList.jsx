@@ -2,7 +2,12 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Edit2, Trash2, X } from "lucide-react";
 import toast from "react-hot-toast";
-import api from "../../../api/axiosInstance";
+import {
+  getAdmins,
+  createAdmin,
+  updateAdmin,
+  deleteAdmin,
+} from "../../../api/admins";
 import useAuthStore from "../../../store/authStore";
 import ConfirmModal from "../../../components/ui/ConfirmModal";
 
@@ -18,12 +23,14 @@ const roleLabels = {
   admin_order: "Admin Order",
 };
 
-const emptyForm = { name: "", email: "", password: "", role: "superadmin" };
+// ✅ Superadmin dihapus dari semua options — konsisten dengan backend
+// Superadmin tidak bisa dibuat atau di-assign lewat UI
+const ROLE_OPTIONS = [
+  { value: "admin_konten", label: "Admin Konten" },
+  { value: "admin_order", label: "Admin Order" },
+];
 
-async function fetchAdmins() {
-  const res = await api.get("/admin/admins");
-  return res.data.data;
-}
+const emptyForm = { name: "", email: "", password: "", role: "admin_konten" };
 
 export default function AdminList() {
   const queryClient = useQueryClient();
@@ -38,13 +45,15 @@ export default function AdminList() {
     name: "",
   });
 
-  const { data: admins, isLoading } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ["admins"],
-    queryFn: fetchAdmins,
+    queryFn: getAdmins,
   });
 
+  const admins = data?.data?.data || [];
+
   const createMutation = useMutation({
-    mutationFn: (data) => api.post("/admin/admins", data),
+    mutationFn: (formData) => createAdmin(formData),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admins"] });
       toast.success("Admin berhasil ditambahkan");
@@ -55,7 +64,7 @@ export default function AdminList() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => api.put(`/admin/admins/${id}`, data),
+    mutationFn: ({ id, data }) => updateAdmin(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admins"] });
       toast.success("Admin berhasil diperbarui");
@@ -66,7 +75,7 @@ export default function AdminList() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id) => api.delete(`/admin/admins/${id}`),
+    mutationFn: (id) => deleteAdmin(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admins"] });
       toast.success("Admin berhasil dihapus");
@@ -90,7 +99,9 @@ export default function AdminList() {
       name: admin.name,
       email: admin.email,
       password: "",
-      role: admin.role,
+      // ✅ Jika role superadmin, field role dikosongkan di form
+      // karena superadmin tidak bisa ubah role dirinya sendiri
+      role: admin.role === "superadmin" ? "" : admin.role,
     });
     setModalMode("edit");
   };
@@ -108,11 +119,20 @@ export default function AdminList() {
     } else {
       const payload = { ...formData };
       if (!payload.password) delete payload.password;
+      // ✅ Jika role kosong (superadmin edit diri sendiri), jangan kirim field role
+      if (!payload.role) delete payload.role;
       updateMutation.mutate({ id: selectedAdmin.id, data: payload });
     }
   };
 
   const isPending = createMutation.isPending || updateMutation.isPending;
+
+  // ✅ Superadmin hanya bisa edit nama, email, password miliknya sendiri
+  // Role field disembunyikan untuk superadmin
+  const isSelfSuperadmin =
+    modalMode === "edit" &&
+    selectedAdmin?.role === "superadmin" &&
+    selectedAdmin?.id === currentAdmin?.id;
 
   return (
     <div className="space-y-4 lg:space-y-6">
@@ -140,7 +160,7 @@ export default function AdminList() {
             <div key={i} className="bg-white rounded-xl h-16 animate-pulse" />
           ))}
         </div>
-      ) : !admins?.length ? (
+      ) : !admins.length ? (
         <div className="bg-white rounded-xl p-10 text-center">
           <p className="text-gray-400 text-sm">Belum ada admin terdaftar.</p>
         </div>
@@ -162,6 +182,8 @@ export default function AdminList() {
                 {admins.map((admin) => {
                   const isSelf = currentAdmin?.id === admin.id;
                   const canDelete = !isSelf && admin.role !== "superadmin";
+                  // ✅ Superadmin lain tidak bisa diedit sama sekali dari UI
+                  const canEdit = admin.role !== "superadmin" || isSelf;
                   return (
                     <tr
                       key={admin.id}
@@ -196,9 +218,18 @@ export default function AdminList() {
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
                           <button
-                            onClick={() => openEditModal(admin)}
-                            className="p-1.5 hover:bg-blue-50 hover:text-blue-600 text-gray-400 rounded-lg transition-colors"
-                            title="Edit"
+                            onClick={() => canEdit && openEditModal(admin)}
+                            disabled={!canEdit}
+                            className={`p-1.5 rounded-lg transition-colors ${
+                              canEdit
+                                ? "hover:bg-blue-50 hover:text-blue-600 text-gray-400"
+                                : "text-gray-200 cursor-not-allowed"
+                            }`}
+                            title={
+                              canEdit
+                                ? "Edit"
+                                : "Tidak bisa edit superadmin lain"
+                            }
                           >
                             <Edit2 size={15} />
                           </button>
@@ -240,6 +271,7 @@ export default function AdminList() {
             {admins.map((admin) => {
               const isSelf = currentAdmin?.id === admin.id;
               const canDelete = !isSelf && admin.role !== "superadmin";
+              const canEdit = admin.role !== "superadmin" || isSelf;
               return (
                 <div
                   key={admin.id}
@@ -270,12 +302,15 @@ export default function AdminList() {
                       })}
                     </p>
                   </div>
-
                   <div className="flex flex-col gap-1.5 shrink-0">
                     <button
-                      onClick={() => openEditModal(admin)}
-                      className="p-2 hover:bg-blue-50 hover:text-blue-600 text-gray-400 rounded-lg transition-colors border border-gray-100"
-                      title="Edit"
+                      onClick={() => canEdit && openEditModal(admin)}
+                      disabled={!canEdit}
+                      className={`p-2 rounded-lg transition-colors border border-gray-100 ${
+                        canEdit
+                          ? "hover:bg-blue-50 hover:text-blue-600 text-gray-400"
+                          : "text-gray-200 cursor-not-allowed"
+                      }`}
                     >
                       <Edit2 size={14} />
                     </button>
@@ -304,11 +339,10 @@ export default function AdminList() {
         </>
       )}
 
-      {/* Modal Add / Edit — layout sama dengan BlogForm */}
+      {/* Modal Add / Edit */}
       {modalMode && (
         <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 sm:px-4 sm:py-6">
           <div className="bg-white w-full sm:rounded-xl shadow-xl sm:max-w-md h-full sm:h-auto sm:max-h-[92vh] flex flex-col">
-            {/* Header */}
             <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-gray-100 shrink-0">
               <h2 className="text-base sm:text-lg font-semibold text-gray-900">
                 {modalMode === "add" ? "Tambah Admin" : "Edit Admin"}
@@ -321,10 +355,8 @@ export default function AdminList() {
               </button>
             </div>
 
-            {/* Scrollable content */}
             <div className="flex-1 overflow-y-auto">
               <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-5">
-                {/* Name */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Nama <span className="text-red-500">*</span>
@@ -341,7 +373,6 @@ export default function AdminList() {
                   />
                 </div>
 
-                {/* Email */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Email <span className="text-red-500">*</span>
@@ -358,7 +389,6 @@ export default function AdminList() {
                   />
                 </div>
 
-                {/* Password */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Password{" "}
@@ -384,39 +414,41 @@ export default function AdminList() {
                   />
                 </div>
 
-                {/* Role */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Role <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={formData.role}
-                    onChange={(e) =>
-                      setFormData({ ...formData, role: e.target.value })
-                    }
-                    disabled={
-                      modalMode === "edit" &&
-                      selectedAdmin?.id === currentAdmin?.id
-                    }
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-400"
-                  >
-                    <option value="superadmin">Superadmin</option>
-                    <option value="admin_konten">Admin Konten</option>
-                    <option value="admin_order">Admin Order</option>
-                  </select>
-                  {modalMode === "edit" &&
-                    selectedAdmin?.id === currentAdmin?.id && (
-                      <p className="text-[11px] text-gray-400 mt-1">
-                        Tidak bisa mengubah role akun sendiri.
-                      </p>
-                    )}
-                </div>
+                {/* ✅ Role field disembunyikan untuk superadmin edit diri sendiri */}
+                {!isSelfSuperadmin && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Role <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={formData.role}
+                      onChange={(e) =>
+                        setFormData({ ...formData, role: e.target.value })
+                      }
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      {ROLE_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {isSelfSuperadmin && (
+                  <div className="bg-purple-50 border border-purple-100 rounded-lg px-4 py-3">
+                    <p className="text-xs text-purple-600">
+                      Role <span className="font-semibold">Superadmin</span>{" "}
+                      tidak dapat diubah.
+                    </p>
+                  </div>
+                )}
 
                 <div className="h-2" />
               </form>
             </div>
 
-            {/* Sticky footer */}
             <div className="flex gap-3 px-4 sm:px-6 py-4 border-t border-gray-100 bg-white shrink-0">
               <button
                 type="button"
@@ -438,7 +470,6 @@ export default function AdminList() {
         </div>
       )}
 
-      {/* Confirm Delete */}
       <ConfirmModal
         isOpen={confirmModal.isOpen}
         title="Hapus Admin"
