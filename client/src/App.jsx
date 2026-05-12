@@ -1,5 +1,6 @@
 import { lazy, Suspense } from "react";
 import { Routes, Route, Navigate, Link } from "react-router-dom";
+import ScrollToTop from "./components/shared/ScrollToTop";
 import useAuthStore from "./store/authStore";
 import useAuthVerify from "./hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
@@ -143,6 +144,7 @@ export default function App() {
   return (
     // ✅ Suspense wraps semua Routes agar lazy load bisa jalan
     <Suspense fallback={<PageSpinner />}>
+      <ScrollToTop />
       <Routes>
         {/* Public routes */}
         <Route
