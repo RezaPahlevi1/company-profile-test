@@ -30,6 +30,7 @@ const fadeUp = {
 
 const HeroSection = ({ siteName }) => (
   <section className="relative min-h-screen flex items-center overflow-hidden bg-linear-to-br from-slate-900 via-brand-950 to-slate-900">
+    {/* Background grid pattern */}
     <div
       className="absolute inset-0 opacity-20"
       style={{
@@ -37,15 +38,29 @@ const HeroSection = ({ siteName }) => (
         backgroundSize: "40px 40px",
       }}
     />
+
+    {/* Gradient orbs */}
     <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-brand-600/20 rounded-full blur-3xl" />
     <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-brand-400/10 rounded-full blur-3xl" />
 
     <div className="container-base section-padding relative z-10 w-full">
       <div className="max-w-4xl mx-auto text-center">
+        {/* ✅ Opsi C — site name sebagai eyebrow text */}
+        {siteName && (
+          <motion.p
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+            className="text-brand-400 text-sm font-semibold tracking-widest uppercase mb-4"
+          >
+            {siteName}
+          </motion.p>
+        )}
+
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
+          transition={{ duration: 0.5, delay: 0.05 }}
           className="inline-flex items-center gap-2 bg-brand-500/20 border border-brand-400/30 text-brand-300 text-sm font-medium px-4 py-2 rounded-full mb-8"
         >
           <Zap size={14} />
@@ -94,19 +109,25 @@ const HeroSection = ({ siteName }) => (
         </motion.div>
       </div>
 
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 1, duration: 0.5 }}
-        className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2"
-      >
-        <span className="text-slate-500 text-xs">Scroll</span>
+      {/* ✅ Fix scroll indicator — pakai wrapper div hidden/block
+          Framer Motion tidak bisa pakai Tailwind hidden langsung karena
+          ia override display. Solusi: bungkus dengan div biasa yang handle visibility,
+          biarkan motion.div di dalamnya hanya handle animasi opacity */}
+      <div className="hidden sm:block">
         <motion.div
-          animate={{ y: [0, 6, 0] }}
-          transition={{ repeat: Infinity, duration: 1.5 }}
-          className="w-0.5 h-8 bg-linear-to-b from-slate-500 to-transparent rounded-full"
-        />
-      </motion.div>
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 1, duration: 0.5 }}
+          className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2"
+        >
+          <span className="text-slate-500 text-xs">Scroll</span>
+          <motion.div
+            animate={{ y: [0, 6, 0] }}
+            transition={{ repeat: Infinity, duration: 1.5 }}
+            className="w-0.5 h-8 bg-linear-to-b from-slate-500 to-transparent rounded-full"
+          />
+        </motion.div>
+      </div>
     </div>
   </section>
 );
@@ -211,7 +232,7 @@ const ProductsPreview = ({ products }) => (
 );
 
 const AboutSnippet = () => (
-  <section className="section-padding bg-gradient-to-br from-brand-600 to-brand-800 relative overflow-hidden">
+  <section className="section-padding bg-linear-to-br from-brand-600 to-brand-800 relative overflow-hidden">
     <div
       className="absolute inset-0 opacity-10"
       style={{
@@ -290,7 +311,7 @@ const CTASection = () => (
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
         transition={{ duration: 0.5 }}
-        className="bg-gradient-to-br from-slate-900 to-brand-950 rounded-3xl p-12 text-center relative overflow-hidden"
+        className="bg-linear-to-br from-slate-900 to-brand-950 rounded-3xl p-12 text-center relative overflow-hidden"
       >
         <div
           className="absolute inset-0 opacity-10"
@@ -327,7 +348,7 @@ const CTASection = () => (
 );
 
 export default function Home() {
-  const { pageInfo, siteSettings, isLoading } = usePageCheck("home");
+  const { siteSettings, isLoading } = usePageCheck("home");
 
   const { data: productsData } = useQuery({
     queryKey: ["public-products"],

@@ -66,11 +66,8 @@ export default function Navbar() {
                 />
               )}
               {showSiteName && (
-                <span className="font-bold text-lg leading-tight text-slate-900 truncate">
-                  <span className="text-brand-600">
-                    {siteName.slice(0, Math.ceil(siteName.length / 2))}
-                  </span>
-                  {siteName.slice(Math.ceil(siteName.length / 2))}
+                <span className="font-bold text-lg leading-tight text-brand-600 truncate">
+                  {siteName}
                 </span>
               )}
             </Link>
