@@ -3,6 +3,9 @@ import { Link } from "react-router-dom";
 import { Calendar, Tag } from "lucide-react";
 
 export default function BlogCard({ blog, index = 0 }) {
+  // ✅ Guard — jika blog undefined/null (data belum ready), tidak crash
+  if (!blog) return null;
+
   const formattedDate = blog.published_at
     ? new Date(blog.published_at).toLocaleDateString("id-ID", {
         day: "numeric",
@@ -27,6 +30,10 @@ export default function BlogCard({ blog, index = 0 }) {
             <img
               src={blog.cover_image_url}
               alt={blog.title}
+              width={600}
+              height={192}
+              loading="lazy"
+              decoding="async"
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
             />
           ) : (

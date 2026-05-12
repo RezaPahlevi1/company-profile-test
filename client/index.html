@@ -1,24 +1,46 @@
 <!doctype html>
-<html lang="en">
+<html lang="id">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- ✅ Preconnect untuk font — sudah ada, pertahankan -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+    <!-- ✅ Preload font CSS agar tidak render-blocking -->
     <link
+      rel="preload"
+      as="style"
       href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap"
-      rel="stylesheet"
+      onload="
+        this.onload = null;
+        this.rel = 'stylesheet';
+      "
     />
+    <!-- Fallback untuk browser yang tidak support preload -->
+    <noscript>
+      <link
+        href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet"
+      />
+    </noscript>
 
     <title>Company Profile</title>
-    <script
-      src="https://app.sandbox.midtrans.com/snap/snap.js"
-      data-client-key="Mid-client-UaS6j93WWCNf8bkG"
-    ></script>
+
+    <!-- ✅ Midtrans dipindah ke body bawah + defer -->
+    <!-- Tidak lagi di head agar tidak render-blocking -->
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
+
+    <!-- ✅ Midtrans di akhir body + defer — tidak block rendering sama sekali -->
+    <!-- Ganti ke URL production saat go-live (hapus .sandbox.) -->
+    <script
+      src="https://app.sandbox.midtrans.com/snap/snap.js"
+      data-client-key="Mid-client-UaS6j93WWCNf8bkG"
+    ></script>
   </body>
 </html>

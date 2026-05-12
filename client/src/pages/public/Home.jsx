@@ -12,14 +12,13 @@ import {
 import { getProducts } from "../../api/products";
 import { getServices } from "../../api/services";
 import { getBlogs } from "../../api/blogs";
+import { getSiteSettings } from "../../api/settings";
 import ProductCard from "../../components/shared/ProductCard";
 import ServiceCard from "../../components/shared/ServiceCard";
 import BlogCard from "../../components/shared/BlogCard";
 import SectionHeader from "../../components/ui/SectionHeader";
+import usePageCheck from "../../hooks/usePageCheck";
 
-// ============================================================
-// ANIMATION VARIANTS
-// ============================================================
 const fadeUp = {
   hidden: { opacity: 0, y: 30 },
   visible: (i = 0) => ({
@@ -29,12 +28,8 @@ const fadeUp = {
   }),
 };
 
-// ============================================================
-// HERO SECTION
-// ============================================================
 const HeroSection = ({ siteName }) => (
   <section className="relative min-h-screen flex items-center overflow-hidden bg-linear-to-br from-slate-900 via-brand-950 to-slate-900">
-    {/* Background grid pattern */}
     <div
       className="absolute inset-0 opacity-20"
       style={{
@@ -42,8 +37,6 @@ const HeroSection = ({ siteName }) => (
         backgroundSize: "40px 40px",
       }}
     />
-
-    {/* Gradient orbs */}
     <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-brand-600/20 rounded-full blur-3xl" />
     <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-brand-400/10 rounded-full blur-3xl" />
 
@@ -101,7 +94,6 @@ const HeroSection = ({ siteName }) => (
         </motion.div>
       </div>
 
-      {/* Scroll indicator */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -119,9 +111,6 @@ const HeroSection = ({ siteName }) => (
   </section>
 );
 
-// ============================================================
-// STATS SECTION
-// ============================================================
 const stats = [
   { value: "50+", label: "Klien Puas", icon: Users },
   { value: "5+", label: "Tahun Pengalaman", icon: TrendingUp },
@@ -155,11 +144,8 @@ const StatsSection = () => (
   </section>
 );
 
-// ============================================================
-// SERVICES PREVIEW
-// ============================================================
-
-const ServicesPreview = ({ services }) => (
+// ✅ Terima siteSettings sebagai prop — tidak fetch sendiri per card
+const ServicesPreview = ({ services, siteSettings }) => (
   <section className="section-padding bg-slate-50">
     <div className="container-base">
       <SectionHeader
@@ -169,7 +155,12 @@ const ServicesPreview = ({ services }) => (
       />
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-12">
         {services.slice(0, 3).map((service, i) => (
-          <ServiceCard key={service.id} service={service} index={i} />
+          <ServiceCard
+            key={service.id}
+            service={service}
+            index={i}
+            siteSettings={siteSettings}
+          />
         ))}
       </div>
       {services.length > 3 && (
@@ -189,9 +180,6 @@ const ServicesPreview = ({ services }) => (
   </section>
 );
 
-// ============================================================
-// PRODUCTS PREVIEW
-// ============================================================
 const ProductsPreview = ({ products }) => (
   <section className="section-padding bg-white">
     <div className="container-base">
@@ -222,9 +210,6 @@ const ProductsPreview = ({ products }) => (
   </section>
 );
 
-// ============================================================
-// ABOUT SNIPPET
-// ============================================================
 const AboutSnippet = () => (
   <section className="section-padding bg-gradient-to-br from-brand-600 to-brand-800 relative overflow-hidden">
     <div
@@ -267,9 +252,6 @@ const AboutSnippet = () => (
   </section>
 );
 
-// ============================================================
-// BLOG PREVIEW
-// ============================================================
 const BlogPreview = ({ blogs }) => (
   <section className="section-padding bg-slate-50">
     <div className="container-base">
@@ -300,9 +282,6 @@ const BlogPreview = ({ blogs }) => (
   </section>
 );
 
-// ============================================================
-// CTA SECTION
-// ============================================================
 const CTASection = () => (
   <section className="section-padding bg-white">
     <div className="container-base">
@@ -347,32 +326,42 @@ const CTASection = () => (
   </section>
 );
 
-// ============================================================
-// MAIN HOME PAGE
-// ============================================================
-import usePageCheck from "../../hooks/usePageCheck";
-
 export default function Home() {
   const { pageInfo, siteSettings, isLoading } = usePageCheck("home");
 
   const { data: productsData } = useQuery({
     queryKey: ["public-products"],
     queryFn: () => getProducts(),
+    // ✅ staleTime 10 menit — data produk tidak perlu refetch setiap navigasi
+    staleTime: 1000 * 60 * 10,
   });
 
   const { data: servicesData } = useQuery({
     queryKey: ["public-services"],
     queryFn: () => getServices(),
+    // ✅ staleTime 10 menit
+    staleTime: 1000 * 60 * 10,
   });
 
   const { data: blogsData } = useQuery({
-    queryKey: ["public-blogs"],
+    queryKey: ["public-blogs", "published"],
     queryFn: () => getBlogs({ status: "published" }),
+    // ✅ staleTime 5 menit — blog lebih sering update dari produk
+    staleTime: 1000 * 60 * 5,
+  });
+
+  // ✅ Fetch site-settings sekali di Home, pass ke ServiceCard via prop
+  // Menggantikan pola lama: tiap ServiceCard instance fetch sendiri
+  const { data: siteData } = useQuery({
+    queryKey: ["site-settings"],
+    queryFn: getSiteSettings,
+    staleTime: 1000 * 60 * 10,
   });
 
   const products = productsData?.data?.data || [];
   const services = servicesData?.data?.data || [];
   const blogs = blogsData?.data?.data || [];
+  const cardSiteSettings = siteData?.data?.data || {};
 
   if (isLoading) return <div className="min-h-screen"></div>;
 
@@ -380,7 +369,9 @@ export default function Home() {
     <main>
       <HeroSection siteName={siteSettings?.site_name} />
       <StatsSection />
-      {services.length > 0 && <ServicesPreview services={services} />}
+      {services.length > 0 && (
+        <ServicesPreview services={services} siteSettings={cardSiteSettings} />
+      )}
       {products.length > 0 && <ProductsPreview products={products} />}
       <AboutSnippet />
       {blogs.length > 0 && <BlogPreview blogs={blogs} />}

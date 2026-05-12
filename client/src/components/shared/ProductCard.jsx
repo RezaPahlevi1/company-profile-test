@@ -4,6 +4,9 @@ import { ShoppingCart, ImageOff } from "lucide-react";
 import WhatsAppButton from "./WhatsAppButton";
 
 export default function ProductCard({ product, index = 0 }) {
+  // ✅ Guard — jika product undefined/null, tidak crash
+  if (!product) return null;
+
   const promoPrice =
     product.is_promo && product.discount_percent > 0
       ? product.price - (product.price * product.discount_percent) / 100
@@ -17,12 +20,15 @@ export default function ProductCard({ product, index = 0 }) {
       transition={{ duration: 0.4, delay: index * 0.1 }}
       className="card-base overflow-hidden group"
     >
-      {/* Image dengan overlay badge */}
       <div className="relative h-52 bg-slate-100 overflow-hidden">
         {product.image_url ? (
           <img
             src={product.image_url}
             alt={product.name}
+            width={600}
+            height={208}
+            loading="lazy"
+            decoding="async"
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           />
         ) : (
@@ -31,7 +37,6 @@ export default function ProductCard({ product, index = 0 }) {
           </div>
         )}
 
-        {/* Badge promo — overlay pojok kiri atas */}
         {product.is_promo && product.discount_percent > 0 && (
           <div className="absolute top-0 left-0">
             <div className="bg-red-500 text-white text-xs font-bold px-3 py-1.5 rounded-br-xl shadow-md">
@@ -40,7 +45,6 @@ export default function ProductCard({ product, index = 0 }) {
           </div>
         )}
 
-        {/* Badge negotiable — tetap di kanan atas */}
         {product.allow_negotiation && (
           <span className="absolute top-3 right-3 bg-brand-600 text-white text-xs font-semibold px-2.5 py-1 rounded-lg">
             Nego
@@ -48,7 +52,6 @@ export default function ProductCard({ product, index = 0 }) {
         )}
       </div>
 
-      {/* Content */}
       <div className="p-5">
         <h3 className="font-bold text-slate-900 text-lg leading-tight line-clamp-2">
           {product.name}
@@ -59,7 +62,6 @@ export default function ProductCard({ product, index = 0 }) {
           </p>
         )}
 
-        {/* Harga */}
         <div className="mt-3">
           {promoPrice !== null ? (
             <div className="flex items-center gap-2 flex-wrap">
@@ -77,7 +79,6 @@ export default function ProductCard({ product, index = 0 }) {
           )}
         </div>
 
-        {/* Actions */}
         <div className="flex gap-2 mt-4">
           <Link
             to={`/products/${product.id}`}

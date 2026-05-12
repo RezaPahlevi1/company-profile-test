@@ -3,6 +3,7 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
+import compression from "compression";
 import { handleMidtransWebhook } from "./controllers/orderController.js";
 
 import authRoutes from "./routes/authRoutes.js";
@@ -18,17 +19,31 @@ import emailRoutes from "./routes/emailRoutes.js";
 
 const app = express();
 
+// ✅ Compression — paling atas sebelum semua middleware
+app.use(compression());
+
 // ✅ Security headers
 app.use(
   helmet({
-    contentSecurityPolicy: false, // ✅ agar Midtrans Snap tidak diblock
+    contentSecurityPolicy: false,
   }),
 );
 
 // ✅ CORS
+// Di production: CLIENT_URL di .env diisi satu domain → hanya itu yang diallow
+// Di development: allow 5173 (dev) dan 4173 (vite preview) sekaligus
+const allowedOrigins = process.env.CLIENT_URL
+  ? [process.env.CLIENT_URL]
+  : ["http://localhost:5173", "http://localhost:4173"];
+
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || "http://localhost:5173",
+    origin: (origin, callback) => {
+      // Allow requests tanpa origin (Postman, curl, server-to-server)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+      callback(new Error(`CORS: origin ${origin} not allowed`));
+    },
     credentials: true,
   }),
 );
@@ -38,8 +53,7 @@ app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 app.use(cookieParser());
 
-// ✅ Webhook Midtrans — HARUS paling atas, sebelum rate limiter apapun
-// Midtrans bisa hit /api/orders/webhook atau /api/midtrans/webhook
+// ✅ Webhook Midtrans — HARUS sebelum rate limiter
 app.post("/api/orders/webhook", handleMidtransWebhook);
 app.post("/api/midtrans/webhook", handleMidtransWebhook);
 
@@ -56,7 +70,7 @@ const globalLimiter = rateLimit({
 });
 app.use(globalLimiter);
 
-// ✅ Login — anti brute force, 10x per 15 menit
+// ✅ Login — anti brute force
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
@@ -69,7 +83,7 @@ const authLimiter = rateLimit({
 });
 app.use("/api/auth/login", authLimiter);
 
-// ✅ Create order — 20x per jam, webhook di-skip
+// ✅ Create order
 const orderCreateLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 20,
@@ -83,7 +97,7 @@ const orderCreateLimiter = rateLimit({
 });
 app.use("/api/orders", orderCreateLimiter);
 
-// ✅ Broadcast — skip semua GET, hanya limit POST
+// ✅ Broadcast
 const broadcastSendLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 10,

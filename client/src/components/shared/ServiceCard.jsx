@@ -1,17 +1,10 @@
 import { motion } from "framer-motion";
 import { ImageOff, Clock } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
-import { getSiteSettings } from "../../api/settings";
 import WhatsAppButton from "./WhatsAppButton";
 
-export default function ServiceCard({ service, index = 0 }) {
-  const { data: siteData } = useQuery({
-    queryKey: ["site-settings"],
-    queryFn: getSiteSettings,
-    staleTime: 1000 * 60 * 10,
-  });
-
-  const siteSettings = siteData?.data?.data || {};
+export default function ServiceCard({ service, index = 0, siteSettings = {} }) {
+  // ✅ Guard — jika service undefined/null, tidak crash
+  if (!service) return null;
 
   return (
     <motion.div
@@ -26,6 +19,10 @@ export default function ServiceCard({ service, index = 0 }) {
           <img
             src={service.image_url}
             alt={service.name}
+            width={600}
+            height={192}
+            loading="lazy"
+            decoding="async"
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           />
         ) : (
@@ -34,7 +31,6 @@ export default function ServiceCard({ service, index = 0 }) {
           </div>
         )}
 
-        {/* Badge promo — hanya penanda, tanpa diskon persen */}
         {service.is_promo && (
           <div className="absolute top-0 left-0">
             <div className="bg-red-500 text-white text-xs font-bold px-3 py-1.5 rounded-br-xl shadow-md">
