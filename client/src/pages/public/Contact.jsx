@@ -38,6 +38,8 @@ const contactInfo = [
   },
 ];
 
+const FORMSPREE_URL = `https://formspree.io/f/${import.meta.env.VITE_FORMSPREE_ID}`;
+
 export default function Contact() {
   const { pageInfo, siteSettings, isLoading } = usePageCheck("contact");
 
@@ -49,12 +51,38 @@ export default function Contact() {
   } = useForm({ resolver: zodResolver(contactSchema) });
 
   const onSubmit = async (data) => {
-    await new Promise((r) => setTimeout(r, 1000));
-    console.log("Contact form:", data);
-    toast.success(
-      "Pesan Anda telah terkirim! Kami akan segera menghubungi Anda.",
-    );
-    reset();
+    try {
+      const res = await fetch(FORMSPREE_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          name: data.name,
+          email: data.email,
+          subject: data.subject,
+          message: data.message,
+        }),
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        // Formspree returns { errors: [...] } on validation failure
+        const detail =
+          body?.errors?.map((e) => e.message).join(", ") ||
+          "Gagal mengirim pesan. Silakan coba lagi.";
+        toast.error(detail);
+        return;
+      }
+
+      toast.success(
+        "Pesan Anda telah terkirim! Kami akan segera menghubungi Anda.",
+      );
+      reset();
+    } catch {
+      toast.error("Terjadi kesalahan jaringan. Silakan coba lagi.");
+    }
   };
 
   if (isLoading) return <div className="min-h-screen"></div>;
