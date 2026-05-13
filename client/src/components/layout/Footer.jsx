@@ -1,5 +1,7 @@
 import { Link } from "react-router-dom";
 import { MessageCircle, Mail, MapPin, Phone } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { getSiteSettings } from "../../api/settings";
 
 const footerLinks = [
   {
@@ -25,6 +27,17 @@ const footerLinks = [
 ];
 
 export default function Footer() {
+  // ✅ Ambil site_name dari site settings — cache shared dengan Navbar
+  // queryKey ["site-settings"] sama dengan Navbar, jadi tidak ada fetch tambahan
+  const { data: siteData } = useQuery({
+    queryKey: ["site-settings"],
+    queryFn: getSiteSettings,
+    staleTime: 1000 * 60 * 10,
+  });
+
+  const settings = siteData?.data?.data || {};
+  const siteName = settings.site_name || "CompanyName";
+
   return (
     <footer className="bg-slate-900 text-slate-400">
       <div className="container-base section-padding">
@@ -32,7 +45,8 @@ export default function Footer() {
           {/* Brand */}
           <div className="lg:col-span-1">
             <Link to="/" className="font-bold text-xl text-white">
-              <span className="text-brand-400">RezaPahlevi</span>.Co
+              {/* ✅ site_name dinamis, ganti hardcode "RezaPahlevi .Co" */}
+              <span className="text-brand-400">{siteName}</span>
             </Link>
             <p className="text-sm leading-relaxed mt-4">
               Solusi digital terpercaya untuk transformasi bisnis Anda di era
@@ -94,8 +108,9 @@ export default function Footer() {
         </div>
 
         <div className="border-t border-slate-800 mt-12 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm">
+          {/* ✅ Copyright juga pakai site_name dinamis */}
           <p>
-            © {new Date().getFullYear()} RezaPahlevi .Co All rights reserved.
+            © {new Date().getFullYear()} {siteName}. All rights reserved.
           </p>
         </div>
       </div>
