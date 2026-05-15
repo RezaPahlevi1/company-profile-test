@@ -1,9 +1,14 @@
 import { useState, useEffect } from "react";
 import { Link, NavLink } from "react-router-dom";
-import { Menu, X, MessageCircle, Package } from "lucide-react";
+import { Menu, X, MessageCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { getSiteSettings, getPageSettings } from "../../api/settings";
+
+// page_key yang perlu path berbeda dari /${page_key}
+const PAGE_PATH_MAP = {
+  "order-track": "/order/track",
+};
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
@@ -32,7 +37,10 @@ export default function Navbar() {
 
   const navLinks = pages
     .filter((p) => p.is_active && p.page_key !== "home")
-    .map((p) => ({ label: p.navbar_label, to: `/${p.page_key}` }));
+    .map((p) => ({
+      label: p.navbar_label,
+      to: PAGE_PATH_MAP[p.page_key] || `/${p.page_key}`,
+    }));
 
   const siteName = settings.site_name || "CompanyName";
   const logoUrl = settings.navbar_logo_url;
@@ -54,9 +62,8 @@ export default function Navbar() {
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16 lg:h-20">
-          {/* ✅ Brand kiri — pisah jadi dua elemen, tidak nested */}
+          {/* Brand kiri */}
           <div className="flex items-center gap-3 min-w-0">
-            {/* Logo + nama — hanya ini yang jadi Link */}
             <Link to="/" className="flex items-center gap-2 min-w-0">
               {showLogo && (
                 <img
@@ -72,7 +79,6 @@ export default function Navbar() {
               )}
             </Link>
 
-            {/* ✅ WA button — elemen terpisah, bukan di dalam Link */}
             <a
               href={`https://wa.me/${waNumber}`}
               target="_blank"
@@ -115,20 +121,6 @@ export default function Navbar() {
                 {link.label}
               </NavLink>
             ))}
-
-            <NavLink
-              to="/order/track"
-              className={({ isActive }) =>
-                `flex items-center gap-1.5 text-sm font-medium transition-colors duration-200 ${
-                  isActive
-                    ? "text-brand-600"
-                    : "text-slate-600 hover:text-slate-900"
-                }`
-              }
-            >
-              <Package size={14} />
-              Track Order
-            </NavLink>
           </div>
 
           <button
@@ -183,21 +175,6 @@ export default function Navbar() {
                   {link.label}
                 </NavLink>
               ))}
-
-              <NavLink
-                to="/order/track"
-                onClick={() => setIsOpen(false)}
-                className={({ isActive }) =>
-                  `flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors ${
-                    isActive
-                      ? "bg-brand-50 text-brand-600"
-                      : "text-slate-600 hover:bg-slate-50"
-                  }`
-                }
-              >
-                <Package size={15} />
-                Track Order
-              </NavLink>
 
               <a
                 href={`https://wa.me/${waNumber}`}
