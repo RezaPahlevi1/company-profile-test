@@ -64,6 +64,18 @@ const navItems = [
     icon: Mail,
     roles: ["superadmin"],
   },
+  {
+    label: "Builder (Home)",
+    to: "/admin/builder/home",
+    icon: LayoutDashboard,
+    roles: ["superadmin"],
+  },
+  {
+    label: "Builder (About)",
+    to: "/admin/builder/about",
+    icon: LayoutDashboard,
+    roles: ["superadmin"],
+  },
 ];
 
 export default function AdminSidebar({ isOpen, onClose }) {

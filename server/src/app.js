@@ -16,6 +16,8 @@ import settingsRoutes from "./routes/settingsRoutes.js";
 import promoRoutes from "./routes/promoRoutes.js";
 import analyticsRoutes from "./routes/analyticsRoutes.js";
 import emailRoutes from "./routes/emailRoutes.js";
+import pageBuilderRoutes from "./routes/pageBuilderRoutes.js";
+
 
 const app = express();
 
@@ -122,6 +124,7 @@ app.use("/api/settings", settingsRoutes);
 app.use("/api/promos", promoRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/email", emailRoutes);
+app.use("/api/page-builder", pageBuilderRoutes);
 
 // ✅ Health check — development only
 if (process.env.NODE_ENV !== "production") {

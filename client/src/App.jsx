@@ -35,6 +35,10 @@ const EmailSettings = lazy(
   () => import("./pages/admin/settings/emailSettings"),
 );
 
+// Page builder
+const HomeBuilder = lazy(() => import("./pages/admin/page-builder/HomeBuilder"));
+const AboutBuilder = lazy(() => import("./pages/admin/page-builder/AboutBuilder"));
+
 // Layout — tidak di-lazy karena dipakai di semua route
 import Navbar from "./components/layout/Navbar";
 import Footer from "./components/layout/Footer";
@@ -327,6 +331,22 @@ export default function App() {
             element={
               <RoleProtectedRoute allowedRoles={["superadmin"]}>
                 <SiteSettings />
+              </RoleProtectedRoute>
+            }
+          />
+          <Route
+            path="builder/home"
+            element={
+              <RoleProtectedRoute allowedRoles={["superadmin"]}>
+                <HomeBuilder />
+              </RoleProtectedRoute>
+            }
+          />
+          <Route
+            path="builder/about"
+            element={
+              <RoleProtectedRoute allowedRoles={["superadmin"]}>
+                <AboutBuilder />
               </RoleProtectedRoute>
             }
           />
