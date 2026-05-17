@@ -503,8 +503,8 @@ export const updateOrderStatus = async (req, res) => {
       });
     }
 
-    // ✅ Admin tidak bisa ubah status order yang sudah failed atau paid
-    // kecuali superadmin — tapi ini enforced di roleMiddleware, bukan di sini
+    const wasAlreadyPaid = existing.status === "paid";
+
     const updatePayload = {
       status,
       ...(status === "paid" &&
@@ -522,6 +522,25 @@ export const updateOrderStatus = async (req, res) => {
       .single();
 
     if (error) throw error;
+
+    // ✅ Kirim email payment success jika status berubah ke paid
+    // Guard: skip jika order sebelumnya sudah paid — cegah email duplikat
+    if (status === "paid" && !wasAlreadyPaid) {
+      const { data: fullOrder } = await supabase
+        .from("orders")
+        .select(`*, order_items(product_name, price_at_purchase, quantity)`)
+        .eq("id", id)
+        .single();
+
+      if (fullOrder) {
+        sendPaymentSuccessEmail(fullOrder, fullOrder.order_items).catch((err) =>
+          console.error(
+            "Failed to send manual payment success email:",
+            err.message,
+          ),
+        );
+      }
+    }
 
     return res.status(200).json({
       success: true,
