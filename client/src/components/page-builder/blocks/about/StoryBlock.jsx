@@ -1,4 +1,3 @@
-import React from "react";
 import { motion } from "framer-motion";
 import { CheckCircle } from "lucide-react";
 import * as LucideIcons from "lucide-react";
@@ -12,6 +11,32 @@ const fadeUp = {
   }),
 };
 
+// ✅ Mapping color → class Tailwind, brand sebagai default
+const COLOR_THEME = {
+  brand: {
+    icon: "bg-brand-50 text-brand-600",
+    card: "bg-brand-50/50 border-brand-100",
+  },
+  purple: {
+    icon: "bg-purple-50 text-purple-600",
+    card: "bg-purple-50/50 border-purple-100",
+  },
+  amber: {
+    icon: "bg-amber-50 text-amber-600",
+    card: "bg-amber-50/50 border-amber-100",
+  },
+  green: {
+    icon: "bg-green-50 text-green-600",
+    card: "bg-green-50/50 border-green-100",
+  },
+  rose: {
+    icon: "bg-rose-50 text-rose-600",
+    card: "bg-rose-50/50 border-rose-100",
+  },
+};
+
+const getColorTheme = (color) => COLOR_THEME[color] || COLOR_THEME.brand;
+
 export default function StoryBlock({ content, isCustomBg }) {
   const {
     label,
@@ -19,13 +44,14 @@ export default function StoryBlock({ content, isCustomBg }) {
     body_1,
     body_2,
     checklist = [],
-    cards = []
-  } = content;
+    cards = [],
+  } = content || {};
 
   return (
     <section className={`py-24 ${isCustomBg ? "bg-transparent" : "bg-white"}`}>
       <div className="container mx-auto px-6">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
+          {/* Kiri — teks */}
           <motion.div
             initial={{ opacity: 0, x: -30 }}
             whileInView={{ opacity: 1, x: 0 }}
@@ -33,29 +59,25 @@ export default function StoryBlock({ content, isCustomBg }) {
             transition={{ duration: 0.6 }}
           >
             {label && (
-              <span className="inline-block px-3 py-1 bg-blue-50 text-blue-600 font-semibold text-sm uppercase tracking-widest rounded-full mb-4">
+              <span className="inline-block px-3 py-1 bg-brand-50 text-brand-600 font-semibold text-sm uppercase tracking-widest rounded-full mb-4">
                 {label}
               </span>
             )}
-            
             {heading && (
               <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 leading-tight">
                 {heading}
               </h2>
             )}
-            
             {body_1 && (
               <p className="text-gray-600 text-lg mt-6 leading-relaxed">
                 {body_1}
               </p>
             )}
-            
             {body_2 && (
               <p className="text-gray-600 text-lg mt-4 leading-relaxed">
                 {body_2}
               </p>
             )}
-            
             {checklist.length > 0 && (
               <ul className="mt-8 space-y-3">
                 {checklist.map((item, i) => (
@@ -68,7 +90,10 @@ export default function StoryBlock({ content, isCustomBg }) {
                     variants={fadeUp}
                     className="flex items-center gap-3 text-gray-600"
                   >
-                    <CheckCircle size={18} className="text-blue-600 shrink-0" />
+                    <CheckCircle
+                      size={18}
+                      className="text-brand-600 shrink-0"
+                    />
                     <span>{item}</span>
                   </motion.li>
                 ))}
@@ -76,6 +101,7 @@ export default function StoryBlock({ content, isCustomBg }) {
             )}
           </motion.div>
 
+          {/* Kanan — cards */}
           {cards.length > 0 && (
             <motion.div
               initial={{ opacity: 0, x: 30 }}
@@ -86,17 +112,7 @@ export default function StoryBlock({ content, isCustomBg }) {
             >
               {cards.map((card, i) => {
                 const Icon = LucideIcons[card.icon] || LucideIcons.Target;
-                const colorTheme = card.color === "purple" ? "bg-purple-50 text-purple-600" :
-                                   card.color === "amber" ? "bg-amber-50 text-amber-600" :
-                                   card.color === "green" ? "bg-green-50 text-green-600" :
-                                   card.color === "rose" ? "bg-rose-50 text-rose-600" :
-                                   "bg-blue-50 text-blue-600";
-                
-                const cardBg = card.color === "purple" ? "bg-purple-50/50 border-purple-100" :
-                               card.color === "amber" ? "bg-amber-50/50 border-amber-100" :
-                               card.color === "green" ? "bg-green-50/50 border-green-100" :
-                               card.color === "rose" ? "bg-rose-50/50 border-rose-100" :
-                               "bg-blue-50/50 border-blue-100";
+                const theme = getColorTheme(card.color);
 
                 return (
                   <motion.div
@@ -106,12 +122,16 @@ export default function StoryBlock({ content, isCustomBg }) {
                     whileInView="visible"
                     viewport={{ once: true }}
                     variants={fadeUp}
-                    className={`${cardBg} rounded-2xl p-6 border transition-shadow hover:shadow-md`}
+                    className={`${theme.card} rounded-2xl p-6 border transition-shadow hover:shadow-md`}
                   >
-                    <div className={`inline-flex w-12 h-12 rounded-xl items-center justify-center mb-4 ${colorTheme} bg-white shadow-sm`}>
+                    <div
+                      className={`inline-flex w-12 h-12 rounded-xl items-center justify-center mb-4 ${theme.icon} bg-white shadow-sm`}
+                    >
                       <Icon size={24} />
                     </div>
-                    <h3 className="font-bold text-gray-900 text-lg mb-2">{card.title}</h3>
+                    <h3 className="font-bold text-gray-900 text-lg mb-2">
+                      {card.title}
+                    </h3>
                     <p className="text-gray-600 text-sm leading-relaxed">
                       {card.desc}
                     </p>

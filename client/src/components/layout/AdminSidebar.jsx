@@ -9,6 +9,8 @@ import {
   LogOut,
   Mail,
   X,
+  Layout,
+  Users,
 } from "lucide-react";
 import useAuthStore from "../../store/authStore";
 import { logoutAdmin } from "../../api/auth";
@@ -55,7 +57,7 @@ const navItems = [
   {
     label: "Admins",
     to: "/admin/settings/admins",
-    icon: Settings,
+    icon: Users,
     roles: ["superadmin"],
   },
   {
@@ -64,16 +66,17 @@ const navItems = [
     icon: Mail,
     roles: ["superadmin"],
   },
+  // ✅ Ganti icon ke Layout agar berbeda dari Dashboard
   {
     label: "Builder (Home)",
     to: "/admin/builder/home",
-    icon: LayoutDashboard,
+    icon: Layout,
     roles: ["superadmin"],
   },
   {
     label: "Builder (About)",
     to: "/admin/builder/about",
-    icon: LayoutDashboard,
+    icon: Layout,
     roles: ["superadmin"],
   },
 ];
@@ -87,7 +90,7 @@ export default function AdminSidebar({ isOpen, onClose }) {
     try {
       await logoutAdmin();
     } catch {
-      // tetap lanjut
+      // tetap lanjut logout
     } finally {
       queryClient.clear();
       clearAdmin();
@@ -96,10 +99,12 @@ export default function AdminSidebar({ isOpen, onClose }) {
     }
   };
 
-  const role = admin?.role || "superadmin";
-  const filteredNavItems = navItems.filter(
-    (item) => item.roles && item.roles.includes(role),
-  );
+  // ✅ Tidak ada fallback || "superadmin"
+  // Jika role belum ter-hydrate → filteredNavItems kosong sementara
+  const role = admin?.role;
+  const filteredNavItems = role
+    ? navItems.filter((item) => item.roles.includes(role))
+    : [];
 
   return (
     <aside
@@ -115,11 +120,12 @@ export default function AdminSidebar({ isOpen, onClose }) {
         <div className="min-w-0">
           <p className="text-white font-semibold text-lg">Admin Panel</p>
           <p className="text-xs text-gray-500 mt-1 truncate">{admin?.name}</p>
-          <span className="inline-block mt-1 text-[10px] uppercase tracking-wider px-2 py-0.5 bg-gray-800 rounded text-gray-400 border border-gray-700">
-            {role.replace("_", " ")}
-          </span>
+          {role && (
+            <span className="inline-block mt-1 text-[10px] uppercase tracking-wider px-2 py-0.5 bg-gray-800 rounded text-gray-400 border border-gray-700">
+              {role.replace("_", " ")}
+            </span>
+          )}
         </div>
-        {/* Close button — mobile only */}
         <button
           onClick={onClose}
           className="lg:hidden p-1 rounded-lg hover:bg-gray-800 text-gray-400 hover:text-white transition-colors shrink-0 ml-2"
@@ -134,7 +140,7 @@ export default function AdminSidebar({ isOpen, onClose }) {
           <NavLink
             key={to}
             to={to}
-            onClick={onClose} // tutup sidebar saat navigasi di mobile
+            onClick={onClose}
             className={({ isActive }) =>
               `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                 isActive
