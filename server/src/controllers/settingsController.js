@@ -1,6 +1,36 @@
 import supabase from "../config/supabase.js";
 import uploadToSupabase from "../utils/uploadToSupabase.js";
 
+// ==================== HELPERS ====================
+
+// Ekstrak YouTube video ID dari berbagai format URL
+// Mengembalikan video ID string, atau null jika tidak valid
+const extractYoutubeId = (input) => {
+  if (!input || typeof input !== "string") return null;
+
+  const trimmed = input.trim();
+
+  // Jika sudah berupa video ID murni (11 karakter alphanumeric + - _)
+  if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) return trimmed;
+
+  // Format: https://www.youtube.com/watch?v=VIDEO_ID
+  // Format: https://youtube.com/watch?v=VIDEO_ID&...
+  const watchMatch = trimmed.match(
+    /(?:youtube\.com\/watch\?(?:.*&)?v=)([a-zA-Z0-9_-]{11})/,
+  );
+  if (watchMatch) return watchMatch[1];
+
+  // Format: https://youtu.be/VIDEO_ID
+  const shortMatch = trimmed.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/);
+  if (shortMatch) return shortMatch[1];
+
+  // Format: https://www.youtube.com/embed/VIDEO_ID
+  const embedMatch = trimmed.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/);
+  if (embedMatch) return embedMatch[1];
+
+  return null;
+};
+
 // ==================== SITE SETTINGS ====================
 
 export const getSiteSettings = async (req, res) => {
@@ -29,6 +59,11 @@ export const updateSiteSettings = async (req, res) => {
     show_site_name,
     whatsapp_number,
     show_whatsapp,
+    footer_tagline,
+    footer_cta_title,
+    footer_cta_body,
+    footer_video_url,
+    show_footer_video,
   } = req.body;
 
   // Validasi payment_expiry_hours
@@ -51,11 +86,10 @@ export const updateSiteSettings = async (req, res) => {
         message: "Nomor WhatsApp harus 10-15 digit angka",
       });
     }
-    // Gunakan cleaned value
     req.body.whatsapp_number = cleaned;
   }
 
-  // Validasi show_whatsapp — hanya "true" atau "false"
+  // Validasi show_whatsapp
   if (
     show_whatsapp !== undefined &&
     !["true", "false"].includes(show_whatsapp)
@@ -64,6 +98,36 @@ export const updateSiteSettings = async (req, res) => {
       success: false,
       message: "Invalid value for show_whatsapp",
     });
+  }
+
+  // Validasi show_footer_video
+  if (
+    show_footer_video !== undefined &&
+    !["true", "false"].includes(show_footer_video)
+  ) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid value for show_footer_video",
+    });
+  }
+
+  // Validasi dan ekstrak YouTube video ID
+  // Simpan sebagai video ID murni, bukan full URL
+  if (footer_video_url !== undefined) {
+    if (footer_video_url === "") {
+      // Boleh kosong — berarti hapus video
+      req.body.footer_video_id = "";
+    } else {
+      const videoId = extractYoutubeId(footer_video_url);
+      if (!videoId) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "URL YouTube tidak valid. Gunakan format: https://youtube.com/watch?v=... atau https://youtu.be/...",
+        });
+      }
+      req.body.footer_video_id = videoId;
+    }
   }
 
   try {
@@ -86,6 +150,16 @@ export const updateSiteSettings = async (req, res) => {
       updates.push({ key: "whatsapp_number", value: req.body.whatsapp_number });
     if (show_whatsapp !== undefined)
       updates.push({ key: "show_whatsapp", value: show_whatsapp });
+    if (footer_tagline !== undefined)
+      updates.push({ key: "footer_tagline", value: footer_tagline });
+    if (footer_cta_title !== undefined)
+      updates.push({ key: "footer_cta_title", value: footer_cta_title });
+    if (footer_cta_body !== undefined)
+      updates.push({ key: "footer_cta_body", value: footer_cta_body });
+    if (footer_video_url !== undefined)
+      updates.push({ key: "footer_video_id", value: req.body.footer_video_id });
+    if (show_footer_video !== undefined)
+      updates.push({ key: "show_footer_video", value: show_footer_video });
 
     for (const update of updates) {
       const { error } = await supabase

@@ -12,6 +12,8 @@ import {
   ToggleLeft,
   ToggleRight,
   MessageCircle,
+  AlignLeft,
+  Video,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import {
@@ -52,7 +54,15 @@ export default function SiteSettings() {
     whatsapp_number: "",
   });
 
+  const [footerForm, setFooterForm] = useState({
+    footer_tagline: "",
+    footer_cta_title: "",
+    footer_cta_body: "",
+    footer_video_url: "",
+  });
+
   const [waError, setWaError] = useState("");
+  const [videoError, setVideoError] = useState("");
 
   useEffect(() => {
     if (settings.site_name !== undefined) {
@@ -61,6 +71,13 @@ export default function SiteSettings() {
         payment_expiry_hours: settings.payment_expiry_hours || "24",
         delivery_estimation: settings.delivery_estimation || "",
         whatsapp_number: settings.whatsapp_number || "",
+      });
+      setFooterForm({
+        footer_tagline: settings.footer_tagline || "",
+        footer_cta_title: settings.footer_cta_title || "",
+        footer_cta_body: settings.footer_cta_body || "",
+        // Tampilkan video_id di field URL sebagai referensi
+        footer_video_url: settings.footer_video_id || "",
       });
     }
   }, [siteData]);
@@ -74,6 +91,18 @@ export default function SiteSettings() {
     onError: (err) =>
       toast.error(err.response?.data?.message || "Failed to save"),
   });
+
+  const { mutate: saveFooterSettings, isPending: isSavingFooter } = useMutation(
+    {
+      mutationFn: updateSiteSettings,
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ["site-settings"] });
+        toast.success("Footer settings saved");
+      },
+      onError: (err) =>
+        toast.error(err.response?.data?.message || "Failed to save"),
+    },
+  );
 
   const { mutate: doUploadLogo, isPending: isUploadingLogo } = useMutation({
     mutationFn: uploadLogo,
@@ -109,7 +138,6 @@ export default function SiteSettings() {
     if (file) doUploadLogo(file);
   };
 
-  // Hanya izinkan angka, validasi panjang
   const handleWaNumberChange = (e) => {
     const onlyDigits = e.target.value.replace(/\D/g, "");
     setForm((f) => ({ ...f, whatsapp_number: onlyDigits }));
@@ -123,6 +151,22 @@ export default function SiteSettings() {
     }
   };
 
+  // Validasi YouTube URL sederhana di frontend sebagai UX feedback
+  const handleVideoUrlChange = (e) => {
+    const val = e.target.value;
+    setFooterForm((f) => ({ ...f, footer_video_url: val }));
+    if (val === "") {
+      setVideoError("");
+      return;
+    }
+    const isYoutube =
+      /youtube\.com\/watch/.test(val) ||
+      /youtu\.be\//.test(val) ||
+      /youtube\.com\/embed\//.test(val) ||
+      /^[a-zA-Z0-9_-]{11}$/.test(val.trim());
+    setVideoError(isYoutube ? "" : "Masukkan URL YouTube yang valid");
+  };
+
   const handleSave = () => {
     const wa = form.whatsapp_number;
     if (wa && (wa.length < 10 || wa.length > 15)) {
@@ -133,14 +177,25 @@ export default function SiteSettings() {
     saveSiteSettings(form);
   };
 
+  const handleSaveFooter = () => {
+    if (videoError) return;
+    saveFooterSettings({
+      footer_tagline: footerForm.footer_tagline,
+      footer_cta_title: footerForm.footer_cta_title,
+      footer_cta_body: footerForm.footer_cta_body,
+      footer_video_url: footerForm.footer_video_url,
+    });
+  };
+
   const showLogo = settings.navbar_logo_url && settings.navbar_logo_url !== "";
   const showWhatsapp = settings.show_whatsapp !== "false";
+  const showFooterVideo = settings.show_footer_video !== "false";
 
   if (siteLoading || pagesLoading) {
     return (
       <div className="space-y-4 lg:space-y-6">
         <div className="h-8 w-40 bg-white rounded-xl animate-pulse" />
-        {[...Array(4)].map((_, i) => (
+        {[...Array(5)].map((_, i) => (
           <div key={i} className="bg-white rounded-xl h-48 animate-pulse" />
         ))}
       </div>
@@ -166,7 +221,6 @@ export default function SiteSettings() {
         </div>
 
         <div className="space-y-4">
-          {/* Nama Website */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Nama Website
@@ -235,7 +289,6 @@ export default function SiteSettings() {
             />
           </div>
 
-          {/* Toggle tampilkan nama perusahaan */}
           {showLogo && (
             <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
               <div>
@@ -275,7 +328,6 @@ export default function SiteSettings() {
         </div>
 
         <div className="space-y-4">
-          {/* Nomor WA */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Nomor WhatsApp
@@ -302,7 +354,6 @@ export default function SiteSettings() {
             )}
           </div>
 
-          {/* Toggle tampilkan WA di navbar */}
           <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
             <div>
               <p className="text-sm font-medium text-gray-700">
@@ -390,7 +441,7 @@ export default function SiteSettings() {
         </div>
       </div>
 
-      {/* Tombol Simpan */}
+      {/* Tombol Simpan — branding, WA, payment */}
       <div className="flex justify-end">
         <button
           onClick={handleSave}
@@ -400,6 +451,167 @@ export default function SiteSettings() {
           <Save size={16} />
           {isSaving ? "Menyimpan..." : "Simpan Pengaturan"}
         </button>
+      </div>
+
+      {/* Footer Settings */}
+      <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
+        <div className="flex items-center gap-3 mb-5">
+          <div className="w-9 h-9 bg-blue-50 rounded-lg flex items-center justify-center shrink-0">
+            <AlignLeft size={18} className="text-blue-600" />
+          </div>
+          <h2 className="text-base font-semibold text-gray-900">Footer</h2>
+        </div>
+
+        <div className="space-y-4">
+          {/* Tagline brand */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Tagline Brand
+            </label>
+            <input
+              value={footerForm.footer_tagline}
+              onChange={(e) =>
+                setFooterForm((f) => ({ ...f, footer_tagline: e.target.value }))
+              }
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Solusi digital terpercaya untuk bisnis Anda."
+              maxLength={200}
+            />
+            <p className="text-xs text-gray-400 mt-1">
+              Ditampilkan di bawah nama brand di footer.
+            </p>
+          </div>
+
+          {/* CTA Title */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Judul CTA
+            </label>
+            <input
+              value={footerForm.footer_cta_title}
+              onChange={(e) =>
+                setFooterForm((f) => ({
+                  ...f,
+                  footer_cta_title: e.target.value,
+                }))
+              }
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Siap Berdiskusi?"
+              maxLength={100}
+            />
+          </div>
+
+          {/* CTA Body */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Teks CTA
+            </label>
+            <textarea
+              value={footerForm.footer_cta_body}
+              onChange={(e) =>
+                setFooterForm((f) => ({
+                  ...f,
+                  footer_cta_body: e.target.value,
+                }))
+              }
+              rows={2}
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              placeholder="Kami siap membantu menjawab pertanyaan dan kebutuhan bisnis Anda."
+              maxLength={300}
+            />
+            <p className="text-xs text-gray-400 mt-1">
+              Teks pendek di bawah judul CTA sebelum tombol Contact.
+            </p>
+          </div>
+
+          {/* Video YouTube */}
+          <div className="pt-2 border-t border-gray-100">
+            <div className="flex items-center gap-2 mb-3">
+              <Video size={16} className="text-red-500" />
+              <p className="text-sm font-medium text-gray-700">Video YouTube</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                URL Video
+              </label>
+              <input
+                value={footerForm.footer_video_url}
+                onChange={handleVideoUrlChange}
+                className={`w-full px-4 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  videoError ? "border-red-400" : "border-gray-300"
+                }`}
+                placeholder="https://youtube.com/watch?v=... atau https://youtu.be/..."
+              />
+              {videoError ? (
+                <p className="text-red-500 text-xs mt-1">{videoError}</p>
+              ) : (
+                <p className="text-xs text-gray-400 mt-1.5">
+                  Mendukung format youtube.com/watch, youtu.be, atau video ID
+                  langsung. Kosongkan untuk menghapus video.
+                </p>
+              )}
+            </div>
+
+            {/* Preview video ID yang akan disimpan */}
+            {footerForm.footer_video_url && !videoError && (
+              <div className="mt-2 px-3 py-2 bg-gray-50 rounded-lg">
+                <p className="text-xs text-gray-500">
+                  Video ID:{" "}
+                  <span className="font-mono text-gray-700">
+                    {(() => {
+                      const v = footerForm.footer_video_url.trim();
+                      const m =
+                        v.match(
+                          /(?:youtube\.com\/watch\?(?:.*&)?v=)([a-zA-Z0-9_-]{11})/,
+                        ) ||
+                        v.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/) ||
+                        v.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/);
+                      return m ? m[1] : /^[a-zA-Z0-9_-]{11}$/.test(v) ? v : "—";
+                    })()}
+                  </span>
+                </p>
+              </div>
+            )}
+
+            {/* Toggle tampilkan video */}
+            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl mt-3">
+              <div>
+                <p className="text-sm font-medium text-gray-700">
+                  Tampilkan video di footer
+                </p>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  Video hanya tampil jika URL sudah diisi
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  const newVal = showFooterVideo ? "false" : "true";
+                  saveSiteSettings({ show_footer_video: newVal });
+                }}
+                className="shrink-0 ml-4"
+              >
+                {showFooterVideo ? (
+                  <ToggleRight size={28} className="text-blue-600" />
+                ) : (
+                  <ToggleLeft size={28} className="text-gray-400" />
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Tombol simpan footer */}
+        <div className="flex justify-end mt-5">
+          <button
+            onClick={handleSaveFooter}
+            disabled={isSavingFooter || !!videoError}
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-medium px-4 py-2.5 rounded-lg transition-colors"
+          >
+            <Save size={16} />
+            {isSavingFooter ? "Menyimpan..." : "Simpan Footer"}
+          </button>
+        </div>
       </div>
 
       {/* Halaman Publik */}
