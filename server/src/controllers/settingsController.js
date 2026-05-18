@@ -9,7 +9,6 @@ export const getSiteSettings = async (req, res) => {
 
     if (error) throw error;
 
-    // Ubah array jadi object { key: value } agar mudah dipakai frontend
     const settings = data.reduce((acc, item) => {
       acc[item.key] = item.value;
       return acc;
@@ -28,6 +27,8 @@ export const updateSiteSettings = async (req, res) => {
     payment_expiry_hours,
     delivery_estimation,
     show_site_name,
+    whatsapp_number,
+    show_whatsapp,
   } = req.body;
 
   // Validasi payment_expiry_hours
@@ -41,26 +42,50 @@ export const updateSiteSettings = async (req, res) => {
     }
   }
 
+  // Validasi whatsapp_number — strip non-angka, cek panjang 10-15 digit
+  if (whatsapp_number !== undefined) {
+    const cleaned = String(whatsapp_number).replace(/\D/g, "");
+    if (cleaned.length < 10 || cleaned.length > 15) {
+      return res.status(400).json({
+        success: false,
+        message: "Nomor WhatsApp harus 10-15 digit angka",
+      });
+    }
+    // Gunakan cleaned value
+    req.body.whatsapp_number = cleaned;
+  }
+
+  // Validasi show_whatsapp — hanya "true" atau "false"
+  if (
+    show_whatsapp !== undefined &&
+    !["true", "false"].includes(show_whatsapp)
+  ) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid value for show_whatsapp",
+    });
+  }
+
   try {
     const updates = [];
 
-    if (site_name !== undefined) {
+    if (site_name !== undefined)
       updates.push({ key: "site_name", value: site_name });
-    }
-    if (site_description !== undefined) {
+    if (site_description !== undefined)
       updates.push({ key: "site_description", value: site_description });
-    }
-    if (payment_expiry_hours !== undefined) {
+    if (payment_expiry_hours !== undefined)
       updates.push({
         key: "payment_expiry_hours",
         value: String(payment_expiry_hours),
       });
-    }
-    if (delivery_estimation !== undefined) {
+    if (delivery_estimation !== undefined)
       updates.push({ key: "delivery_estimation", value: delivery_estimation });
-    }
     if (show_site_name !== undefined)
       updates.push({ key: "show_site_name", value: show_site_name });
+    if (whatsapp_number !== undefined)
+      updates.push({ key: "whatsapp_number", value: req.body.whatsapp_number });
+    if (show_whatsapp !== undefined)
+      updates.push({ key: "show_whatsapp", value: show_whatsapp });
 
     for (const update of updates) {
       const { error } = await supabase
@@ -151,11 +176,12 @@ export const updatePageSetting = async (req, res) => {
   const { key } = req.params;
   const { title, navbar_label, is_active } = req.body;
 
-  // Home tidak bisa dinonaktifkan
-  if (key === "home" && is_active === false) {
+  // Halaman yang tidak bisa dinonaktifkan
+  const alwaysActivePages = ["home", "order-track"];
+  if (alwaysActivePages.includes(key) && is_active === false) {
     return res.status(400).json({
       success: false,
-      message: "Home page cannot be deactivated",
+      message: `Page "${key}" cannot be deactivated`,
     });
   }
 

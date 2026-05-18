@@ -1,6 +1,5 @@
-import React, { useState } from "react";
+import { useState } from "react";
 
-// Shared editors
 import HeroEditor from "./editors/shared/HeroEditor";
 import CtaEditor from "./editors/shared/CtaEditor";
 import RichTextEditor from "./editors/shared/RichTextEditor";
@@ -9,12 +8,8 @@ import IconGridEditor from "./editors/shared/IconGridEditor";
 import ProductsPreviewEditor from "./editors/shared/ProductsPreviewEditor";
 import ServicesPreviewEditor from "./editors/shared/ServicesPreviewEditor";
 import BlogPreviewEditor from "./editors/shared/BlogPreviewEditor";
-
-// Home-specific editors
 import StatsEditor from "./editors/home/StatsEditor";
 import AboutSnippetEditor from "./editors/home/AboutSnippetEditor";
-
-// About-specific editors
 import TimelineEditor from "./editors/about/TimelineEditor";
 import TeamGridEditor from "./editors/about/TeamGridEditor";
 import StoryEditor from "./editors/about/StoryEditor";
@@ -35,7 +30,6 @@ const EDITOR_COMPONENTS = {
   story: StoryEditor,
 };
 
-// Label yang tampil di panel editor
 export const BLOCK_LABELS = {
   hero: "Hero Section",
   cta: "Call to Action",
@@ -52,9 +46,109 @@ export const BLOCK_LABELS = {
   story: "Cerita & Visi",
 };
 
-// Props:
-// block       — block yang sedang diedit (seluruh objek block termasuk konten dan desain)
-// onChange    — callback (updatedBlock) => void, dipanggil setiap perubahan
+// ✅ Color picker dengan hex input sinkron dua arah
+function ColorPickerField({ label, value, onChange, hint }) {
+  const safeValue = value || "#ffffff";
+  const isValidHex = /^#[0-9A-Fa-f]{6}$/.test(safeValue);
+
+  const handleHexInput = (raw) => {
+    const val = raw.startsWith("#") ? raw : `#${raw}`;
+    onChange(val);
+  };
+
+  return (
+    <div>
+      {label && (
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          {label}
+        </label>
+      )}
+      <div className="flex items-center gap-3">
+        {/* Native color picker */}
+        <input
+          type="color"
+          value={isValidHex ? safeValue : "#ffffff"}
+          onChange={(e) => onChange(e.target.value)}
+          className="h-10 w-14 p-0.5 border border-gray-300 rounded-md cursor-pointer shadow-sm shrink-0"
+        />
+        {/* ✅ Hex text input — bisa paste hex langsung */}
+        <input
+          type="text"
+          value={safeValue}
+          onChange={(e) => handleHexInput(e.target.value)}
+          placeholder="#ffffff"
+          maxLength={7}
+          spellCheck={false}
+          className="w-28 px-3 py-2 text-sm font-mono border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase"
+        />
+      </div>
+      {hint && <p className="text-xs text-gray-400 mt-1">{hint}</p>}
+    </div>
+  );
+}
+
+function GradientPreview({ start, end, direction }) {
+  return (
+    <div>
+      <label className="block text-xs font-medium text-gray-500 mb-2">
+        Preview
+      </label>
+      <div
+        className="w-full h-12 rounded-md shadow-sm border border-gray-200"
+        style={{
+          background: `linear-gradient(${direction || "to right"}, ${start || "#3b82f6"}, ${end || "#9333ea"})`,
+        }}
+      />
+    </div>
+  );
+}
+
+// ✅ Reusable gradient editor — dipakai untuk section dan card
+function GradientEditor({ prefix, design, onDesignChange }) {
+  const startKey = `${prefix}GradientStart`;
+  const endKey = `${prefix}GradientEnd`;
+  const dirKey = `${prefix}GradientDirection`;
+
+  return (
+    <div className="space-y-4 p-4 border border-gray-200 rounded-lg bg-gray-50">
+      <div className="grid grid-cols-2 gap-4">
+        <ColorPickerField
+          label="Warna Mulai"
+          value={design[startKey]}
+          onChange={(v) => onDesignChange(startKey, v)}
+        />
+        <ColorPickerField
+          label="Warna Akhir"
+          value={design[endKey]}
+          onChange={(v) => onDesignChange(endKey, v)}
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Arah Gradien
+        </label>
+        <select
+          value={design[dirKey] || "to right"}
+          onChange={(e) => onDesignChange(dirKey, e.target.value)}
+          className="w-full px-2 py-1.5 border border-gray-300 rounded shadow-sm text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+        >
+          <option value="to right">Ke Kanan →</option>
+          <option value="to left">Ke Kiri ←</option>
+          <option value="to bottom">Ke Bawah ↓</option>
+          <option value="to top">Ke Atas ↑</option>
+          <option value="to bottom right">Ke Kanan Bawah ↘</option>
+          <option value="to bottom left">Ke Kiri Bawah ↙</option>
+        </select>
+      </div>
+      <GradientPreview
+        start={design[startKey]}
+        end={design[endKey]}
+        direction={design[dirKey]}
+      />
+    </div>
+  );
+}
+
 export default function BlockEditor({ block, onChange }) {
   const [activeTab, setActiveTab] = useState("content");
 
@@ -77,131 +171,177 @@ export default function BlockEditor({ block, onChange }) {
   const handleDesignChange = (field, value) => {
     onChange({
       ...block,
-      design: {
-        ...(block.design || {}),
-        [field]: value
-      }
+      design: { ...(block.design || {}), [field]: value },
     });
   };
 
   const design = block.design || {};
   const bgType = design.bgType || "none";
+  const isCta = block.type === "cta";
+  const cardBgType = design.cardBgType || "default";
 
   return (
     <div>
       {/* Tabs */}
       <div className="flex border-b border-gray-200 mb-6">
-        <button
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-            activeTab === "content"
-              ? "border-blue-600 text-blue-600"
-              : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-          }`}
-          onClick={() => setActiveTab("content")}
-        >
-          Konten
-        </button>
-        <button
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-            activeTab === "design"
-              ? "border-blue-600 text-blue-600"
-              : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-          }`}
-          onClick={() => setActiveTab("design")}
-        >
-          Desain & Latar
-        </button>
+        {["content", "design"].map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === tab
+                ? "border-blue-600 text-blue-600"
+                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+            }`}
+          >
+            {tab === "content" ? "Konten" : "Desain & Latar"}
+          </button>
+        ))}
       </div>
 
-      {/* Tab Content */}
       {activeTab === "content" ? (
         <Editor content={block.content || {}} onChange={handleContentChange} />
       ) : (
         <div className="space-y-6">
+          {/* ── Background Section ── */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Tipe Latar Belakang</label>
-            <select
-              value={bgType}
-              onChange={(e) => handleDesignChange("bgType", e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-            >
-              <option value="none">Bawaan (Default)</option>
-              <option value="color">Warna Solid</option>
-              <option value="gradient">Gradien (Kustom)</option>
-            </select>
-          </div>
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+              {isCta ? "Background Section (Luar Card)" : "Background Section"}
+            </p>
 
-          {bgType === "color" && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Pilih Warna</label>
-              <div className="flex items-center gap-3">
-                <input
-                  type="color"
-                  value={design.bgColor || "#ffffff"}
-                  onChange={(e) => handleDesignChange("bgColor", e.target.value)}
-                  className="h-10 w-20 p-1 border border-gray-300 rounded-md cursor-pointer shadow-sm"
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Tipe Latar Belakang
+                </label>
+                <select
+                  value={bgType}
+                  onChange={(e) => handleDesignChange("bgType", e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                >
+                  <option value="none">Bawaan (Default)</option>
+                  <option value="color">Warna Solid</option>
+                  <option value="gradient">Gradien</option>
+                </select>
+              </div>
+
+              {bgType === "color" && (
+                <ColorPickerField
+                  label="Pilih Warna"
+                  value={design.bgColor}
+                  onChange={(v) => handleDesignChange("bgColor", v)}
                 />
-                <span className="text-sm font-mono text-gray-500 uppercase">{design.bgColor || "#ffffff"}</span>
-              </div>
-            </div>
-          )}
+              )}
 
-          {bgType === "gradient" && (
-            <div className="space-y-4 p-4 border border-gray-200 rounded-lg bg-gray-50">
-              <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Pengaturan Gradien</p>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Warna Mulai</label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="color"
-                      value={design.gradientStart || "#3b82f6"}
-                      onChange={(e) => handleDesignChange("gradientStart", e.target.value)}
-                      className="h-8 w-12 p-0.5 border border-gray-300 rounded cursor-pointer shadow-sm"
-                    />
-                    <span className="text-xs font-mono text-gray-500 uppercase">{design.gradientStart || "#3b82f6"}</span>
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Warna Akhir</label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="color"
-                      value={design.gradientEnd || "#9333ea"}
-                      onChange={(e) => handleDesignChange("gradientEnd", e.target.value)}
-                      className="h-8 w-12 p-0.5 border border-gray-300 rounded cursor-pointer shadow-sm"
-                    />
-                    <span className="text-xs font-mono text-gray-500 uppercase">{design.gradientEnd || "#9333ea"}</span>
-                  </div>
-                </div>
-                <div className="col-span-2">
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Arah Gradien</label>
-                  <select
-                    value={design.gradientDirection || "to right"}
-                    onChange={(e) => handleDesignChange("gradientDirection", e.target.value)}
-                    className="w-full px-2 py-1.5 border border-gray-300 rounded shadow-sm text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="to right">Ke Kanan</option>
-                    <option value="to left">Ke Kiri</option>
-                    <option value="to bottom">Ke Bawah</option>
-                    <option value="to top">Ke Atas</option>
-                    <option value="to bottom right">Ke Kanan Bawah</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Preview */}
-              <div className="mt-4 pt-4 border-t border-gray-200">
-                <label className="block text-xs font-medium text-gray-500 mb-2">Preview</label>
-                <div 
-                  className="w-full h-16 rounded-md shadow-sm border border-gray-200"
-                  style={{
-                    background: `linear-gradient(${design.gradientDirection || "to right"}, ${design.gradientStart || "#3b82f6"}, ${design.gradientEnd || "#9333ea"})`
+              {bgType === "gradient" && (
+                <GradientEditor
+                  prefix=""
+                  design={{
+                    GradientStart: design.gradientStart,
+                    GradientEnd: design.gradientEnd,
+                    GradientDirection: design.gradientDirection,
+                  }}
+                  onDesignChange={(field, value) => {
+                    // strip prefix kosong → nama asli
+                    const realField = field.replace(/^G/, "g");
+                    handleDesignChange(realField, value);
                   }}
                 />
-              </div>
+              )}
             </div>
+          </div>
+
+          {/* ── Card Color — hanya CTA ── */}
+          {isCta && (
+            <>
+              <div className="h-px bg-gray-100" />
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                  Warna Card CTA
+                </p>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Tipe Warna Card
+                    </label>
+                    <select
+                      value={cardBgType}
+                      onChange={(e) =>
+                        handleDesignChange("cardBgType", e.target.value)
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    >
+                      <option value="default">Bawaan (Gelap)</option>
+                      <option value="color">Warna Solid</option>
+                      <option value="gradient">Gradien</option>
+                    </select>
+                  </div>
+
+                  {cardBgType === "color" && (
+                    <ColorPickerField
+                      label="Pilih Warna Card"
+                      value={design.cardBgColor}
+                      onChange={(v) => handleDesignChange("cardBgColor", v)}
+                    />
+                  )}
+
+                  {cardBgType === "gradient" && (
+                    <div className="space-y-4 p-4 border border-gray-200 rounded-lg bg-gray-50">
+                      <div className="grid grid-cols-2 gap-4">
+                        <ColorPickerField
+                          label="Warna Mulai Card"
+                          value={design.cardGradientStart}
+                          onChange={(v) =>
+                            handleDesignChange("cardGradientStart", v)
+                          }
+                        />
+                        <ColorPickerField
+                          label="Warna Akhir Card"
+                          value={design.cardGradientEnd}
+                          onChange={(v) =>
+                            handleDesignChange("cardGradientEnd", v)
+                          }
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Arah Gradien Card
+                        </label>
+                        <select
+                          value={
+                            design.cardGradientDirection || "to bottom right"
+                          }
+                          onChange={(e) =>
+                            handleDesignChange(
+                              "cardGradientDirection",
+                              e.target.value,
+                            )
+                          }
+                          className="w-full px-2 py-1.5 border border-gray-300 rounded shadow-sm text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        >
+                          <option value="to right">Ke Kanan →</option>
+                          <option value="to left">Ke Kiri ←</option>
+                          <option value="to bottom">Ke Bawah ↓</option>
+                          <option value="to top">Ke Atas ↑</option>
+                          <option value="to bottom right">
+                            Ke Kanan Bawah ↘
+                          </option>
+                          <option value="to bottom left">
+                            Ke Kiri Bawah ↙
+                          </option>
+                        </select>
+                      </div>
+                      <GradientPreview
+                        start={design.cardGradientStart}
+                        end={design.cardGradientEnd}
+                        direction={design.cardGradientDirection}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
           )}
         </div>
       )}

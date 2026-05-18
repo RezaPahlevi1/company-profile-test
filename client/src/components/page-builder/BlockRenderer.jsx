@@ -1,8 +1,3 @@
-// BlockRenderer.jsx
-// Menerima satu block object dan render komponen publik yang sesuai.
-// Semua block renderer di-import di sini — satu pintu masuk untuk rendering.
-
-// Shared blocks
 import HeroBlock from "./blocks/shared/HeroBlock";
 import CtaBlock from "./blocks/shared/CtaBlock";
 import RichTextBlock from "./blocks/shared/RichTextBlock";
@@ -11,18 +6,13 @@ import IconGridBlock from "./blocks/shared/IconGridBlock";
 import ProductsPreviewBlock from "./blocks/shared/ProductsPreviewBlock";
 import ServicesPreviewBlock from "./blocks/shared/ServicesPreviewBlock";
 import BlogPreviewBlock from "./blocks/shared/BlogPreviewBlock";
-
-// Home-specific blocks
 import StatsBlock from "./blocks/home/StatsBlock";
 import AboutSnippetBlock from "./blocks/home/AboutSnippetBlock";
-
-// About-specific blocks
 import TimelineBlock from "./blocks/about/TimelineBlock";
 import TeamGridBlock from "./blocks/about/TeamGridBlock";
 import StoryBlock from "./blocks/about/StoryBlock";
 
 const BLOCK_COMPONENTS = {
-  // Shared
   hero: HeroBlock,
   cta: CtaBlock,
   rich_text: RichTextBlock,
@@ -31,10 +21,8 @@ const BLOCK_COMPONENTS = {
   products_preview: ProductsPreviewBlock,
   services_preview: ServicesPreviewBlock,
   blog_preview: BlogPreviewBlock,
-  // Home
   stats: StatsBlock,
   about_snippet: AboutSnippetBlock,
-  // About
   timeline: TimelineBlock,
   team_grid: TeamGridBlock,
   story: StoryBlock,
@@ -46,7 +34,6 @@ export default function BlockRenderer({ block, siteSettings }) {
   const Component = BLOCK_COMPONENTS[block.type];
 
   if (!Component) {
-    // Block type tidak dikenal — skip render, log warning
     console.warn(`[BlockRenderer] Unknown block type: "${block.type}"`);
     return null;
   }
@@ -65,14 +52,29 @@ export default function BlockRenderer({ block, siteSettings }) {
 
   const isCustomBg = design.bgType === "color" || design.bgType === "gradient";
 
-  // Jika tidak ada desain custom, render langsung tanpa wrapper untuk menghindari margin/padding ganda
+  // ✅ Pass design ke setiap block — dibutuhkan CTA untuk card color
   if (!isCustomBg) {
-    return <Component content={block.content || {}} siteSettings={siteSettings} isCustomBg={false} />;
+    return (
+      <Component
+        content={block.content || {}}
+        siteSettings={siteSettings}
+        isCustomBg={false}
+        design={design}
+      />
+    );
   }
 
   return (
-    <div style={backgroundStyle} className="w-full relative transition-colors duration-300">
-      <Component content={block.content || {}} siteSettings={siteSettings} isCustomBg={true} />
+    <div
+      style={backgroundStyle}
+      className="w-full relative transition-colors duration-300"
+    >
+      <Component
+        content={block.content || {}}
+        siteSettings={siteSettings}
+        isCustomBg={true}
+        design={design}
+      />
     </div>
   );
 }

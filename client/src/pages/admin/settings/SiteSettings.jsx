@@ -11,6 +11,7 @@ import {
   Image,
   ToggleLeft,
   ToggleRight,
+  MessageCircle,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import {
@@ -22,6 +23,9 @@ import {
   updatePageSetting,
 } from "../../../api/settings";
 import ConfirmModal from "../../../components/ui/ConfirmModal";
+
+// Halaman yang tidak bisa dinonaktifkan
+const ALWAYS_ACTIVE = ["home", "order-track"];
 
 export default function SiteSettings() {
   const queryClient = useQueryClient();
@@ -43,18 +47,20 @@ export default function SiteSettings() {
 
   const [form, setForm] = useState({
     site_name: "",
-    site_description: "",
     payment_expiry_hours: "24",
     delivery_estimation: "",
+    whatsapp_number: "",
   });
+
+  const [waError, setWaError] = useState("");
 
   useEffect(() => {
     if (settings.site_name !== undefined) {
       setForm({
         site_name: settings.site_name || "",
-        site_description: settings.site_description || "",
         payment_expiry_hours: settings.payment_expiry_hours || "24",
         delivery_estimation: settings.delivery_estimation || "",
+        whatsapp_number: settings.whatsapp_number || "",
       });
     }
   }, [siteData]);
@@ -103,13 +109,38 @@ export default function SiteSettings() {
     if (file) doUploadLogo(file);
   };
 
+  // Hanya izinkan angka, validasi panjang
+  const handleWaNumberChange = (e) => {
+    const onlyDigits = e.target.value.replace(/\D/g, "");
+    setForm((f) => ({ ...f, whatsapp_number: onlyDigits }));
+    if (
+      onlyDigits.length > 0 &&
+      (onlyDigits.length < 10 || onlyDigits.length > 15)
+    ) {
+      setWaError("Nomor harus 10-15 digit");
+    } else {
+      setWaError("");
+    }
+  };
+
+  const handleSave = () => {
+    const wa = form.whatsapp_number;
+    if (wa && (wa.length < 10 || wa.length > 15)) {
+      setWaError("Nomor harus 10-15 digit");
+      return;
+    }
+    setWaError("");
+    saveSiteSettings(form);
+  };
+
   const showLogo = settings.navbar_logo_url && settings.navbar_logo_url !== "";
+  const showWhatsapp = settings.show_whatsapp !== "false";
 
   if (siteLoading || pagesLoading) {
     return (
       <div className="space-y-4 lg:space-y-6">
         <div className="h-8 w-40 bg-white rounded-xl animate-pulse" />
-        {[...Array(3)].map((_, i) => (
+        {[...Array(4)].map((_, i) => (
           <div key={i} className="bg-white rounded-xl h-48 animate-pulse" />
         ))}
       </div>
@@ -118,7 +149,7 @@ export default function SiteSettings() {
 
   return (
     <div className="space-y-4 lg:space-y-6">
-      {/* Header — sama dengan halaman admin lain */}
+      {/* Header */}
       <div className="sticky top-0 z-10 bg-gray-100 pt-1 pb-3 lg:relative lg:bg-transparent lg:pt-0 lg:pb-0">
         <h1 className="text-xl lg:text-2xl font-bold text-gray-900">
           Site Settings
@@ -147,22 +178,6 @@ export default function SiteSettings() {
               }
               className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="CompanyName"
-            />
-          </div>
-
-          {/* Deskripsi */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Deskripsi Website
-            </label>
-            <textarea
-              value={form.site_description}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, site_description: e.target.value }))
-              }
-              rows={2}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-              placeholder="Solusi digital terpercaya..."
             />
           </div>
 
@@ -250,6 +265,70 @@ export default function SiteSettings() {
         </div>
       </div>
 
+      {/* WhatsApp */}
+      <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
+        <div className="flex items-center gap-3 mb-5">
+          <div className="w-9 h-9 bg-green-50 rounded-lg flex items-center justify-center shrink-0">
+            <MessageCircle size={18} className="text-green-600" />
+          </div>
+          <h2 className="text-base font-semibold text-gray-900">WhatsApp</h2>
+        </div>
+
+        <div className="space-y-4">
+          {/* Nomor WA */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Nomor WhatsApp
+            </label>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-500 shrink-0">+</span>
+              <input
+                value={form.whatsapp_number}
+                onChange={handleWaNumberChange}
+                inputMode="numeric"
+                maxLength={15}
+                className={`w-full px-4 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  waError ? "border-red-400" : "border-gray-300"
+                }`}
+                placeholder="628123456789"
+              />
+            </div>
+            {waError ? (
+              <p className="text-red-500 text-xs mt-1">{waError}</p>
+            ) : (
+              <p className="text-xs text-gray-400 mt-1.5">
+                Format internasional tanpa tanda +. Contoh: 628123456789
+              </p>
+            )}
+          </div>
+
+          {/* Toggle tampilkan WA di navbar */}
+          <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+            <div>
+              <p className="text-sm font-medium text-gray-700">
+                Tampilkan di navbar
+              </p>
+              <p className="text-xs text-gray-400 mt-0.5">
+                Tampilkan nomor WhatsApp di navbar dan menu mobile
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                const newVal = showWhatsapp ? "false" : "true";
+                saveSiteSettings({ show_whatsapp: newVal });
+              }}
+              className="shrink-0 ml-4"
+            >
+              {showWhatsapp ? (
+                <ToggleRight size={28} className="text-blue-600" />
+              ) : (
+                <ToggleLeft size={28} className="text-gray-400" />
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* Pembayaran & Estimasi */}
       <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
         <div className="flex items-center gap-3 mb-5">
@@ -262,7 +341,6 @@ export default function SiteSettings() {
         </div>
 
         <div className="space-y-4">
-          {/* Batas waktu pembayaran */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               <Clock size={13} className="inline mr-1.5 -mt-0.5" />
@@ -293,7 +371,6 @@ export default function SiteSettings() {
             </p>
           </div>
 
-          {/* Estimasi penyelesaian */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Estimasi Penyelesaian
@@ -316,8 +393,8 @@ export default function SiteSettings() {
       {/* Tombol Simpan */}
       <div className="flex justify-end">
         <button
-          onClick={() => saveSiteSettings(form)}
-          disabled={isSaving}
+          onClick={handleSave}
+          disabled={isSaving || !!waError}
           className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-medium px-4 py-2.5 rounded-lg transition-colors"
         >
           <Save size={16} />
@@ -346,6 +423,7 @@ export default function SiteSettings() {
             <PageRow
               key={page.page_key}
               page={page}
+              alwaysActive={ALWAYS_ACTIVE.includes(page.page_key)}
               onUpdate={(data) => doUpdatePage({ key: page.page_key, data })}
             />
           ))}
@@ -367,12 +445,11 @@ export default function SiteSettings() {
 }
 
 // Komponen per baris halaman
-const PageRow = ({ page, onUpdate }) => {
+const PageRow = ({ page, alwaysActive, onUpdate }) => {
   const [editTitle, setEditTitle] = useState(false);
   const [editLabel, setEditLabel] = useState(false);
   const [title, setTitle] = useState(page.title);
   const [navbarLabel, setNavbarLabel] = useState(page.navbar_label);
-  const isHome = page.page_key === "home";
 
   const handleSaveTitle = () => {
     if (title.trim()) {
@@ -388,6 +465,12 @@ const PageRow = ({ page, onUpdate }) => {
     }
   };
 
+  const toggleTitle = alwaysActive
+    ? page.page_key === "home"
+      ? "Home tidak bisa dinonaktifkan"
+      : "Track Order tidak bisa dinonaktifkan"
+    : undefined;
+
   return (
     <div
       className={`p-3 rounded-xl border transition-colors ${
@@ -396,16 +479,17 @@ const PageRow = ({ page, onUpdate }) => {
           : "border-dashed border-gray-200 bg-white opacity-60"
       }`}
     >
-      {/* Baris atas: label + toggle */}
       <div className="flex items-start justify-between gap-3 mb-2">
         <span className="text-xs font-medium text-gray-500 uppercase tracking-wide pt-0.5">
           /{page.page_key}
         </span>
         <button
-          onClick={() => !isHome && onUpdate({ is_active: !page.is_active })}
-          disabled={isHome}
-          title={isHome ? "Home tidak bisa dinonaktifkan" : ""}
-          className={`shrink-0 transition-colors ${isHome ? "opacity-40 cursor-not-allowed" : ""}`}
+          onClick={() =>
+            !alwaysActive && onUpdate({ is_active: !page.is_active })
+          }
+          disabled={alwaysActive}
+          title={toggleTitle}
+          className={`shrink-0 transition-colors ${alwaysActive ? "opacity-40 cursor-not-allowed" : ""}`}
         >
           {page.is_active ? (
             <ToggleRight size={26} className="text-blue-600" />
@@ -415,9 +499,7 @@ const PageRow = ({ page, onUpdate }) => {
         </button>
       </div>
 
-      {/* Baris bawah: dua kolom edit — stack di mobile, grid di sm+ */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {/* Browser title */}
         <div>
           <p className="text-xs text-gray-400 mb-1">Browser title</p>
           {editTitle ? (
@@ -455,7 +537,6 @@ const PageRow = ({ page, onUpdate }) => {
           )}
         </div>
 
-        {/* Label navbar */}
         <div>
           <p className="text-xs text-gray-400 mb-1">Label navbar</p>
           {editLabel ? (

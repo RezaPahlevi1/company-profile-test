@@ -46,7 +46,14 @@ export default function Navbar() {
   const logoUrl = settings.navbar_logo_url;
   const showLogo = logoUrl && logoUrl !== "";
   const showSiteName = !showLogo || settings.show_site_name !== "false";
-  const waNumber = import.meta.env.VITE_WA_NUMBER || "628123456789";
+
+  // WA — dari database, fallback ke env variable jika belum di-set
+  const waNumber =
+    settings.whatsapp_number ||
+    import.meta.env.VITE_WA_NUMBER ||
+    "628123456789";
+  const showWhatsapp = settings.show_whatsapp !== "false";
+
   const waFormatted = waNumber.replace(
     /(\d{2})(\d{3})(\d{4})(\d+)/,
     "$1 $2-$3-$4",
@@ -79,15 +86,18 @@ export default function Navbar() {
               )}
             </Link>
 
-            <a
-              href={`https://wa.me/${waNumber}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hidden sm:flex items-center gap-1 text-green-600 hover:text-green-700 transition-colors text-xs"
-            >
-              <MessageCircle size={10} className="shrink-0" />
-              <span>+{waFormatted}</span>
-            </a>
+            {/* WA — hanya tampil jika show_whatsapp aktif */}
+            {showWhatsapp && (
+              <a
+                href={`https://wa.me/${waNumber}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hidden sm:flex items-center gap-1 text-green-600 hover:text-green-700 transition-colors text-xs"
+              >
+                <MessageCircle size={10} className="shrink-0" />
+                <span>+{waFormatted}</span>
+              </a>
+            )}
           </div>
 
           {/* Desktop nav */}
@@ -176,15 +186,18 @@ export default function Navbar() {
                 </NavLink>
               ))}
 
-              <a
-                href={`https://wa.me/${waNumber}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => setIsOpen(false)}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-green-600 hover:bg-green-50 transition-colors"
-              >
-                <MessageCircle size={15} />+{waFormatted}
-              </a>
+              {/* WA di mobile menu — hanya tampil jika show_whatsapp aktif */}
+              {showWhatsapp && (
+                <a
+                  href={`https://wa.me/${waNumber}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setIsOpen(false)}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-green-600 hover:bg-green-50 transition-colors"
+                >
+                  <MessageCircle size={15} />+{waFormatted}
+                </a>
+              )}
             </div>
           </motion.div>
         )}
