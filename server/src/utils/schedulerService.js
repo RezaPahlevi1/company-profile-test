@@ -2,12 +2,18 @@ import cron from "node-cron";
 import supabase from "../config/supabase.js";
 import { sendBroadcastEmail } from "./emailService.js";
 
-// Cek dan kirim broadcast yang sudah waktunya
+// ✅ Prevent overlapping cron jobs
+let isProcessing = false;
+
+// ======================================================
+// Process Scheduled Broadcasts
+// ======================================================
+
 async function processScheduledBroadcasts() {
   try {
     const now = new Date().toISOString();
 
-    // Ambil semua broadcast yang scheduled dan waktunya sudah lewat
+    // ✅ Ambil semua broadcast scheduled yang waktunya sudah lewat
     const { data: broadcasts, error } = await supabase
       .from("email_broadcasts")
       .select("*")
@@ -19,10 +25,16 @@ async function processScheduledBroadcasts() {
       return;
     }
 
-    if (!broadcasts?.length) return;
+    if (!broadcasts?.length) {
+      console.log("[Scheduler] No scheduled broadcasts");
+      return;
+    }
 
-    console.log(`[Scheduler] Found ${broadcasts.length} broadcast(s) to send`);
+    console.log(
+      `[Scheduler] Found ${broadcasts.length} broadcast(s) to process`,
+    );
 
+    // ✅ Process satu per satu agar tidak overload
     for (const broadcast of broadcasts) {
       await processSingleBroadcast(broadcast);
     }
@@ -31,14 +43,29 @@ async function processScheduledBroadcasts() {
   }
 }
 
+// ======================================================
+// Process Single Broadcast
+// ======================================================
+
 async function processSingleBroadcast(broadcast) {
   try {
-    // ✅ Tandai "sending" dulu agar tidak double-send jika cron overlap
-    const { error: lockError } = await supabase
+    console.log(`[Scheduler] Processing broadcast ${broadcast.id}`);
+
+    // ✅ Lock broadcast supaya tidak double-send
+    const { data: lockedData, error: lockError } = await supabase
       .from("email_broadcasts")
       .update({ status: "sending" })
       .eq("id", broadcast.id)
-      .eq("status", "scheduled"); // ✅ guard: hanya update jika masih "scheduled"
+      .eq("status", "scheduled")
+      .select();
+
+    // Kalau tidak ada row yang ke-update → berarti sudah diproses
+    if (!lockedData?.length) {
+      console.log(
+        `[Scheduler] Broadcast ${broadcast.id} already locked/skipped`,
+      );
+      return;
+    }
 
     if (lockError) {
       console.error(
@@ -48,38 +75,67 @@ async function processSingleBroadcast(broadcast) {
       return;
     }
 
-    // Ambil semua buyer yang pernah paid
+    // ======================================================
+    // Get Paid Orders
+    // ======================================================
+
     const { data: orders, error: ordersError } = await supabase
       .from("orders")
       .select("buyer_email, buyer_name")
       .eq("status", "paid");
 
-    if (ordersError) throw ordersError;
+    if (ordersError) {
+      throw ordersError;
+    }
 
+    // ✅ Remove duplicate emails
     const allRecipients = [
       ...new Map(orders.map((o) => [o.buyer_email, o])).values(),
     ];
 
-    // ✅ Gunakan recipient_emails dari database — null = kirim ke semua
+    // ======================================================
+    // Filter Recipients
+    // ======================================================
+
     const recipients = broadcast.recipient_emails?.length
       ? allRecipients.filter((r) =>
           broadcast.recipient_emails.includes(r.buyer_email),
         )
       : allRecipients;
 
+    // ======================================================
+    // No Recipients
+    // ======================================================
+
     if (!recipients.length) {
       await supabase
         .from("email_broadcasts")
-        .update({ status: "failed", sent_at: new Date().toISOString() })
+        .update({
+          status: "failed",
+          sent_at: new Date().toISOString(),
+        })
         .eq("id", broadcast.id);
 
       console.warn(
         `[Scheduler] Broadcast ${broadcast.id}: no eligible recipients`,
       );
+
       return;
     }
 
+    console.log(
+      `[Scheduler] Sending broadcast ${broadcast.id} to ${recipients.length} recipient(s)`,
+    );
+
+    // ======================================================
+    // Send Emails
+    // ======================================================
+
     const { sent, failed } = await sendBroadcastEmail(broadcast, recipients);
+
+    // ======================================================
+    // Update Status
+    // ======================================================
 
     await supabase
       .from("email_broadcasts")
@@ -91,20 +147,25 @@ async function processSingleBroadcast(broadcast) {
       .eq("id", broadcast.id);
 
     console.log(
-      `[Scheduler] Broadcast ${broadcast.id} done: ${sent} sent, ${failed} failed`,
+      `[Scheduler] Broadcast ${broadcast.id} completed → ${sent} sent, ${failed} failed`,
     );
   } catch (err) {
     console.error(`[Scheduler] Broadcast ${broadcast.id} error:`, err.message);
 
-    // Tandai failed agar tidak stuck di "sending"
+    // ✅ Reset ke failed supaya tidak stuck di "sending"
     await supabase
       .from("email_broadcasts")
-      .update({ status: "failed" })
+      .update({
+        status: "failed",
+      })
       .eq("id", broadcast.id);
   }
 }
 
-// ✅ Recovery — reset broadcast yang stuck di "sending" saat server crash/restart
+// ======================================================
+// Recovery Stuck Broadcasts
+// ======================================================
+
 async function recoverStuckBroadcasts() {
   try {
     const { data: stuck, error } = await supabase
@@ -117,13 +178,18 @@ async function recoverStuckBroadcasts() {
       return;
     }
 
-    if (!stuck?.length) return;
+    if (!stuck?.length) {
+      console.log("[Scheduler] No stuck broadcasts found");
+      return;
+    }
 
     const ids = stuck.map((b) => b.id);
 
     const { error: resetError } = await supabase
       .from("email_broadcasts")
-      .update({ status: "scheduled" })
+      .update({
+        status: "scheduled",
+      })
       .in("id", ids);
 
     if (resetError) {
@@ -131,20 +197,41 @@ async function recoverStuckBroadcasts() {
       return;
     }
 
-    console.log(
-      `[Scheduler] Recovered ${ids.length} stuck broadcast(s) → reset to "scheduled"`,
-    );
+    console.log(`[Scheduler] Recovered ${ids.length} stuck broadcast(s)`);
   } catch (err) {
     console.error("[Scheduler] Recovery unexpected error:", err.message);
   }
 }
 
-// ✅ startScheduler jadi async agar recovery selesai sebelum cron pertama jalan
+// ======================================================
+// Start Scheduler
+// ======================================================
+
 export async function startScheduler() {
+  // ✅ Recovery dulu sebelum scheduler jalan
   await recoverStuckBroadcasts();
 
-  cron.schedule("* * * * *", () => {
-    processScheduledBroadcasts();
+  // ✅ Cron tiap 1 menit
+  cron.schedule("* * * * *", async () => {
+    // Prevent overlap
+    if (isProcessing) {
+      console.log("[Scheduler] Previous job still running, skipping...");
+      return;
+    }
+
+    try {
+      isProcessing = true;
+
+      console.log(
+        `[Scheduler] Running scheduled job at ${new Date().toISOString()}`,
+      );
+
+      await processScheduledBroadcasts();
+    } catch (err) {
+      console.error("[Scheduler] Cron execution failed:", err.message);
+    } finally {
+      isProcessing = false;
+    }
   });
 
   console.log("[Scheduler] Broadcast scheduler started");
