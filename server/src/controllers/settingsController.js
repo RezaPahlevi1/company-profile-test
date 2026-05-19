@@ -3,28 +3,21 @@ import uploadToSupabase from "../utils/uploadToSupabase.js";
 
 // ==================== HELPERS ====================
 
-// Ekstrak YouTube video ID dari berbagai format URL
-// Mengembalikan video ID string, atau null jika tidak valid
 const extractYoutubeId = (input) => {
   if (!input || typeof input !== "string") return null;
 
   const trimmed = input.trim();
 
-  // Jika sudah berupa video ID murni (11 karakter alphanumeric + - _)
   if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) return trimmed;
 
-  // Format: https://www.youtube.com/watch?v=VIDEO_ID
-  // Format: https://youtube.com/watch?v=VIDEO_ID&...
   const watchMatch = trimmed.match(
     /(?:youtube\.com\/watch\?(?:.*&)?v=)([a-zA-Z0-9_-]{11})/,
   );
   if (watchMatch) return watchMatch[1];
 
-  // Format: https://youtu.be/VIDEO_ID
   const shortMatch = trimmed.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/);
   if (shortMatch) return shortMatch[1];
 
-  // Format: https://www.youtube.com/embed/VIDEO_ID
   const embedMatch = trimmed.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/);
   if (embedMatch) return embedMatch[1];
 
@@ -54,7 +47,7 @@ export const updateSiteSettings = async (req, res) => {
   const {
     site_name,
     site_description,
-    payment_expiry_hours,
+    payment_expiry_minutes,
     delivery_estimation,
     show_site_name,
     whatsapp_number,
@@ -66,18 +59,19 @@ export const updateSiteSettings = async (req, res) => {
     show_footer_video,
   } = req.body;
 
-  // Validasi payment_expiry_hours
-  if (payment_expiry_hours !== undefined) {
-    const hours = Number(payment_expiry_hours);
-    if (isNaN(hours) || hours < 1 || hours > 168) {
+  // Validasi payment_expiry_minutes — 1 menit sampai 1440 menit (24 jam)
+  if (payment_expiry_minutes !== undefined) {
+    const minutes = Number(payment_expiry_minutes);
+    if (isNaN(minutes) || minutes < 1 || minutes > 1440) {
       return res.status(400).json({
         success: false,
-        message: "Payment expiry must be between 1 and 168 hours",
+        message:
+          "Batas waktu pembayaran harus antara 1 hingga 1440 menit (24 jam)",
       });
     }
   }
 
-  // Validasi whatsapp_number — strip non-angka, cek panjang 10-15 digit
+  // Validasi whatsapp_number
   if (whatsapp_number !== undefined) {
     const cleaned = String(whatsapp_number).replace(/\D/g, "");
     if (cleaned.length < 10 || cleaned.length > 15) {
@@ -112,10 +106,8 @@ export const updateSiteSettings = async (req, res) => {
   }
 
   // Validasi dan ekstrak YouTube video ID
-  // Simpan sebagai video ID murni, bukan full URL
   if (footer_video_url !== undefined) {
     if (footer_video_url === "") {
-      // Boleh kosong — berarti hapus video
       req.body.footer_video_id = "";
     } else {
       const videoId = extractYoutubeId(footer_video_url);
@@ -137,10 +129,10 @@ export const updateSiteSettings = async (req, res) => {
       updates.push({ key: "site_name", value: site_name });
     if (site_description !== undefined)
       updates.push({ key: "site_description", value: site_description });
-    if (payment_expiry_hours !== undefined)
+    if (payment_expiry_minutes !== undefined)
       updates.push({
-        key: "payment_expiry_hours",
-        value: String(payment_expiry_hours),
+        key: "payment_expiry_minutes",
+        value: String(payment_expiry_minutes),
       });
     if (delivery_estimation !== undefined)
       updates.push({ key: "delivery_estimation", value: delivery_estimation });
@@ -250,7 +242,6 @@ export const updatePageSetting = async (req, res) => {
   const { key } = req.params;
   const { title, navbar_label, is_active } = req.body;
 
-  // Halaman yang tidak bisa dinonaktifkan
   const alwaysActivePages = ["home", "order-track"];
   if (alwaysActivePages.includes(key) && is_active === false) {
     return res.status(400).json({

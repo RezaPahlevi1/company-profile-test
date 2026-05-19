@@ -8,11 +8,11 @@ import {
 
 // ✅ Helper — cek apakah order pending sudah melewati expiry window
 // Jika ya, update status ke failed di database dan return true
-async function checkAndExpireOrder(order, expiryHours) {
+async function checkAndExpireOrder(order, expiryMinutes) {
   if (order.status !== "pending") return false;
 
   const orderCreatedAt = new Date(order.created_at).getTime();
-  const expiredAt = orderCreatedAt + expiryHours * 60 * 60 * 1000;
+  const expiredAt = orderCreatedAt + expiryMinutes * 60 * 1000;
   const isExpired = Date.now() > expiredAt;
 
   if (isExpired) {
@@ -26,14 +26,14 @@ async function checkAndExpireOrder(order, expiryHours) {
   return false;
 }
 
-// ✅ Helper — ambil expiry hours dari site_settings
-async function getExpiryHours() {
+// ✅ Helper — ambil expiry minutes dari site_settings
+async function getExpiryMinutes() {
   const { data } = await supabase
     .from("site_settings")
     .select("value")
-    .eq("key", "payment_expiry_hours")
+    .eq("key", "payment_expiry_minutes")
     .single();
-  return Number(data?.value) || 24;
+  return Number(data?.value) || 1440; // default 1440 menit = 24 jam
 }
 
 export const createOrder = async (req, res) => {
@@ -140,7 +140,7 @@ export const createOrder = async (req, res) => {
       name: item.product_name.substring(0, 50),
     }));
 
-    const expiryHours = await getExpiryHours();
+    const expiryMinutes = await getExpiryMinutes();
 
     const midtransParameter = {
       transaction_details: {
@@ -155,8 +155,8 @@ export const createOrder = async (req, res) => {
       },
       item_details: midtransItems,
       expiry: {
-        unit: "hour",
-        duration: expiryHours,
+        unit: "minute",
+        duration: expiryMinutes,
       },
     };
 
@@ -216,10 +216,9 @@ export const trackOrder = async (req, res) => {
       });
     }
 
-    // ✅ Cek dan update ke failed jika sudah expired sebelum return ke frontend
     if (order.status === "pending") {
-      const expiryHours = await getExpiryHours();
-      const expired = await checkAndExpireOrder(order, expiryHours);
+      const expiryMinutes = await getExpiryMinutes();
+      const expired = await checkAndExpireOrder(order, expiryMinutes);
       if (expired) {
         order.status = "failed";
       }
@@ -367,10 +366,9 @@ export const getOrderById = async (req, res) => {
       });
     }
 
-    // ✅ Cek dan update ke failed jika sudah expired — admin juga dapat status akurat
     if (order.status === "pending") {
-      const expiryHours = await getExpiryHours();
-      const expired = await checkAndExpireOrder(order, expiryHours);
+      const expiryMinutes = await getExpiryMinutes();
+      const expired = await checkAndExpireOrder(order, expiryMinutes);
       if (expired) {
         order.status = "failed";
       }
@@ -413,10 +411,9 @@ export const repayOrder = async (req, res) => {
       });
     }
 
-    const expiryHours = await getExpiryHours();
+    const expiryMinutes = await getExpiryMinutes();
 
-    // ✅ Cek expired — update DB ke failed dan return error ke frontend
-    const expired = await checkAndExpireOrder(order, expiryHours);
+    const expired = await checkAndExpireOrder(order, expiryMinutes);
     if (expired) {
       return res.status(400).json({
         success: false,
@@ -424,9 +421,9 @@ export const repayOrder = async (req, res) => {
       });
     }
 
-    // Hitung sisa menit untuk token Midtrans baru
+    // Hitung sisa menit dari window original
     const orderCreatedAt = new Date(order.created_at).getTime();
-    const expiredAt = orderCreatedAt + expiryHours * 60 * 60 * 1000;
+    const expiredAt = orderCreatedAt + expiryMinutes * 60 * 1000;
     const remainingMinutes = Math.floor((expiredAt - Date.now()) / 1000 / 60);
 
     const midtransOrderId = `${order.order_number}-R${Date.now()}`;
@@ -450,7 +447,6 @@ export const repayOrder = async (req, res) => {
         billing_address: { address: order.buyer_address },
       },
       item_details: midtransItems,
-      // ✅ Sisa waktu dari window original, bukan reset dari sekarang
       expiry: {
         unit: "minute",
         duration: remainingMinutes,
@@ -523,8 +519,6 @@ export const updateOrderStatus = async (req, res) => {
 
     if (error) throw error;
 
-    // ✅ Kirim email payment success jika status berubah ke paid
-    // Guard: skip jika order sebelumnya sudah paid — cegah email duplikat
     if (status === "paid" && !wasAlreadyPaid) {
       const { data: fullOrder } = await supabase
         .from("orders")

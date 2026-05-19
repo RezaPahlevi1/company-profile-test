@@ -26,8 +26,19 @@ import {
 } from "../../../api/settings";
 import ConfirmModal from "../../../components/ui/ConfirmModal";
 
-// Halaman yang tidak bisa dinonaktifkan
 const ALWAYS_ACTIVE = ["home", "order-track"];
+
+// Helper — konversi menit ke string yang mudah dibaca
+// 90 → "1 jam 30 menit", 60 → "1 jam", 45 → "45 menit"
+const formatMinutes = (total) => {
+  const mins = Number(total);
+  if (isNaN(mins) || mins <= 0) return "";
+  const hours = Math.floor(mins / 60);
+  const remaining = mins % 60;
+  if (hours === 0) return `${remaining} menit`;
+  if (remaining === 0) return `${hours} jam`;
+  return `${hours} jam ${remaining} menit`;
+};
 
 export default function SiteSettings() {
   const queryClient = useQueryClient();
@@ -49,7 +60,7 @@ export default function SiteSettings() {
 
   const [form, setForm] = useState({
     site_name: "",
-    payment_expiry_hours: "24",
+    payment_expiry_minutes: "1440",
     delivery_estimation: "",
     whatsapp_number: "",
   });
@@ -68,7 +79,7 @@ export default function SiteSettings() {
     if (settings.site_name !== undefined) {
       setForm({
         site_name: settings.site_name || "",
-        payment_expiry_hours: settings.payment_expiry_hours || "24",
+        payment_expiry_minutes: settings.payment_expiry_minutes || "1440",
         delivery_estimation: settings.delivery_estimation || "",
         whatsapp_number: settings.whatsapp_number || "",
       });
@@ -76,7 +87,6 @@ export default function SiteSettings() {
         footer_tagline: settings.footer_tagline || "",
         footer_cta_title: settings.footer_cta_title || "",
         footer_cta_body: settings.footer_cta_body || "",
-        // Tampilkan video_id di field URL sebagai referensi
         footer_video_url: settings.footer_video_id || "",
       });
     }
@@ -151,7 +161,6 @@ export default function SiteSettings() {
     }
   };
 
-  // Validasi YouTube URL sederhana di frontend sebagai UX feedback
   const handleVideoUrlChange = (e) => {
     const val = e.target.value;
     setFooterForm((f) => ({ ...f, footer_video_url: val }));
@@ -173,6 +182,11 @@ export default function SiteSettings() {
       setWaError("Nomor harus 10-15 digit");
       return;
     }
+    const mins = Number(form.payment_expiry_minutes);
+    if (isNaN(mins) || mins < 1 || mins > 1440) {
+      toast.error("Batas waktu pembayaran harus antara 1 hingga 1440 menit");
+      return;
+    }
     setWaError("");
     saveSiteSettings(form);
   };
@@ -185,6 +199,19 @@ export default function SiteSettings() {
       footer_cta_body: footerForm.footer_cta_body,
       footer_video_url: footerForm.footer_video_url,
     });
+  };
+
+  // Ekstrak video ID untuk preview — sama seperti di controller
+  const getPreviewVideoId = (val) => {
+    if (!val) return null;
+    const v = val.trim();
+    const m =
+      v.match(/(?:youtube\.com\/watch\?(?:.*&)?v=)([a-zA-Z0-9_-]{11})/) ||
+      v.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/) ||
+      v.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/);
+    if (m) return m[1];
+    if (/^[a-zA-Z0-9_-]{11}$/.test(v)) return v;
+    return null;
   };
 
   const showLogo = settings.navbar_logo_url && settings.navbar_logo_url !== "";
@@ -235,7 +262,6 @@ export default function SiteSettings() {
             />
           </div>
 
-          {/* Logo */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Logo Navbar
@@ -395,30 +421,32 @@ export default function SiteSettings() {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               <Clock size={13} className="inline mr-1.5 -mt-0.5" />
-              Batas Waktu Pembayaran (jam)
+              Batas Waktu Pembayaran (menit)
             </label>
             <div className="flex flex-col sm:flex-row sm:items-center gap-2">
               <input
                 type="number"
                 min="1"
-                max="168"
-                value={form.payment_expiry_hours}
+                max="1440"
+                value={form.payment_expiry_minutes}
                 onChange={(e) =>
                   setForm((f) => ({
                     ...f,
-                    payment_expiry_hours: e.target.value,
+                    payment_expiry_minutes: e.target.value,
                   }))
                 }
                 className="w-full sm:w-32 px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
-              <span className="text-sm text-gray-500">
-                {form.payment_expiry_hours} jam ={" "}
-                {(Number(form.payment_expiry_hours) / 24).toFixed(1)} hari
-              </span>
+              {/* Kalkulasi tampilan yang informatif */}
+              {form.payment_expiry_minutes && (
+                <span className="text-sm text-gray-500">
+                  = {formatMinutes(form.payment_expiry_minutes)}
+                </span>
+              )}
             </div>
             <p className="text-xs text-gray-400 mt-1.5">
-              Berlaku untuk semua order baru. Pembayaran yang melewati batas
-              akan otomatis gagal di Midtrans.
+              Antara 1 menit hingga 1440 menit (24 jam). Berlaku untuk semua
+              order baru.
             </p>
           </div>
 
@@ -463,7 +491,6 @@ export default function SiteSettings() {
         </div>
 
         <div className="space-y-4">
-          {/* Tagline brand */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Tagline Brand
@@ -482,7 +509,6 @@ export default function SiteSettings() {
             </p>
           </div>
 
-          {/* CTA Title */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Judul CTA
@@ -501,7 +527,6 @@ export default function SiteSettings() {
             />
           </div>
 
-          {/* CTA Body */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Teks CTA
@@ -553,22 +578,13 @@ export default function SiteSettings() {
               )}
             </div>
 
-            {/* Preview video ID yang akan disimpan */}
+            {/* Preview video ID */}
             {footerForm.footer_video_url && !videoError && (
               <div className="mt-2 px-3 py-2 bg-gray-50 rounded-lg">
                 <p className="text-xs text-gray-500">
                   Video ID:{" "}
                   <span className="font-mono text-gray-700">
-                    {(() => {
-                      const v = footerForm.footer_video_url.trim();
-                      const m =
-                        v.match(
-                          /(?:youtube\.com\/watch\?(?:.*&)?v=)([a-zA-Z0-9_-]{11})/,
-                        ) ||
-                        v.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/) ||
-                        v.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/);
-                      return m ? m[1] : /^[a-zA-Z0-9_-]{11}$/.test(v) ? v : "—";
-                    })()}
+                    {getPreviewVideoId(footerForm.footer_video_url) || "—"}
                   </span>
                 </p>
               </div>
@@ -601,7 +617,6 @@ export default function SiteSettings() {
           </div>
         </div>
 
-        {/* Tombol simpan footer */}
         <div className="flex justify-end mt-5">
           <button
             onClick={handleSaveFooter}
@@ -656,7 +671,6 @@ export default function SiteSettings() {
   );
 }
 
-// Komponen per baris halaman
 const PageRow = ({ page, alwaysActive, onUpdate }) => {
   const [editTitle, setEditTitle] = useState(false);
   const [editLabel, setEditLabel] = useState(false);
