@@ -18,22 +18,13 @@ import analyticsRoutes from "./routes/analyticsRoutes.js";
 import emailRoutes from "./routes/emailRoutes.js";
 import pageBuilderRoutes from "./routes/pageBuilderRoutes.js";
 
-
 const app = express();
+const isDev = process.env.NODE_ENV !== "production";
 
-// ✅ Compression — paling atas sebelum semua middleware
 app.use(compression());
-
-// ✅ Security headers
-app.use(
-  helmet({
-    contentSecurityPolicy: false,
-  }),
-);
+app.use(helmet({ contentSecurityPolicy: false }));
 
 // ✅ CORS
-// Di production: CLIENT_URL di .env diisi satu domain → hanya itu yang diallow
-// Di development: allow 5173 (dev) dan 4173 (vite preview) sekaligus
 const allowedOrigins = process.env.CLIENT_URL
   ? [process.env.CLIENT_URL]
   : ["http://localhost:5173", "http://localhost:4173"];
@@ -41,7 +32,6 @@ const allowedOrigins = process.env.CLIENT_URL
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests tanpa origin (Postman, curl, server-to-server)
       if (!origin) return callback(null, true);
       if (allowedOrigins.includes(origin)) return callback(null, true);
       callback(new Error(`CORS: origin ${origin} not allowed`));
@@ -50,32 +40,37 @@ app.use(
   }),
 );
 
-// ✅ Body size limit
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 app.use(cookieParser());
 
-// ✅ Webhook Midtrans — HARUS sebelum rate limiter
+// ✅ Webhook Midtrans — sebelum rate limiter
 app.post("/api/orders/webhook", handleMidtransWebhook);
 app.post("/api/midtrans/webhook", handleMidtransWebhook);
 
-// ✅ Rate limit global — 200 request per 15 menit per IP
+// ✅ Rate limit global
+// Development: 1000/15 menit — longgar untuk React StrictMode + Vite HMR
+// Production: 200/15 menit — ketat
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 200,
+  max: isDev ? 1000 : 200,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
     success: false,
     message: "Too many requests, please try again later.",
   },
+  // ✅ Skip /auth/me — dipanggil sering untuk verifikasi session,
+  // tidak berbahaya karena butuh valid cookie untuk dapat response
+  skip: (req) => req.method === "GET" && req.path === "/api/auth/me",
 });
 app.use(globalLimiter);
 
 // ✅ Login — anti brute force
+// Development lebih longgar agar tidak ganggu testing berulang
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 10,
+  max: isDev ? 100 : 10,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -88,7 +83,7 @@ app.use("/api/auth/login", authLimiter);
 // ✅ Create order
 const orderCreateLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
-  max: 20,
+  max: isDev ? 100 : 20,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -102,7 +97,7 @@ app.use("/api/orders", orderCreateLimiter);
 // ✅ Broadcast
 const broadcastSendLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
-  max: 10,
+  max: isDev ? 100 : 10,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -126,14 +121,12 @@ app.use("/api/analytics", analyticsRoutes);
 app.use("/api/email", emailRoutes);
 app.use("/api/page-builder", pageBuilderRoutes);
 
-// ✅ Health check — development only
-if (process.env.NODE_ENV !== "production") {
+if (isDev) {
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok" });
   });
 }
 
-// ✅ Error handler
 app.use((err, req, res, next) => {
   console.error(err.stack);
   if (err.name === "MulterError") {
@@ -144,10 +137,7 @@ app.use((err, req, res, next) => {
   }
   return res.status(500).json({
     success: false,
-    message:
-      process.env.NODE_ENV === "production"
-        ? "Internal server error"
-        : err.message,
+    message: isDev ? err.message : "Internal server error",
   });
 });
 

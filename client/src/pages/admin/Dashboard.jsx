@@ -163,6 +163,7 @@ export default function Dashboard() {
             {/* Range selector */}
             <div className="flex gap-1 bg-gray-100 rounded-lg p-1 w-fit">
               {[
+                { label: "1 Hari", value: "1d" },
                 { label: "7 Hari", value: "7d" },
                 { label: "30 Hari", value: "30d" },
                 { label: "90 Hari", value: "90d" },

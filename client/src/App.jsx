@@ -7,8 +7,6 @@ import { useQuery } from "@tanstack/react-query";
 import { getPageSettings } from "./api/settings";
 import useTrackVisit from "./hooks/useTrackVisit";
 
-// ✅ Lazy load semua halaman — public dan admin
-// Public
 const Home = lazy(() => import("./pages/public/Home"));
 const About = lazy(() => import("./pages/public/About"));
 const Products = lazy(() => import("./pages/public/Products"));
@@ -20,8 +18,6 @@ const Contact = lazy(() => import("./pages/public/Contact"));
 const Checkout = lazy(() => import("./pages/public/Checkout"));
 const OrderStatus = lazy(() => import("./pages/public/OrderStatus"));
 const NotFound = lazy(() => import("./pages/public/NotFound"));
-
-// Admin
 const Login = lazy(() => import("./pages/admin/Login"));
 const Dashboard = lazy(() => import("./pages/admin/Dashboard"));
 const ProductList = lazy(() => import("./pages/admin/products/ProductList"));
@@ -34,18 +30,18 @@ const SiteSettings = lazy(() => import("./pages/admin/settings/SiteSettings"));
 const EmailSettings = lazy(
   () => import("./pages/admin/settings/emailSettings"),
 );
+const HomeBuilder = lazy(
+  () => import("./pages/admin/page-builder/HomeBuilder"),
+);
+const AboutBuilder = lazy(
+  () => import("./pages/admin/page-builder/AboutBuilder"),
+);
 
-// Page builder
-const HomeBuilder = lazy(() => import("./pages/admin/page-builder/HomeBuilder"));
-const AboutBuilder = lazy(() => import("./pages/admin/page-builder/AboutBuilder"));
-
-// Layout — tidak di-lazy karena dipakai di semua route
 import Navbar from "./components/layout/Navbar";
 import Footer from "./components/layout/Footer";
 import AdminLayout from "./components/layout/AdminLayout";
 import PromoPopup from "./components/shared/PromoPopup";
 
-// ✅ Spinner fallback saat lazy load
 const PageSpinner = () => (
   <div className="min-h-screen flex items-center justify-center bg-gray-100">
     <svg
@@ -101,38 +97,21 @@ const PageGuard = ({ pageKey, children }) => {
   return children;
 };
 
+// ✅ useAuthVerify dan useTrackVisit dihapus dari sini
+// Dipindah ke AppInit agar hanya dipanggil sekali di level App
 const ProtectedRoute = ({ children }) => {
   const { isAuthenticated, _hasHydrated } = useAuthStore();
-  useAuthVerify();
-  useTrackVisit();
-
-  if (!_hasHydrated) {
-    return <PageSpinner />;
-  }
-
+  if (!_hasHydrated) return <PageSpinner />;
   return isAuthenticated ? children : <Navigate to="/admin/login" replace />;
 };
 
 const RoleProtectedRoute = ({ allowedRoles, children }) => {
   const { admin, _hasHydrated } = useAuthStore();
-
-  // ✅ Tunggu hydration selesai dulu sebelum cek role
-  // Mencegah race condition yang dulu default ke "superadmin"
-  if (!_hasHydrated) {
-    return <PageSpinner />;
-  }
-
+  if (!_hasHydrated) return <PageSpinner />;
   const role = admin?.role;
-
-  // ✅ Tidak ada role = data admin belum masuk atau token invalid
-  if (!role) {
-    return <Navigate to="/admin/login" replace />;
-  }
-
-  if (!allowedRoles.includes(role)) {
+  if (!role) return <Navigate to="/admin/login" replace />;
+  if (!allowedRoles.includes(role))
     return <Navigate to="/admin/dashboard" replace />;
-  }
-
   return children;
 };
 
@@ -144,13 +123,21 @@ const PublicLayout = ({ children }) => (
   </>
 );
 
+// ✅ Dipanggil sekali di level App — tidak re-mount saat navigasi antar halaman
+// Mencegah /auth/me dipanggil berkali-kali yang menyebabkan 429
+function AppInit() {
+  useAuthVerify();
+  useTrackVisit();
+  return null;
+}
+
 export default function App() {
   return (
-    // ✅ Suspense wraps semua Routes agar lazy load bisa jalan
     <Suspense fallback={<PageSpinner />}>
+      <AppInit />
       <ScrollToTop />
       <Routes>
-        {/* Public routes */}
+        {/* Public */}
         <Route
           path="/"
           element={
@@ -251,7 +238,7 @@ export default function App() {
           }
         />
 
-        {/* Admin routes */}
+        {/* Admin */}
         <Route path="/admin/login" element={<Login />} />
         <Route
           path="/admin"

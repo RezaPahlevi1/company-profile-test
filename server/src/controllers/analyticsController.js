@@ -96,6 +96,7 @@ export const getAnalytics = async (req, res) => {
   const { range = "7d" } = req.query;
 
   const rangeMap = {
+    "1d": 1,
     "7d": 7,
     "30d": 30,
     "90d": 90,
