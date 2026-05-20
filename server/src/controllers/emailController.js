@@ -1,5 +1,6 @@
 import supabase from "../config/supabase.js";
 import { sendBroadcastEmail } from "../utils/emailService.js";
+import uploadToSupabase from "../utils/uploadToSupabase.js";
 
 // ==================== TEMPLATES ====================
 
@@ -67,6 +68,7 @@ export const updateTemplate = async (req, res) => {
       .from("email_templates")
       .update({
         ...(subject && { subject }),
+        // ✅ greeting boleh kosong string
         ...(greeting !== undefined && { greeting }),
         ...(body_message !== undefined && { body_message }),
         ...(footer_text !== undefined && { footer_text }),
@@ -80,6 +82,24 @@ export const updateTemplate = async (req, res) => {
     return res
       .status(200)
       .json({ success: true, message: "Template updated", data });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+export const uploadBroadcastImage = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: "No image uploaded" });
+    }
+
+    const url = await uploadToSupabase(
+      req.file.buffer,
+      req.file.mimetype,
+      "broadcast"
+    );
+
+    return res.status(200).json({ success: true, data: { url } });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
   }
@@ -106,6 +126,15 @@ export const resetTemplate = async (req, res) => {
       footer_text:
         "Email ini dikirim otomatis oleh sistem {{site_name}}. Jika ada pertanyaan, hubungi kami.",
       header_color: "#059669",
+    },
+    // ✅ Default untuk broadcast template
+    broadcast: {
+      subject: "",
+      greeting: "",
+      body_message: "",
+      footer_text:
+        "Email ini dikirim oleh {{site_name}}. Anda menerima email ini karena pernah melakukan pemesanan di website kami.",
+      header_color: "#2563eb",
     },
   };
 
@@ -297,21 +326,19 @@ export const deleteBroadcast = async (req, res) => {
 // ✅ Ganti getRecipientPreview → getRecipients (return semua data, bukan hanya preview)
 export const getRecipients = async (req, res) => {
   try {
+    // ✅ Semua order tanpa filter status
     const { data: orders, error } = await supabase
       .from("orders")
-      .select("buyer_email, buyer_name")
-      .eq("status", "paid");
+      .select("buyer_email, buyer_name");
 
     if (error) throw error;
 
-    // Deduplicate by email
     const unique = [...new Map(orders.map((o) => [o.buyer_email, o])).values()];
 
     return res.status(200).json({
       success: true,
       data: {
         count: unique.length,
-        // ✅ Return semua recipients (bukan hanya 5 preview)
         recipients: unique.map((r) => ({
           email: r.buyer_email,
           name: r.buyer_name,
@@ -354,8 +381,7 @@ export const sendBroadcast = async (req, res) => {
 
     const { data: orders, error: ordersError } = await supabase
       .from("orders")
-      .select("buyer_email, buyer_name")
-      .eq("status", "paid");
+      .select("buyer_email, buyer_name");
 
     if (ordersError) throw ordersError;
 

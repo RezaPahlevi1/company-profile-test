@@ -313,7 +313,17 @@ export const sendPaymentSuccessEmail = async (order, items) => {
 export const sendBroadcastEmail = async (broadcast, recipients) => {
   if (!recipients.length) return { sent: 0, failed: 0 };
 
-  const siteSettings = await getSiteSettings();
+  const [siteSettings, template] = await Promise.all([
+    getSiteSettings(),
+    getTemplate("broadcast"),
+  ]);
+
+  const siteName = siteSettings.site_name || "CompanyName";
+  const headerColor = template.header_color || "#2563eb";
+  const footerText = renderTemplate(template.footer_text || "", {
+    site_name: siteName,
+  });
+
   let sent = 0;
   let failed = 0;
 
@@ -321,67 +331,76 @@ export const sendBroadcastEmail = async (broadcast, recipients) => {
   for (let i = 0; i < recipients.length; i += batchSize) {
     const batch = recipients.slice(i, i + batchSize);
 
-    const emails = batch.map((recipient) => {
-      const variables = {
-        buyer_name: recipient.buyer_name,
-        site_name: siteSettings.site_name || "CompanyName",
-      };
+    const results = await Promise.allSettled(
+      batch.map((recipient) => {
+        const variables = {
+          buyer_name: recipient.buyer_name || recipient.name,
+          site_name: siteName,
+        };
 
-      const subject = renderTemplate(broadcast.subject, variables);
-      const body = renderTemplate(broadcast.body_message, variables);
+        const subject = renderTemplate(broadcast.subject, variables);
 
-      const html = `
+        // ✅ greeting boleh kosong
+        const greeting = template.greeting
+          ? renderTemplate(template.greeting, variables)
+          : "";
+
+        // ✅ body_message adalah HTML dari Tiptap — tidak di-renderTemplate,
+        // langsung dipakai sebagai HTML content
+        // Sanitasi sudah dilakukan saat save di controller via sanitize-html
+        const bodyHtml = broadcast.body_message || "";
+
+        const html = `
 <!DOCTYPE html>
 <html>
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
 <body style="margin:0;padding:0;background-color:#f8fafc;font-family:'Segoe UI',Arial,sans-serif;">
   <div style="max-width:600px;margin:40px auto;background:white;border-radius:16px;overflow:hidden;box-shadow:0 4px 6px rgba(0,0,0,0.07);">
-    <div style="background:#2563eb;padding:32px;text-align:center;">
-      <h1 style="color:white;margin:0;font-size:20px;">${variables.site_name}</h1>
+
+    <div style="background:${headerColor};padding:36px 32px;text-align:center;">
+      <h1 style="color:white;margin:0;font-size:22px;font-weight:700;">${siteName}</h1>
     </div>
+
     <div style="padding:32px;">
-      <p style="color:#334155;font-size:15px;margin:0 0 16px;">Halo ${variables.buyer_name},</p>
-      <div style="color:#475569;font-size:15px;line-height:1.7;">${body.replace(/\n/g, "<br>")}</div>
+      ${greeting ? `<p style="color:#334155;font-size:15px;margin:0 0 16px;">${greeting}</p>` : ""}
+      <div style="color:#475569;font-size:15px;line-height:1.7;">
+        ${bodyHtml}
+      </div>
     </div>
+
     <div style="background:#f8fafc;padding:20px 32px;text-align:center;border-top:1px solid #e2e8f0;">
-      <p style="color:#94a3b8;font-size:12px;margin:0;">
-        Email ini dikirim oleh ${variables.site_name}. 
-        Anda menerima email ini karena pernah berbelanja di website kami.
+      <p style="color:#94a3b8;font-size:12px;margin:0;line-height:1.6;">
+        ${footerText}
       </p>
     </div>
+
   </div>
 </body>
 </html>`;
 
-      return {
-        from: process.env.RESEND_FROM_EMAIL,
-        to: recipient.buyer_email,
-        subject,
-        html,
-      };
-    });
+        return resend.emails.send({
+          from: process.env.RESEND_FROM_EMAIL,
+          to: recipient.buyer_email || recipient.email,
+          subject,
+          html,
+        });
+      }),
+    );
 
-    try {
-      // ✅ Kirim satu per satu, bukan batch — agar satu email invalid tidak gagalkan semua
-      const results = await Promise.allSettled(
-        emails.map((email) => resend.emails.send(email)),
-      );
-
-      for (const result of results) {
-        if (result.status === "fulfilled" && !result.value.error) {
-          sent++;
-        } else {
-          const reason = result.reason || result.value?.error;
-          console.error(
-            `Failed to send to one recipient:`,
-            reason?.message || reason,
-          );
-          failed++;
-        }
+    for (const result of results) {
+      if (result.status === "fulfilled" && !result.value?.error) {
+        sent++;
+      } else {
+        const reason = result.reason || result.value?.error;
+        console.error(
+          "Failed to send to one recipient:",
+          reason?.message || reason,
+        );
+        failed++;
       }
-    } catch (err) {
-      console.error(`Batch ${i / batchSize + 1} failed:`, err);
-      failed += batch.length;
     }
 
     if (i + batchSize < recipients.length) {

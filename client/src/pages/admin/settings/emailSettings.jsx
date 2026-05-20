@@ -1,5 +1,10 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useEditor, EditorContent } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import Image from "@tiptap/extension-image";
+import Link from "@tiptap/extension-link";
+import Placeholder from "@tiptap/extension-placeholder";
 import { motion } from "framer-motion";
 import {
   Mail,
@@ -17,6 +22,15 @@ import {
   Search,
   CheckSquare,
   Square,
+  Bold,
+  Italic,
+  List,
+  ListOrdered,
+  Heading2,
+  Heading3,
+  Link as LinkIcon,
+  Image as ImageIcon,
+  Upload,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import {
@@ -29,6 +43,7 @@ import {
   deleteBroadcast,
   getRecipients,
   sendBroadcast,
+  uploadBroadcastImage,
 } from "../../../api/email";
 import ConfirmModal from "../../../components/ui/ConfirmModal";
 
@@ -51,6 +66,7 @@ const AVAILABLE_VARIABLES = {
     "{{site_name}}",
     "{{track_url}}",
   ],
+  broadcast: ["{{buyer_name}}", "{{site_name}}"],
 };
 
 const statusConfig = {
@@ -78,7 +94,118 @@ const statusConfig = {
 };
 
 // ============================================================
-// TEMPLATE EDITOR
+// BROADCAST MENU BAR — dengan upload image ke Supabase
+// ============================================================
+const BroadcastMenuBar = ({ editor, onImageUpload, isUploadingImage }) => {
+  if (!editor) return null;
+
+  const setLink = () => {
+    const prev = editor.getAttributes("link").href;
+    const url = window.prompt("Masukkan URL:", prev || "");
+    if (url === null) return;
+    if (url === "") {
+      editor.chain().focus().extendMarkRange("link").unsetLink().run();
+      return;
+    }
+    editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
+  };
+
+  const buttons = [
+    {
+      action: () => editor.chain().focus().toggleBold().run(),
+      active: editor.isActive("bold"),
+      icon: <Bold size={14} />,
+      title: "Bold",
+    },
+    {
+      action: () => editor.chain().focus().toggleItalic().run(),
+      active: editor.isActive("italic"),
+      icon: <Italic size={14} />,
+      title: "Italic",
+    },
+    {
+      action: () => editor.chain().focus().toggleHeading({ level: 2 }).run(),
+      active: editor.isActive("heading", { level: 2 }),
+      icon: <Heading2 size={14} />,
+      title: "H2",
+    },
+    {
+      action: () => editor.chain().focus().toggleHeading({ level: 3 }).run(),
+      active: editor.isActive("heading", { level: 3 }),
+      icon: <Heading3 size={14} />,
+      title: "H3",
+    },
+    {
+      action: () => editor.chain().focus().toggleBulletList().run(),
+      active: editor.isActive("bulletList"),
+      icon: <List size={14} />,
+      title: "Bullet",
+    },
+    {
+      action: () => editor.chain().focus().toggleOrderedList().run(),
+      active: editor.isActive("orderedList"),
+      icon: <ListOrdered size={14} />,
+      title: "Ordered",
+    },
+    {
+      action: setLink,
+      active: editor.isActive("link"),
+      icon: <LinkIcon size={14} />,
+      title: "Link",
+    },
+  ];
+
+  return (
+    <div className="flex flex-wrap gap-1 p-2 border-b border-gray-200 bg-gray-50 rounded-t-lg">
+      {buttons.map(({ action, active, icon, title }) => (
+        <button
+          key={title}
+          type="button"
+          onClick={action}
+          title={title}
+          className={`p-2 rounded text-sm transition-colors ${
+            active
+              ? "bg-blue-100 text-blue-700"
+              : "text-gray-600 hover:bg-gray-200"
+          }`}
+        >
+          {icon}
+        </button>
+      ))}
+
+      {/* Upload image — terpisah karena async */}
+      <label
+        title="Upload Gambar"
+        className={`p-2 rounded text-sm transition-colors cursor-pointer ${
+          isUploadingImage
+            ? "opacity-50 cursor-not-allowed"
+            : "text-gray-600 hover:bg-gray-200"
+        }`}
+      >
+        {isUploadingImage ? (
+          <Upload size={14} className="animate-pulse" />
+        ) : (
+          <ImageIcon size={14} />
+        )}
+        <input
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          className="hidden"
+          disabled={isUploadingImage}
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) onImageUpload(file);
+            // reset input agar file yang sama bisa diupload lagi
+            e.target.value = "";
+          }}
+        />
+      </label>
+    </div>
+  );
+};
+
+// ============================================================
+// TEMPLATE EDITOR — support broadcast template (greeting boleh kosong)
 // ============================================================
 const TemplateEditor = ({
   template,
@@ -87,6 +214,8 @@ const TemplateEditor = ({
   isSaving,
   isResetting,
 }) => {
+  const isBroadcast = template.template_key === "broadcast";
+
   const [form, setForm] = useState({
     subject: template.subject || "",
     greeting: template.greeting || "",
@@ -126,47 +255,62 @@ const TemplateEditor = ({
         </div>
       </div>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1.5">
-          Subject Email
-        </label>
-        <input
-          value={form.subject}
-          onChange={(e) => setForm((f) => ({ ...f, subject: e.target.value }))}
-          className="input-base"
-          placeholder="Subject email..."
-        />
-        <p className="text-xs text-gray-400 mt-1">
-          Preview: <span className="text-gray-600">{previewSubject}</span>
-        </p>
-      </div>
+      {/* Subject — hanya untuk non-broadcast */}
+      {!isBroadcast && (
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">
+            Subject Email
+          </label>
+          <input
+            value={form.subject}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, subject: e.target.value }))
+            }
+            className="input-base"
+            placeholder="Subject email..."
+          />
+          <p className="text-xs text-gray-400 mt-1">
+            Preview: <span className="text-gray-600">{previewSubject}</span>
+          </p>
+        </div>
+      )}
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1.5">
-          Salam Pembuka
+          Salam Pembuka{" "}
+          {isBroadcast && (
+            <span className="text-gray-400 font-normal">(opsional)</span>
+          )}
         </label>
         <input
           value={form.greeting}
           onChange={(e) => setForm((f) => ({ ...f, greeting: e.target.value }))}
           className="input-base"
-          placeholder="Halo {{buyer_name}},"
+          placeholder={
+            isBroadcast
+              ? "Halo {{buyer_name}}, (kosongkan jika tidak perlu)"
+              : "Halo {{buyer_name}},"
+          }
         />
       </div>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1.5">
-          Pesan Utama
-        </label>
-        <textarea
-          value={form.body_message}
-          onChange={(e) =>
-            setForm((f) => ({ ...f, body_message: e.target.value }))
-          }
-          rows={4}
-          className="input-base resize-none"
-          placeholder="Isi pesan email..."
-        />
-      </div>
+      {/* Body message — hanya untuk non-broadcast (broadcast pakai editor) */}
+      {!isBroadcast && (
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">
+            Pesan Utama
+          </label>
+          <textarea
+            value={form.body_message}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, body_message: e.target.value }))
+            }
+            rows={4}
+            className="input-base resize-none"
+            placeholder="Isi pesan email..."
+          />
+        </div>
+      )}
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1.5">
@@ -238,7 +382,7 @@ const TemplateEditor = ({
 // ============================================================
 const RecipientSelector = ({ recipients, selectedEmails, onChange }) => {
   const [search, setSearch] = useState("");
-  const allSelected = selectedEmails === null; // null = semua
+  const allSelected = selectedEmails === null;
 
   const filtered = recipients.filter(
     (r) =>
@@ -246,13 +390,10 @@ const RecipientSelector = ({ recipients, selectedEmails, onChange }) => {
       r.email.toLowerCase().includes(search.toLowerCase()),
   );
 
-  const toggleAll = () => {
-    onChange(null); // null = kirim ke semua
-  };
+  const toggleAll = () => onChange(null);
 
   const toggleOne = (email) => {
     if (allSelected) {
-      // Dari "semua" → unselect satu = pilih semua kecuali ini
       onChange(recipients.map((r) => r.email).filter((e) => e !== email));
     } else {
       if (selectedEmails.includes(email)) {
@@ -260,7 +401,6 @@ const RecipientSelector = ({ recipients, selectedEmails, onChange }) => {
         onChange(next.length === 0 ? [] : next);
       } else {
         const next = [...selectedEmails, email];
-        // Kalau sudah pilih semua, kembalikan ke null
         onChange(next.length === recipients.length ? null : next);
       }
     }
@@ -275,7 +415,6 @@ const RecipientSelector = ({ recipients, selectedEmails, onChange }) => {
 
   return (
     <div className="border border-gray-200 rounded-xl overflow-hidden">
-      {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200">
         <button
           onClick={toggleAll}
@@ -291,7 +430,6 @@ const RecipientSelector = ({ recipients, selectedEmails, onChange }) => {
         <span className="text-xs text-gray-500">{selectedCount} dipilih</span>
       </div>
 
-      {/* Search */}
       <div className="px-3 py-2 border-b border-gray-100">
         <div className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2">
           <Search size={13} className="text-gray-400" />
@@ -304,7 +442,6 @@ const RecipientSelector = ({ recipients, selectedEmails, onChange }) => {
         </div>
       </div>
 
-      {/* List */}
       <div className="max-h-52 overflow-y-auto">
         {filtered.length === 0 ? (
           <p className="text-center text-gray-400 text-sm py-6">
@@ -337,7 +474,7 @@ const RecipientSelector = ({ recipients, selectedEmails, onChange }) => {
 };
 
 // ============================================================
-// BROADCAST FORM
+// BROADCAST FORM — dengan Tiptap editor
 // ============================================================
 const BroadcastForm = ({
   broadcast,
@@ -346,54 +483,100 @@ const BroadcastForm = ({
   isSaving,
   recipients,
 }) => {
-  const [form, setForm] = useState({
-    subject: broadcast?.subject || "",
-    body_message: broadcast?.body_message || "",
-    scheduled_at: broadcast?.scheduled_at
+  const [subject, setSubject] = useState(broadcast?.subject || "");
+  const [selectedEmails, setSelectedEmails] = useState(null);
+  const [scheduleOpts, setScheduleOpts] = useState({
+    use: Boolean(broadcast?.scheduled_at),
+    value: broadcast?.scheduled_at
       ? new Date(broadcast.scheduled_at).toISOString().slice(0, 16)
       : "",
-    useSchedule: Boolean(broadcast?.scheduled_at),
+  });
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+
+  const editor = useEditor({
+    extensions: [
+      StarterKit,
+      Image.configure({
+        HTMLAttributes: {
+          style: "max-width:100%;height:auto;border-radius:8px;",
+        },
+      }),
+      Link.configure({ openOnClick: false }),
+      Placeholder.configure({
+        placeholder: "Tulis isi email broadcast di sini...",
+      }),
+    ],
+    content: broadcast?.body_message || "",
   });
 
-  // null = semua, array = subset
-  const [selectedEmails, setSelectedEmails] = useState(null);
+  const handleImageUpload = useCallback(
+    async (file) => {
+      if (!editor) return;
 
-  const broadcastVariables = ["{{buyer_name}}", "{{site_name}}"];
+      const MAX_MB = 5;
+      if (file.size > MAX_MB * 1024 * 1024) {
+        toast.error(`Ukuran gambar maksimal ${MAX_MB}MB`);
+        return;
+      }
 
-  const copyVariable = (v) => {
-    navigator.clipboard.writeText(v);
-    toast.success(`${v} disalin`);
-  };
+      setIsUploadingImage(true);
+      try {
+        const res = await uploadBroadcastImage(file);
+        const url = res.data?.data?.url;
+        if (!url) throw new Error("URL tidak ditemukan");
+        editor.chain().focus().setImage({ src: url }).run();
+        toast.success("Gambar berhasil diunggah");
+      } catch (err) {
+        toast.error(err.response?.data?.message || "Gagal mengunggah gambar");
+      } finally {
+        setIsUploadingImage(false);
+      }
+    },
+    [editor],
+  );
 
   const selectedCount =
     selectedEmails === null ? recipients.length : selectedEmails.length;
 
+  const handleSave = () => {
+    const bodyHtml = editor?.getHTML() || "";
+    if (!subject.trim()) {
+      toast.error("Subject tidak boleh kosong");
+      return;
+    }
+    if (!bodyHtml || bodyHtml === "<p></p>") {
+      toast.error("Isi email tidak boleh kosong");
+      return;
+    }
+    if (selectedCount === 0) {
+      toast.error("Pilih minimal satu penerima");
+      return;
+    }
+
+    onSave({
+      subject: subject.trim(),
+      body_message: bodyHtml,
+      scheduled_at:
+        scheduleOpts.use && scheduleOpts.value
+          ? new Date(scheduleOpts.value).toISOString()
+          : null,
+      recipient_emails: selectedEmails,
+    });
+  };
+
   return (
     <div className="space-y-5">
+      {/* Info penerima */}
       <div className="bg-amber-50 border border-amber-100 rounded-xl p-4">
-        <div className="flex items-center gap-2 mb-2">
+        <div className="flex items-center gap-2">
           <Users size={14} className="text-amber-600" />
           <p className="text-sm font-medium text-amber-700">
             {selectedCount} dari {recipients.length} penerima dipilih
           </p>
         </div>
-        <p className="text-xs text-amber-600">
-          Variabel tersedia — klik untuk salin:
-        </p>
-        <div className="flex gap-2 mt-1.5 flex-wrap">
-          {broadcastVariables.map((v) => (
-            <button
-              key={v}
-              onClick={() => copyVariable(v)}
-              className="bg-white border border-amber-200 text-amber-600 text-xs px-2.5 py-1 rounded-lg hover:bg-amber-100 transition-colors font-mono"
-            >
-              {v}
-            </button>
-          ))}
-        </div>
       </div>
 
-      {/* ✅ Recipient selector */}
+      {/* Recipient selector */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1.5">
           Pilih Penerima
@@ -405,44 +588,48 @@ const BroadcastForm = ({
         />
       </div>
 
+      {/* Subject */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1.5">
           Subject Email <span className="text-red-500">*</span>
         </label>
         <input
-          value={form.subject}
-          onChange={(e) => setForm((f) => ({ ...f, subject: e.target.value }))}
+          value={subject}
+          onChange={(e) => setSubject(e.target.value)}
           className="input-base"
           placeholder="Promo spesial untuk Anda!"
         />
       </div>
 
+      {/* Tiptap Editor */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1.5">
-          Isi Pesan <span className="text-red-500">*</span>
+          Isi Email <span className="text-red-500">*</span>
         </label>
-        <textarea
-          value={form.body_message}
-          onChange={(e) =>
-            setForm((f) => ({ ...f, body_message: e.target.value }))
-          }
-          rows={6}
-          className="input-base resize-none"
-          placeholder="Halo {{buyer_name}}, kami ingin menyampaikan..."
-        />
+        <div className="border border-gray-300 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-blue-500">
+          <BroadcastMenuBar
+            editor={editor}
+            onImageUpload={handleImageUpload}
+            isUploadingImage={isUploadingImage}
+          />
+          <EditorContent
+            editor={editor}
+            className="prose prose-sm max-w-none p-4 min-h-[200px] focus:outline-none"
+          />
+        </div>
+        <p className="text-xs text-gray-400 mt-1.5">
+          Gunakan toolbar untuk format teks dan upload gambar langsung ke email.
+        </p>
       </div>
 
+      {/* Schedule */}
       <div className="border border-gray-100 rounded-xl p-4 space-y-3">
         <label className="flex items-center gap-2 cursor-pointer">
           <input
             type="checkbox"
-            checked={form.useSchedule}
+            checked={scheduleOpts.use}
             onChange={(e) =>
-              setForm((f) => ({
-                ...f,
-                useSchedule: e.target.checked,
-                scheduled_at: "",
-              }))
+              setScheduleOpts({ use: e.target.checked, value: "" })
             }
             className="w-4 h-4 accent-blue-600"
           />
@@ -451,16 +638,16 @@ const BroadcastForm = ({
             Jadwalkan pengiriman
           </span>
         </label>
-        {form.useSchedule && (
+        {scheduleOpts.use && (
           <div>
             <label className="block text-xs text-gray-500 mb-1.5">
               Tanggal & waktu pengiriman
             </label>
             <input
               type="datetime-local"
-              value={form.scheduled_at}
+              value={scheduleOpts.value}
               onChange={(e) =>
-                setForm((f) => ({ ...f, scheduled_at: e.target.value }))
+                setScheduleOpts((s) => ({ ...s, value: e.target.value }))
               }
               min={new Date(Date.now() + 60000).toISOString().slice(0, 16)}
               className="input-base"
@@ -469,6 +656,7 @@ const BroadcastForm = ({
         )}
       </div>
 
+      {/* Actions */}
       <div className="flex gap-3">
         <button
           onClick={onCancel}
@@ -477,24 +665,8 @@ const BroadcastForm = ({
           Batal
         </button>
         <button
-          onClick={() =>
-            onSave({
-              subject: form.subject,
-              body_message: form.body_message,
-              scheduled_at:
-                form.useSchedule && form.scheduled_at
-                  ? new Date(form.scheduled_at).toISOString()
-                  : null,
-              // ✅ null = semua, array = subset — disimpan ke database
-              recipient_emails: selectedEmails,
-            })
-          }
-          disabled={
-            isSaving ||
-            !form.subject ||
-            !form.body_message ||
-            selectedCount === 0
-          }
+          onClick={handleSave}
+          disabled={isSaving || isUploadingImage}
           className="btn-primary flex-1 justify-center"
         >
           <Save size={15} />
@@ -516,8 +688,6 @@ export default function EmailSettings() {
   const [editingBroadcast, setEditingBroadcast] = useState(null);
   const [confirmSend, setConfirmSend] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
-  // ✅ State selected_emails untuk confirm send
-  const [pendingSendEmails, setPendingSendEmails] = useState(null);
 
   const { data: templatesData, isLoading: templatesLoading } = useQuery({
     queryKey: ["email-templates"],
@@ -600,7 +770,6 @@ export default function EmailSettings() {
         toast.error(err.response?.data?.message || "Gagal menghapus"),
     });
 
-  // ✅ Simpel — tidak perlu selected_emails di request body
   const { mutate: doSendBroadcast, isPending: isSendingBroadcast } =
     useMutation({
       mutationFn: (id) => sendBroadcast(id),
@@ -645,10 +814,12 @@ export default function EmailSettings() {
           animate={{ opacity: 1, y: 0 }}
           className="bg-white rounded-xl shadow-sm p-6"
         >
-          <div className="flex gap-2 mb-6">
+          {/* Template selector — sekarang 3 tab */}
+          <div className="flex gap-2 mb-6 flex-wrap">
             {[
               { key: "order_created", label: "Order Dibuat" },
               { key: "payment_success", label: "Pembayaran Sukses" },
+              { key: "broadcast", label: "Broadcast" },
             ].map((t) => (
               <button
                 key={t.key}
@@ -794,10 +965,7 @@ export default function EmailSettings() {
                           <div className="flex items-center gap-2 shrink-0">
                             {canSend && (
                               <button
-                                onClick={() => {
-                                  setConfirmSend(bc);
-                                  setPendingSendEmails(null); // default = semua
-                                }}
+                                onClick={() => setConfirmSend(bc)}
                                 className="flex items-center gap-1.5 bg-brand-600 hover:bg-brand-700 text-white text-xs font-medium px-3 py-2 rounded-lg transition-colors"
                               >
                                 <Send size={12} />
@@ -836,18 +1004,11 @@ export default function EmailSettings() {
       <ConfirmModal
         isOpen={Boolean(confirmSend)}
         title="Kirim Broadcast"
-        message={`Broadcast "${confirmSend?.subject}" akan dikirim ke ${
-          pendingSendEmails === null
-            ? recipientCount
-            : pendingSendEmails?.length || 0
-        } penerima. Tindakan ini tidak bisa dibatalkan setelah dimulai.`}
+        message={`Broadcast "${confirmSend?.subject}" akan dikirim ke ${recipientCount} penerima. Tindakan ini tidak bisa dibatalkan setelah dimulai.`}
         confirmLabel="Ya, Kirim Sekarang"
         variant="primary"
         onConfirm={() => doSendBroadcast(confirmSend?.id)}
-        onCancel={() => {
-          setConfirmSend(null);
-          setPendingSendEmails(null);
-        }}
+        onCancel={() => setConfirmSend(null)}
         isLoading={isSendingBroadcast}
       />
 

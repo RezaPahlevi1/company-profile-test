@@ -61,3 +61,26 @@ export const checkBounds = (rules) => (req, res, next) => {
   }
   next();
 };
+
+// ✅ Sanitasi semua field KECUALI field HTML (broadcast body, dll)
+// Tidak mengubah sanitizeBody yang existing — aman untuk routes lain
+export const sanitizeBodyExclude =
+  (excludeFields = []) =>
+  (req, res, next) => {
+    if (!req.body) return next();
+
+    const result = {};
+    for (const key of Object.keys(req.body)) {
+      if (excludeFields.includes(key)) {
+        // Field HTML — hanya trim, tidak normalize whitespace
+        result[key] =
+          typeof req.body[key] === "string"
+            ? req.body[key].trim()
+            : req.body[key];
+      } else {
+        result[key] = sanitizeValue(req.body[key]);
+      }
+    }
+    req.body = result;
+    next();
+  };

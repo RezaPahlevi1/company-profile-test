@@ -29,3 +29,12 @@ export const getRecipients = () =>
 // ✅ Tidak perlu selected_emails lagi di frontend
 export const sendBroadcast = (id) =>
   axiosInstance.post(`/email/broadcasts/${id}/send`);
+
+// ✅ Tambah di bagian bawah
+export const uploadBroadcastImage = (file) => {
+  const formData = new FormData();
+  formData.append("image", file);
+  return axiosInstance.post("/email/broadcasts/upload-image", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+};
