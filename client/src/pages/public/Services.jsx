@@ -48,7 +48,7 @@ export default function Services() {
   return (
     <main className="pt-16 lg:pt-20">
       {/* Hero */}
-      <section className="section-padding bg-gradient-to-br from-slate-900 via-brand-950 to-slate-900 relative overflow-hidden">
+      <section className="section-padding bg-linear-to-br from-slate-900 via-brand-950 to-slate-900 relative overflow-hidden">
         <div
           className="absolute inset-0 opacity-20"
           style={{
@@ -115,7 +115,7 @@ export default function Services() {
                 )}
 
                 {/* Info teks kampanye */}
-                <div className="bg-gradient-to-r from-orange-500 to-red-500 px-6 py-4 flex items-center gap-4">
+                <div className="bg-linear-to-r from-orange-500 to-red-500 px-6 py-4 flex items-center gap-4">
                   <span className="text-2xl shrink-0">🔥</span>
                   <div className="min-w-0">
                     <p className="text-white font-bold text-base leading-tight">
@@ -191,7 +191,7 @@ export default function Services() {
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-100 rounded-3xl p-12 text-center"
+            className="bg-linear-to-br from-green-50 to-emerald-50 border border-green-100 rounded-3xl p-12 text-center"
           >
             <h2 className="text-3xl font-bold text-slate-900">
               Tidak Menemukan yang Anda Cari?

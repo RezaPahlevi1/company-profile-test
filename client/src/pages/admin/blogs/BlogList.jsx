@@ -391,6 +391,7 @@ export default function BlogList() {
 
       {showForm && (
         <BlogForm
+          key={selected?.id ?? "new"}
           blog={selected}
           onClose={handleClose}
           onSuccess={() => {

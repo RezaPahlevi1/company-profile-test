@@ -59,7 +59,7 @@ export default function PromoPopup() {
           >
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[85vh] overflow-hidden pointer-events-auto">
               {/* Header gradient — selalu ada */}
-              <div className="relative bg-gradient-to-r from-red-500 to-orange-500 p-6 text-white">
+              <div className="relative bg-linear-to-r from-red-500 to-orange-500 p-6 text-white">
                 <button
                   onClick={handleClose}
                   className="absolute top-4 right-4 w-7 h-7 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center transition-colors"

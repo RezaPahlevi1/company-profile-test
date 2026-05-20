@@ -48,7 +48,7 @@ export default function Products() {
   return (
     <main className="pt-16 lg:pt-20">
       {/* Hero */}
-      <section className="section-padding bg-gradient-to-br from-slate-900 via-brand-950 to-slate-900 relative overflow-hidden">
+      <section className="section-padding bg-linear-to-br from-slate-900 via-brand-950 to-slate-900 relative overflow-hidden">
         <div
           className="absolute inset-0 opacity-20"
           style={{
@@ -114,7 +114,7 @@ export default function Products() {
                 )}
 
                 {/* Info teks kampanye */}
-                <div className="bg-gradient-to-r from-red-500 to-orange-500 px-6 py-4 flex items-center gap-4">
+                <div className="bg-linear-to-r from-red-500 to-orange-500 px-6 py-4 flex items-center gap-4">
                   <span className="text-2xl shrink-0">🔥</span>
                   <div className="min-w-0">
                     <p className="text-white font-bold text-base leading-tight">

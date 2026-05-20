@@ -225,7 +225,6 @@ export default function BlogForm({ blog, onClose, onSuccess }) {
       status: blog.status,
       tags: blog.blog_tags?.map((bt) => bt.tags?.id).filter(Boolean) || [],
     });
-    setSelectedTags(blog.blog_tags?.map((bt) => bt.tags).filter(Boolean) || []);
   }, [blog, reset]);
 
   useEffect(() => {
@@ -445,7 +444,7 @@ export default function BlogForm({ blog, onClose, onSuccess }) {
                   <MenuBar editor={editor} />
                   <EditorContent
                     editor={editor}
-                    className="prose prose-sm max-w-none p-3 sm:p-4 min-h-[180px] sm:min-h-[200px] focus:outline-none"
+                    className="prose prose-sm max-w-none p-3 sm:p-4 min-h-45 sm:min-h-20 focus:outline-none"
                   />
                 </div>
               </div>

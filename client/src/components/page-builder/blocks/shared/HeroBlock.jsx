@@ -24,7 +24,7 @@ export default function HeroBlock({ content, isCustomBg }) {
     return (
       <>
         {parts[0]}
-        <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">
+        <span className="text-transparent bg-clip-text bg-linear-to-r from-blue-600 to-indigo-600">
           {heading_highlight}
         </span>
         {parts[1]}
@@ -38,9 +38,9 @@ export default function HeroBlock({ content, isCustomBg }) {
     <section className={`relative overflow-hidden ${isHome ? "min-h-[90vh] flex items-center" : "py-24"} ${isCustomBg ? "bg-transparent" : ""}`}>
       {/* Background Effects */}
       <div className="absolute inset-0 z-0 pointer-events-none">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[500px] opacity-30 bg-gradient-to-tr from-blue-100 to-indigo-50 blur-[100px] rounded-full" />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-250 h-125 opacity-30 bg-linear-to-tr from-blue-100 to-indigo-50 blur-[100px] rounded-full" />
         {isHome && (
-          <div className="absolute bottom-0 right-0 w-[600px] h-[600px] opacity-20 bg-gradient-to-tl from-purple-100 to-transparent blur-[120px] rounded-full" />
+          <div className="absolute bottom-0 right-0 w-150 h-150 opacity-20 bg-linear-to-tl from-purple-100 to-transparent blur-[120px] rounded-full" />
         )}
       </div>
 

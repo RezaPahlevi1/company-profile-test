@@ -41,7 +41,7 @@ const contactInfo = [
 const FORMSPREE_URL = `https://formspree.io/f/${import.meta.env.VITE_FORMSPREE_ID}`;
 
 export default function Contact() {
-  const { pageInfo, siteSettings, isLoading } = usePageCheck("contact");
+  const { pageInfo, isLoading } = usePageCheck("contact");
 
   const {
     register,

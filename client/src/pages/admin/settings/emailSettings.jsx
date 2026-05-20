@@ -476,6 +476,8 @@ const RecipientSelector = ({ recipients, selectedEmails, onChange }) => {
 // ============================================================
 // BROADCAST FORM — dengan Tiptap editor
 // ============================================================
+const getMinScheduleTime = () =>
+  new Date(Date.now() + 60000).toISOString().slice(0, 16);
 const BroadcastForm = ({
   broadcast,
   onSave,
@@ -490,6 +492,7 @@ const BroadcastForm = ({
     value: broadcast?.scheduled_at
       ? new Date(broadcast.scheduled_at).toISOString().slice(0, 16)
       : "",
+    min: getMinScheduleTime(),
   });
   const [isUploadingImage, setIsUploadingImage] = useState(false);
 
@@ -614,7 +617,7 @@ const BroadcastForm = ({
           />
           <EditorContent
             editor={editor}
-            className="prose prose-sm max-w-none p-4 min-h-[200px] focus:outline-none"
+            className="prose prose-sm max-w-none p-4 min-h-50 focus:outline-none"
           />
         </div>
         <p className="text-xs text-gray-400 mt-1.5">
@@ -629,7 +632,11 @@ const BroadcastForm = ({
             type="checkbox"
             checked={scheduleOpts.use}
             onChange={(e) =>
-              setScheduleOpts({ use: e.target.checked, value: "" })
+              setScheduleOpts({
+                use: e.target.checked,
+                value: "",
+                min: new Date(Date.now() + 60000).toISOString().slice(0, 16), // ← refresh saat toggle
+              })
             }
             className="w-4 h-4 accent-blue-600"
           />
@@ -649,7 +656,7 @@ const BroadcastForm = ({
               onChange={(e) =>
                 setScheduleOpts((s) => ({ ...s, value: e.target.value }))
               }
-              min={new Date(Date.now() + 60000).toISOString().slice(0, 16)}
+              min={scheduleOpts.min}
               className="input-base"
             />
           </div>
