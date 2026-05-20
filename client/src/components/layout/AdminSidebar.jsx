@@ -1,4 +1,5 @@
-import { NavLink, useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
   Package,
@@ -12,29 +13,21 @@ import {
   Layout,
   Users,
   Tag,
+  ChevronDown,
 } from "lucide-react";
 import useAuthStore from "../../store/authStore";
 import { logoutAdmin } from "../../api/auth";
 import toast from "react-hot-toast";
 import { useQueryClient } from "@tanstack/react-query";
 
-const navItems = [
+// ==================== STRUKTUR NAV ====================
+
+// Item standalone (tidak dalam grup)
+const standaloneItems = [
   {
     label: "Dashboard",
     to: "/admin/dashboard",
     icon: LayoutDashboard,
-    roles: ["superadmin"],
-  },
-  {
-    label: "Products",
-    to: "/admin/products",
-    icon: Package,
-    roles: ["superadmin"],
-  },
-  {
-    label: "Services",
-    to: "/admin/services",
-    icon: Briefcase,
     roles: ["superadmin"],
   },
   {
@@ -49,43 +42,129 @@ const navItems = [
     icon: ShoppingCart,
     roles: ["superadmin", "admin_order"],
   },
+];
+
+// Grup dropdown
+const navGroups = [
   {
-    label: "Promo",
-    to: "/admin/promo",
-    icon: Tag,
+    id: "katalog",
+    label: "Katalog",
+    icon: Package,
     roles: ["superadmin"],
+    items: [
+      { label: "Products", to: "/admin/products", icon: Package },
+      { label: "Services", to: "/admin/services", icon: Briefcase },
+      { label: "Promo", to: "/admin/promo", icon: Tag },
+    ],
   },
   {
-    label: "Site Settings",
-    to: "/admin/settings/site",
+    id: "pengaturan",
+    label: "Pengaturan",
     icon: Settings,
     roles: ["superadmin"],
+    items: [
+      { label: "Site Settings", to: "/admin/settings/site", icon: Settings },
+      { label: "Admins", to: "/admin/settings/admins", icon: Users },
+      { label: "Email Settings", to: "/admin/settings/email", icon: Mail },
+    ],
   },
   {
-    label: "Admins",
-    to: "/admin/settings/admins",
-    icon: Users,
-    roles: ["superadmin"],
-  },
-  {
-    label: "Email Settings",
-    to: "/admin/settings/email",
-    icon: Mail,
-    roles: ["superadmin"],
-  },
-  {
-    label: "Builder (Home)",
-    to: "/admin/builder/home",
+    id: "builder",
+    label: "Page Builder",
     icon: Layout,
     roles: ["superadmin"],
-  },
-  {
-    label: "Builder (About)",
-    to: "/admin/builder/about",
-    icon: Layout,
-    roles: ["superadmin"],
+    items: [
+      { label: "Home", to: "/admin/builder/home", icon: Layout },
+      { label: "About", to: "/admin/builder/about", icon: Layout },
+    ],
   },
 ];
+
+// ==================== SUB KOMPONEN ====================
+
+function NavItem({ to, icon: Icon, label, onClick }) {
+  return (
+    <NavLink
+      to={to}
+      onClick={onClick}
+      className={({ isActive }) =>
+        `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+          isActive
+            ? "bg-blue-600 text-white"
+            : "text-gray-400 hover:bg-gray-800 hover:text-white"
+        }`
+      }
+    >
+      <Icon size={18} />
+      {label}
+    </NavLink>
+  );
+}
+
+function NavGroup({ group, onItemClick }) {
+  const location = useLocation();
+
+  // Dropdown otomatis terbuka jika salah satu child aktif
+  const isAnyChildActive = group.items.some((item) =>
+    location.pathname.startsWith(item.to),
+  );
+
+  const [isOpen, setIsOpen] = useState(isAnyChildActive);
+
+  const toggleOpen = () => setIsOpen((prev) => !prev);
+
+  return (
+    <div>
+      {/* Header dropdown */}
+      <button
+        onClick={toggleOpen}
+        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+          isAnyChildActive
+            ? "text-white bg-gray-800"
+            : "text-gray-400 hover:bg-gray-800 hover:text-white"
+        }`}
+      >
+        <group.icon size={18} className="shrink-0" />
+        <span className="flex-1 text-left">{group.label}</span>
+        <ChevronDown
+          size={15}
+          className={`shrink-0 transition-transform duration-200 ${
+            isOpen ? "rotate-180" : ""
+          }`}
+        />
+      </button>
+
+      {/* Items — transisi tinggi dengan overflow hidden */}
+      <div
+        className={`overflow-hidden transition-all duration-200 ease-in-out ${
+          isOpen ? "max-h-60 opacity-100" : "max-h-0 opacity-0"
+        }`}
+      >
+        <div className="mt-1 ml-3 pl-3 border-l border-gray-700 space-y-0.5 py-1">
+          {group.items.map(({ label, to, icon: Icon }) => (
+            <NavLink
+              key={to}
+              to={to}
+              onClick={onItemClick}
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  isActive
+                    ? "bg-blue-600 text-white"
+                    : "text-gray-400 hover:bg-gray-800 hover:text-white"
+                }`
+              }
+            >
+              <Icon size={16} />
+              {label}
+            </NavLink>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ==================== KOMPONEN UTAMA ====================
 
 export default function AdminSidebar({ isOpen, onClose }) {
   const { admin, clearAdmin } = useAuthStore();
@@ -106,8 +185,15 @@ export default function AdminSidebar({ isOpen, onClose }) {
   };
 
   const role = admin?.role;
-  const filteredNavItems = role
-    ? navItems.filter((item) => item.roles.includes(role))
+
+  // Filter standalone items berdasarkan role
+  const filteredStandalone = role
+    ? standaloneItems.filter((item) => item.roles.includes(role))
+    : [];
+
+  // Filter grup — hanya tampilkan grup jika role punya akses
+  const filteredGroups = role
+    ? navGroups.filter((group) => group.roles.includes(role))
     : [];
 
   return (
@@ -140,22 +226,27 @@ export default function AdminSidebar({ isOpen, onClose }) {
 
       {/* Nav */}
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-        {filteredNavItems.map(({ label, to, icon: Icon }) => (
-          <NavLink
+        {/* Standalone items */}
+        {filteredStandalone.map(({ label, to, icon: Icon }) => (
+          <NavItem
             key={to}
             to={to}
+            icon={Icon}
+            label={label}
             onClick={onClose}
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                isActive
-                  ? "bg-blue-600 text-white"
-                  : "text-gray-400 hover:bg-gray-800 hover:text-white"
-              }`
-            }
-          >
-            <Icon size={18} />
-            {label}
-          </NavLink>
+          />
+        ))}
+
+        {/* Divider jika ada standalone dan ada grup */}
+        {filteredStandalone.length > 0 && filteredGroups.length > 0 && (
+          <div className="pt-2 pb-1">
+            <div className="border-t border-gray-800" />
+          </div>
+        )}
+
+        {/* Grup dropdown */}
+        {filteredGroups.map((group) => (
+          <NavGroup key={group.id} group={group} onItemClick={onClose} />
         ))}
       </nav>
 
