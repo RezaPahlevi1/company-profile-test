@@ -34,6 +34,9 @@ export const getSiteSettings = async (req, res) => {
   }
 };
 
+// ==================== POTONGAN updateSiteSettings yang diupdate ====================
+// Ganti fungsi updateSiteSettings yang lama dengan ini seluruhnya
+
 export const updateSiteSettings = async (req, res) => {
   const {
     site_name,
@@ -48,6 +51,9 @@ export const updateSiteSettings = async (req, res) => {
     footer_cta_body,
     footer_video_url,
     show_footer_video,
+    company_email,
+    company_address,
+    company_maps_embed_url,
   } = req.body;
 
   // Validasi payment_expiry_minutes — 1 menit sampai 1440 menit (24 jam)
@@ -110,6 +116,41 @@ export const updateSiteSettings = async (req, res) => {
     }
   }
 
+  // Validasi company_email
+  if (company_email !== undefined && company_email !== "") {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(company_email)) {
+      return res.status(400).json({
+        success: false,
+        message: "Format email perusahaan tidak valid",
+      });
+    }
+  }
+
+  // Validasi company_maps_embed_url — harus URL embed Google Maps atau kosong
+  if (company_maps_embed_url !== undefined && company_maps_embed_url !== "") {
+    const isValidMapsEmbed =
+      company_maps_embed_url.startsWith("https://www.google.com/maps/embed") ||
+      company_maps_embed_url.startsWith("https://maps.google.com/maps");
+    if (!isValidMapsEmbed) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "URL Maps tidak valid. Gunakan embed URL dari Google Maps (Share → Embed a map).",
+      });
+    }
+    // Pastikan tidak ada javascript: atau data: URI
+    if (
+      /javascript:/i.test(company_maps_embed_url) ||
+      /data:/i.test(company_maps_embed_url)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "URL Maps tidak valid.",
+      });
+    }
+  }
+
   try {
     const updates = [];
     if (site_name !== undefined)
@@ -139,6 +180,15 @@ export const updateSiteSettings = async (req, res) => {
       updates.push({ key: "footer_video_id", value: req.body.footer_video_id });
     if (show_footer_video !== undefined)
       updates.push({ key: "show_footer_video", value: show_footer_video });
+    if (company_email !== undefined)
+      updates.push({ key: "company_email", value: company_email });
+    if (company_address !== undefined)
+      updates.push({ key: "company_address", value: company_address });
+    if (company_maps_embed_url !== undefined)
+      updates.push({
+        key: "company_maps_embed_url",
+        value: company_maps_embed_url,
+      });
 
     for (const update of updates) {
       const { error } = await supabase

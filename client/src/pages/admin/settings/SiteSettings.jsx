@@ -28,8 +28,6 @@ import ConfirmModal from "../../../components/ui/ConfirmModal";
 
 const ALWAYS_ACTIVE = ["home", "order-track"];
 
-// Helper — konversi menit ke string yang mudah dibaca
-// 90 → "1 jam 30 menit", 60 → "1 jam", 45 → "45 menit"
 const formatMinutes = (total) => {
   const mins = Number(total);
   if (isNaN(mins) || mins <= 0) return "";
@@ -62,7 +60,6 @@ export default function SiteSettings() {
     site_name: "",
     payment_expiry_minutes: "1440",
     delivery_estimation: "",
-    whatsapp_number: "",
   });
 
   const [footerForm, setFooterForm] = useState({
@@ -72,7 +69,6 @@ export default function SiteSettings() {
     footer_video_url: "",
   });
 
-  const [waError, setWaError] = useState("");
   const [videoError, setVideoError] = useState("");
 
   useEffect(() => {
@@ -81,7 +77,6 @@ export default function SiteSettings() {
         site_name: settings.site_name || "",
         payment_expiry_minutes: settings.payment_expiry_minutes || "1440",
         delivery_estimation: settings.delivery_estimation || "",
-        whatsapp_number: settings.whatsapp_number || "",
       });
       setFooterForm({
         footer_tagline: settings.footer_tagline || "",
@@ -148,19 +143,6 @@ export default function SiteSettings() {
     if (file) doUploadLogo(file);
   };
 
-  const handleWaNumberChange = (e) => {
-    const onlyDigits = e.target.value.replace(/\D/g, "");
-    setForm((f) => ({ ...f, whatsapp_number: onlyDigits }));
-    if (
-      onlyDigits.length > 0 &&
-      (onlyDigits.length < 10 || onlyDigits.length > 15)
-    ) {
-      setWaError("Nomor harus 10-15 digit");
-    } else {
-      setWaError("");
-    }
-  };
-
   const handleVideoUrlChange = (e) => {
     const val = e.target.value;
     setFooterForm((f) => ({ ...f, footer_video_url: val }));
@@ -177,17 +159,11 @@ export default function SiteSettings() {
   };
 
   const handleSave = () => {
-    const wa = form.whatsapp_number;
-    if (wa && (wa.length < 10 || wa.length > 15)) {
-      setWaError("Nomor harus 10-15 digit");
-      return;
-    }
     const mins = Number(form.payment_expiry_minutes);
     if (isNaN(mins) || mins < 1 || mins > 1440) {
       toast.error("Batas waktu pembayaran harus antara 1 hingga 1440 menit");
       return;
     }
-    setWaError("");
     saveSiteSettings(form);
   };
 
@@ -201,7 +177,6 @@ export default function SiteSettings() {
     });
   };
 
-  // Ekstrak video ID untuk preview — sama seperti di controller
   const getPreviewVideoId = (val) => {
     if (!val) return null;
     const v = val.trim();
@@ -222,7 +197,7 @@ export default function SiteSettings() {
     return (
       <div className="space-y-4 lg:space-y-6">
         <div className="h-8 w-40 bg-white rounded-xl animate-pulse" />
-        {[...Array(5)].map((_, i) => (
+        {[...Array(4)].map((_, i) => (
           <div key={i} className="bg-white rounded-xl h-48 animate-pulse" />
         ))}
       </div>
@@ -344,65 +319,48 @@ export default function SiteSettings() {
         </div>
       </div>
 
-      {/* WhatsApp */}
+      {/* WhatsApp — hanya toggle show/hide, nomor dikelola di Company Info */}
       <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
         <div className="flex items-center gap-3 mb-5">
           <div className="w-9 h-9 bg-green-50 rounded-lg flex items-center justify-center shrink-0">
             <MessageCircle size={18} className="text-green-600" />
           </div>
-          <h2 className="text-base font-semibold text-gray-900">WhatsApp</h2>
+          <div>
+            <h2 className="text-base font-semibold text-gray-900">WhatsApp</h2>
+            <p className="text-xs text-gray-400 mt-0.5">
+              To update the number, go to{" "}
+              <a
+                href="/admin/settings/company"
+                className="text-blue-600 hover:underline"
+              >
+                Company Info
+              </a>
+            </p>
+          </div>
         </div>
 
-        <div className="space-y-4">
+        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Nomor WhatsApp
-            </label>
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-500 shrink-0">+</span>
-              <input
-                value={form.whatsapp_number}
-                onChange={handleWaNumberChange}
-                inputMode="numeric"
-                maxLength={15}
-                className={`w-full px-4 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  waError ? "border-red-400" : "border-gray-300"
-                }`}
-                placeholder="628123456789"
-              />
-            </div>
-            {waError ? (
-              <p className="text-red-500 text-xs mt-1">{waError}</p>
+            <p className="text-sm font-medium text-gray-700">
+              Tampilkan di navbar
+            </p>
+            <p className="text-xs text-gray-400 mt-0.5">
+              Tampilkan tombol WhatsApp di navbar dan menu mobile
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              const newVal = showWhatsapp ? "false" : "true";
+              saveSiteSettings({ show_whatsapp: newVal });
+            }}
+            className="shrink-0 ml-4"
+          >
+            {showWhatsapp ? (
+              <ToggleRight size={28} className="text-blue-600" />
             ) : (
-              <p className="text-xs text-gray-400 mt-1.5">
-                Format internasional tanpa tanda +. Contoh: 628123456789
-              </p>
+              <ToggleLeft size={28} className="text-gray-400" />
             )}
-          </div>
-
-          <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
-            <div>
-              <p className="text-sm font-medium text-gray-700">
-                Tampilkan di navbar
-              </p>
-              <p className="text-xs text-gray-400 mt-0.5">
-                Tampilkan nomor WhatsApp di navbar dan menu mobile
-              </p>
-            </div>
-            <button
-              onClick={() => {
-                const newVal = showWhatsapp ? "false" : "true";
-                saveSiteSettings({ show_whatsapp: newVal });
-              }}
-              className="shrink-0 ml-4"
-            >
-              {showWhatsapp ? (
-                <ToggleRight size={28} className="text-blue-600" />
-              ) : (
-                <ToggleLeft size={28} className="text-gray-400" />
-              )}
-            </button>
-          </div>
+          </button>
         </div>
       </div>
 
@@ -437,7 +395,6 @@ export default function SiteSettings() {
                 }
                 className="w-full sm:w-32 px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
-              {/* Kalkulasi tampilan yang informatif */}
               {form.payment_expiry_minutes && (
                 <span className="text-sm text-gray-500">
                   = {formatMinutes(form.payment_expiry_minutes)}
@@ -469,11 +426,11 @@ export default function SiteSettings() {
         </div>
       </div>
 
-      {/* Tombol Simpan — branding, WA, payment */}
+      {/* Tombol Simpan */}
       <div className="flex justify-end">
         <button
           onClick={handleSave}
-          disabled={isSaving || !!waError}
+          disabled={isSaving}
           className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-medium px-4 py-2.5 rounded-lg transition-colors"
         >
           <Save size={16} />
@@ -504,9 +461,6 @@ export default function SiteSettings() {
               placeholder="Solusi digital terpercaya untuk bisnis Anda."
               maxLength={200}
             />
-            <p className="text-xs text-gray-400 mt-1">
-              Ditampilkan di bawah nama brand di footer.
-            </p>
           </div>
 
           <div>
@@ -544,9 +498,6 @@ export default function SiteSettings() {
               placeholder="Kami siap membantu menjawab pertanyaan dan kebutuhan bisnis Anda."
               maxLength={300}
             />
-            <p className="text-xs text-gray-400 mt-1">
-              Teks pendek di bawah judul CTA sebelum tombol Contact.
-            </p>
           </div>
 
           {/* Video YouTube */}
@@ -578,7 +529,6 @@ export default function SiteSettings() {
               )}
             </div>
 
-            {/* Preview video ID */}
             {footerForm.footer_video_url && !videoError && (
               <div className="mt-2 px-3 py-2 bg-gray-50 rounded-lg">
                 <p className="text-xs text-gray-500">
@@ -590,7 +540,6 @@ export default function SiteSettings() {
               </div>
             )}
 
-            {/* Toggle tampilkan video */}
             <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl mt-3">
               <div>
                 <p className="text-sm font-medium text-gray-700">

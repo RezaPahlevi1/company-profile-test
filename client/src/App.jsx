@@ -30,6 +30,7 @@ const SiteSettings = lazy(() => import("./pages/admin/settings/SiteSettings"));
 const EmailSettings = lazy(
   () => import("./pages/admin/settings/emailSettings"),
 );
+const CompanyInfo = lazy(() => import("./pages/admin/settings/CompanyInfo"));
 const HomeBuilder = lazy(
   () => import("./pages/admin/page-builder/HomeBuilder"),
 );
@@ -317,6 +318,14 @@ export default function App() {
             element={
               <RoleProtectedRoute allowedRoles={["superadmin"]}>
                 <SiteSettings />
+              </RoleProtectedRoute>
+            }
+          />
+          <Route
+            path="settings/company"
+            element={
+              <RoleProtectedRoute allowedRoles={["superadmin"]}>
+                <CompanyInfo />
               </RoleProtectedRoute>
             }
           />

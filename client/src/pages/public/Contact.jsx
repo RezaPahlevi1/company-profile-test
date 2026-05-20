@@ -4,44 +4,45 @@ import { z } from "zod";
 import { motion } from "framer-motion";
 import { Mail, Phone, MapPin, MessageCircle, Send } from "lucide-react";
 import toast from "react-hot-toast";
+import { useQuery } from "@tanstack/react-query";
 import WhatsAppButton from "../../components/shared/WhatsAppButton";
 import usePageCheck from "../../hooks/usePageCheck";
+import { getSiteSettings } from "../../api/settings";
 
 const contactSchema = z.object({
-  name: z.string().min(1, "Nama wajib diisi"),
+  name: z
+    .string()
+    .min(1, "Nama wajib diisi")
+    .max(100, "Nama maksimal 100 karakter")
+    .regex(/^[\w\s\-.,']+$/u, "Nama mengandung karakter tidak valid"),
   email: z
     .string()
     .min(1, "Email wajib diisi")
+    .max(254, "Email terlalu panjang")
     .email("Format email tidak valid"),
-  subject: z.string().min(1, "Subjek wajib diisi"),
-  message: z.string().min(10, "Pesan minimal 10 karakter"),
+  subject: z
+    .string()
+    .min(1, "Subjek wajib diisi")
+    .max(150, "Subjek maksimal 150 karakter"),
+  message: z
+    .string()
+    .min(10, "Pesan minimal 10 karakter")
+    .max(2000, "Pesan maksimal 2000 karakter"),
 });
-
-const contactInfo = [
-  {
-    icon: Mail,
-    label: "Email",
-    value: "email@company.com",
-    href: "mailto:email@company.com",
-  },
-  {
-    icon: Phone,
-    label: "Telepon",
-    value: "+62 895 1207 6445",
-    href: "tel:+6289512076445",
-  },
-  {
-    icon: MapPin,
-    label: "Alamat",
-    value: "Jl. Anggrek Merah No. 123, Tanjungpinang, Indonesia",
-    href: null,
-  },
-];
 
 const FORMSPREE_URL = `https://formspree.io/f/${import.meta.env.VITE_FORMSPREE_ID}`;
 
 export default function Contact() {
-  const { pageInfo, isLoading } = usePageCheck("contact");
+  const { pageInfo, isLoading: isPageLoading } = usePageCheck("contact");
+
+  // Ambil data kontak dari site-settings — cache shared dengan komponen lain
+  const { data: siteData, isLoading: isSiteLoading } = useQuery({
+    queryKey: ["site-settings"],
+    queryFn: getSiteSettings,
+    staleTime: 1000 * 60 * 10,
+  });
+
+  const settings = siteData?.data?.data || {};
 
   const {
     register,
@@ -68,7 +69,6 @@ export default function Contact() {
 
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        // Formspree returns { errors: [...] } on validation failure
         const detail =
           body?.errors?.map((e) => e.message).join(", ") ||
           "Gagal mengirim pesan. Silakan coba lagi.";
@@ -85,12 +85,41 @@ export default function Contact() {
     }
   };
 
-  if (isLoading) return <div className="min-h-screen"></div>;
+  if (isPageLoading) return <div className="min-h-screen"></div>;
+
+  // Bangun info kontak secara dinamis dari site-settings
+  // Hanya tampilkan item yang ada datanya
+  const contactItems = [
+    settings.company_email && {
+      icon: Mail,
+      label: "Email",
+      value: settings.company_email,
+      href: `mailto:${settings.company_email}`,
+    },
+    settings.whatsapp_number && {
+      icon: Phone,
+      label: "WhatsApp",
+      value: `+${settings.whatsapp_number}`,
+      href: `https://wa.me/${settings.whatsapp_number}`,
+    },
+    settings.company_address && {
+      icon: MapPin,
+      label: "Alamat",
+      value: settings.company_address,
+      href: null,
+    },
+  ].filter(Boolean);
+
+  const hasMapsEmbed =
+    settings.company_maps_embed_url &&
+    settings.company_maps_embed_url.startsWith(
+      "https://www.google.com/maps/embed",
+    );
 
   return (
     <main className="pt-16 lg:pt-20">
       {/* Hero */}
-      <section className="section-padding bg-linear-to-br from-slate-900 via-brand-950 to-slate-900 relative overflow-hidden">
+      <section className="section-padding bg-gradient-to-br from-slate-900 via-brand-950 to-slate-900 relative overflow-hidden">
         <div
           className="absolute inset-0 opacity-20"
           style={{
@@ -145,39 +174,62 @@ export default function Contact() {
                 </p>
               </div>
 
-              <div className="space-y-4">
-                {contactInfo.map((info, i) => (
-                  <motion.div
-                    key={info.label}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.1 * i }}
-                    className="card-base p-4 flex items-start gap-4"
-                  >
-                    <div className="w-10 h-10 bg-brand-50 rounded-xl flex items-center justify-center shrink-0">
-                      <info.icon size={18} className="text-brand-600" />
-                    </div>
-                    <div>
-                      <p className="text-xs text-slate-400 font-medium">
-                        {info.label}
-                      </p>
-                      {info.href ? (
-                        <a
-                          href={info.href}
-                          className="text-slate-700 font-medium hover:text-brand-600 transition-colors mt-0.5 block"
-                        >
-                          {info.value}
-                        </a>
-                      ) : (
-                        <p className="text-slate-700 font-medium mt-0.5">
-                          {info.value}
+              {/* Info kontak dinamis dari site-settings */}
+              {isSiteLoading ? (
+                <div className="space-y-3">
+                  {[...Array(3)].map((_, i) => (
+                    <div
+                      key={i}
+                      className="h-16 bg-white rounded-2xl animate-pulse"
+                    />
+                  ))}
+                </div>
+              ) : contactItems.length > 0 ? (
+                <div className="space-y-4">
+                  {contactItems.map((info, i) => (
+                    <motion.div
+                      key={info.label}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.1 * i }}
+                      className="card-base p-4 flex items-start gap-4"
+                    >
+                      <div className="w-10 h-10 bg-brand-50 rounded-xl flex items-center justify-center shrink-0">
+                        <info.icon size={18} className="text-brand-600" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs text-slate-400 font-medium">
+                          {info.label}
                         </p>
-                      )}
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
+                        {info.href ? (
+                          <a
+                            href={info.href}
+                            target={
+                              info.href.startsWith("https://wa.me")
+                                ? "_blank"
+                                : undefined
+                            }
+                            rel={
+                              info.href.startsWith("https://wa.me")
+                                ? "noopener noreferrer"
+                                : undefined
+                            }
+                            className="text-slate-700 font-medium hover:text-brand-600 transition-colors mt-0.5 block break-words"
+                          >
+                            {info.value}
+                          </a>
+                        ) : (
+                          <p className="text-slate-700 font-medium mt-0.5 break-words">
+                            {info.value}
+                          </p>
+                        )}
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              ) : null}
 
+              {/* WhatsApp CTA card */}
               <div className="card-base p-4">
                 <div className="flex items-center gap-3 mb-3">
                   <div className="w-10 h-10 bg-green-50 rounded-xl flex items-center justify-center">
@@ -198,20 +250,23 @@ export default function Contact() {
                 />
               </div>
 
-              {/* Google Maps Embed */}
-              <div className="card-base overflow-hidden">
-                <iframe
-                  src="https://www.google.com/maps/embed?pb=!1m14!1m12!1m3!1d352.60866577987593!2d104.46904864188758!3d0.9131131888289215!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!5e0!3m2!1sid!2sid!4v1777718795119!5m2!1sid!2sid"
-                  width="100%"
-                  height="250"
-                  style={{ border: 0 }}
-                  allowFullScreen
-                  loading="lazy"
-                  referrerPolicy="no-referrer-when-downgrade"
-                  className="rounded-2xl"
-                  title="Office Location"
-                />
-              </div>
+              {/* Google Maps Embed — hanya render jika URL valid dari DB */}
+              {hasMapsEmbed && (
+                <div className="card-base overflow-hidden">
+                  <iframe
+                    src={settings.company_maps_embed_url}
+                    width="100%"
+                    height="250"
+                    style={{ border: 0 }}
+                    allowFullScreen
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                    className="rounded-2xl"
+                    title="Office Location"
+                    sandbox="allow-scripts allow-same-origin allow-popups"
+                  />
+                </div>
+              )}
             </motion.div>
 
             {/* Right — Form */}
@@ -233,6 +288,7 @@ export default function Contact() {
                   <input
                     {...register("name")}
                     placeholder="John Doe"
+                    maxLength={100}
                     className="input-base"
                   />
                   {errors.name && (
@@ -250,6 +306,7 @@ export default function Contact() {
                     {...register("email")}
                     type="email"
                     placeholder="john@example.com"
+                    maxLength={254}
                     className="input-base"
                   />
                   {errors.email && (
@@ -266,6 +323,7 @@ export default function Contact() {
                   <input
                     {...register("subject")}
                     placeholder="Konsultasi layanan"
+                    maxLength={150}
                     className="input-base"
                   />
                   {errors.subject && (
@@ -283,6 +341,7 @@ export default function Contact() {
                     {...register("message")}
                     rows={5}
                     placeholder="Ceritakan kebutuhan Anda..."
+                    maxLength={2000}
                     className="input-base resize-none"
                   />
                   {errors.message && (
