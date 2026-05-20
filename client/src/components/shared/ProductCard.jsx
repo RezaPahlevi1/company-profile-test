@@ -2,13 +2,16 @@ import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { ShoppingCart, ImageOff } from "lucide-react";
 import WhatsAppButton from "./WhatsAppButton";
+import usePromoStatus from "../../hooks/usePromoStatus";
 
 export default function ProductCard({ product, index = 0 }) {
-  // ✅ Guard — jika product undefined/null, tidak crash
   if (!product) return null;
 
+  const { campaignActive } = usePromoStatus();
+
+  // Harga promo hanya dihitung jika kampanye global sedang aktif
   const promoPrice =
-    product.is_promo && product.discount_percent > 0
+    campaignActive && product.is_promo && product.discount_percent > 0
       ? product.price - (product.price * product.discount_percent) / 100
       : null;
 
@@ -37,7 +40,8 @@ export default function ProductCard({ product, index = 0 }) {
           </div>
         )}
 
-        {product.is_promo && product.discount_percent > 0 && (
+        {/* Badge promo — hanya tampil jika kampanye aktif */}
+        {campaignActive && product.is_promo && product.discount_percent > 0 && (
           <div className="absolute top-0 left-0">
             <div className="bg-red-500 text-white text-xs font-bold px-3 py-1.5 rounded-br-xl shadow-md">
               🔥 -{product.discount_percent}%

@@ -1,47 +1,40 @@
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, ShoppingCart, MessageCircle, Tag } from "lucide-react";
 import { Link } from "react-router-dom";
-import axiosInstance from "../../api/axiosInstance";
-
-const getActivePromos = () => axiosInstance.get("/promos");
+import usePromoStatus from "../../hooks/usePromoStatus";
 
 export default function PromoPopup() {
   const [isOpen, setIsOpen] = useState(false);
-
-  const { data } = useQuery({
-    queryKey: ["active-promos"],
-    queryFn: getActivePromos,
-    staleTime: 1000 * 60 * 5,
-  });
-
-  const promos = data?.data?.data;
-  const hasPromo = promos?.hasPromo;
+  const { hasPromo, campaignActive, campaign, promoProducts, promoServices } =
+    usePromoStatus();
 
   useEffect(() => {
-    if (!hasPromo) return;
+    if (!hasPromo || !campaignActive) return;
 
-    // Cek sessionStorage — hanya tampil sekali per session
+    // Hanya tampil sekali per session
     const shown = sessionStorage.getItem("promo_popup_shown");
     if (shown) return;
 
-    // Delay sedikit agar halaman load dulu
     const timer = setTimeout(() => {
       setIsOpen(true);
       sessionStorage.setItem("promo_popup_shown", "true");
     }, 1500);
 
     return () => clearTimeout(timer);
-  }, [hasPromo]);
+  }, [hasPromo, campaignActive]);
 
   const handleClose = () => setIsOpen(false);
 
-  if (!hasPromo) return null;
+  if (!hasPromo || !campaignActive) return null;
 
-  const promoProducts = promos?.products || [];
-  const promoServices = promos?.services || [];
   const waNumber = import.meta.env.VITE_WA_NUMBER || "628123456789";
+
+  // Judul yang ditampilkan di header — dari kampanye jika ada, fallback ke default
+  const headerTitle = campaign?.title || "Promo Spesial!";
+  const headerDesc =
+    campaign?.description || "Jangan lewatkan penawaran terbatas ini";
+  const hasBanner = campaign?.banner_url && campaign.banner_url !== "";
 
   return (
     <AnimatePresence>
@@ -65,8 +58,8 @@ export default function PromoPopup() {
             className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none"
           >
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[85vh] overflow-hidden pointer-events-auto">
-              {/* Header */}
-              <div className="relative bg-linear-to-r from-red-500 to-orange-500 p-6 text-white">
+              {/* Header gradient — selalu ada */}
+              <div className="relative bg-gradient-to-r from-red-500 to-orange-500 p-6 text-white">
                 <button
                   onClick={handleClose}
                   className="absolute top-4 right-4 w-7 h-7 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center transition-colors"
@@ -75,16 +68,38 @@ export default function PromoPopup() {
                 </button>
                 <div className="flex items-center gap-3">
                   <span className="text-3xl">🔥</span>
-                  <div>
-                    <h2 className="text-xl font-bold">Promo Spesial!</h2>
-                    <p className="text-red-100 text-sm mt-0.5">
-                      Jangan lewatkan penawaran terbatas ini
-                    </p>
+                  <div className="min-w-0 pr-8">
+                    <h2 className="text-xl font-bold leading-tight">
+                      {headerTitle}
+                    </h2>
+                    {headerDesc && (
+                      <p className="text-red-100 text-sm mt-0.5 line-clamp-2">
+                        {headerDesc}
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
 
-              {/* Content */}
+              {/* Banner gambar — Opsi A: full width di bawah header */}
+              {hasBanner && (
+                <div className="w-full overflow-hidden">
+                  <img
+                    src={campaign.banner_url}
+                    alt={headerTitle}
+                    className="w-full object-cover"
+                    style={{
+                      // Landscape default ~150px, auto-adjust jika portrait
+                      maxHeight: "180px",
+                      objectFit: "cover",
+                      objectPosition: "center",
+                    }}
+                    loading="lazy"
+                  />
+                </div>
+              )}
+
+              {/* Content — list produk dan service */}
               <div className="overflow-y-auto max-h-[50vh] p-5 space-y-4">
                 {/* Promo Products */}
                 {promoProducts.length > 0 && (
@@ -95,49 +110,44 @@ export default function PromoPopup() {
                       </p>
                     )}
                     <div className="space-y-3">
-                      {promoProducts.map((product) => {
-                        const promoPrice = Math.round(
-                          product.price -
-                            (product.price * product.discount_percent) / 100,
-                        );
-                        return (
-                          <div
-                            key={product.id}
-                            className="flex items-center gap-3 p-3 bg-red-50 border border-red-100 rounded-xl"
-                          >
-                            {product.image_url ? (
-                              <img
-                                src={product.image_url}
-                                alt={product.name}
-                                className="w-14 h-14 object-cover rounded-lg shrink-0"
-                              />
-                            ) : (
-                              <div className="w-14 h-14 bg-red-100 rounded-lg shrink-0 flex items-center justify-center">
-                                <Tag size={18} className="text-red-400" />
-                              </div>
-                            )}
-                            <div className="flex-1 min-w-0">
-                              <p className="font-semibold text-slate-900 text-sm line-clamp-1">
-                                {product.name}
-                              </p>
-                              <div className="flex items-center gap-2 mt-1 flex-wrap">
-                                <span className="text-red-600 font-bold text-sm">
-                                  Rp {promoPrice.toLocaleString("id-ID")}
-                                </span>
-                                <span className="line-through text-gray-400 text-xs">
-                                  Rp{" "}
-                                  {Number(product.price).toLocaleString(
-                                    "id-ID",
-                                  )}
-                                </span>
-                                <span className="bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full font-bold">
-                                  -{product.discount_percent}%
-                                </span>
-                              </div>
+                      {promoProducts.map((product) => (
+                        <div
+                          key={product.id}
+                          className="flex items-center gap-3 p-3 bg-red-50 border border-red-100 rounded-xl"
+                        >
+                          {product.image_url ? (
+                            <img
+                              src={product.image_url}
+                              alt={product.name}
+                              className="w-14 h-14 object-cover rounded-lg shrink-0"
+                            />
+                          ) : (
+                            <div className="w-14 h-14 bg-red-100 rounded-lg shrink-0 flex items-center justify-center">
+                              <Tag size={18} className="text-red-400" />
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-slate-900 text-sm line-clamp-1">
+                              {product.name}
+                            </p>
+                            <div className="flex items-center gap-2 mt-1 flex-wrap">
+                              <span className="text-red-600 font-bold text-sm">
+                                Rp{" "}
+                                {Number(product.promo_price).toLocaleString(
+                                  "id-ID",
+                                )}
+                              </span>
+                              <span className="line-through text-gray-400 text-xs">
+                                Rp{" "}
+                                {Number(product.price).toLocaleString("id-ID")}
+                              </span>
+                              <span className="bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full font-bold">
+                                -{product.discount_percent}%
+                              </span>
                             </div>
                           </div>
-                        );
-                      })}
+                        </div>
+                      ))}
                     </div>
                   </div>
                 )}
@@ -197,7 +207,9 @@ export default function PromoPopup() {
                   )}
                   {promoServices.length > 0 && (
                     <a
-                      href={`https://wa.me/${waNumber}?text=${encodeURIComponent("Halo, saya tertarik dengan layanan promo yang tersedia!")}`}
+                      href={`https://wa.me/${waNumber}?text=${encodeURIComponent(
+                        "Halo, saya tertarik dengan layanan promo yang tersedia!",
+                      )}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={handleClose}

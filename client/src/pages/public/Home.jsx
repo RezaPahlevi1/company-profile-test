@@ -1,4 +1,3 @@
-import React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getPageConfig } from "../../api/pageBuilder";
 import usePageCheck from "../../hooks/usePageCheck";
@@ -38,7 +37,11 @@ export default function Home() {
   return (
     <main>
       {blocks.map((block) => (
-        <BlockRenderer key={block.id} block={block} siteSettings={siteSettings} />
+        <BlockRenderer
+          key={block.id}
+          block={block}
+          siteSettings={siteSettings}
+        />
       ))}
     </main>
   );

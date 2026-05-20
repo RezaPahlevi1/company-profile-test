@@ -11,6 +11,7 @@ import {
   X,
   Layout,
   Users,
+  Tag,
 } from "lucide-react";
 import useAuthStore from "../../store/authStore";
 import { logoutAdmin } from "../../api/auth";
@@ -49,6 +50,12 @@ const navItems = [
     roles: ["superadmin", "admin_order"],
   },
   {
+    label: "Promo",
+    to: "/admin/promo",
+    icon: Tag,
+    roles: ["superadmin"],
+  },
+  {
     label: "Site Settings",
     to: "/admin/settings/site",
     icon: Settings,
@@ -66,7 +73,6 @@ const navItems = [
     icon: Mail,
     roles: ["superadmin"],
   },
-  // ✅ Ganti icon ke Layout agar berbeda dari Dashboard
   {
     label: "Builder (Home)",
     to: "/admin/builder/home",
@@ -99,8 +105,6 @@ export default function AdminSidebar({ isOpen, onClose }) {
     }
   };
 
-  // ✅ Tidak ada fallback || "superadmin"
-  // Jika role belum ter-hydrate → filteredNavItems kosong sementara
   const role = admin?.role;
   const filteredNavItems = role
     ? navItems.filter((item) => item.roles.includes(role))

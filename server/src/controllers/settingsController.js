@@ -5,22 +5,16 @@ import uploadToSupabase from "../utils/uploadToSupabase.js";
 
 const extractYoutubeId = (input) => {
   if (!input || typeof input !== "string") return null;
-
   const trimmed = input.trim();
-
   if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) return trimmed;
-
   const watchMatch = trimmed.match(
     /(?:youtube\.com\/watch\?(?:.*&)?v=)([a-zA-Z0-9_-]{11})/,
   );
   if (watchMatch) return watchMatch[1];
-
   const shortMatch = trimmed.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/);
   if (shortMatch) return shortMatch[1];
-
   const embedMatch = trimmed.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/);
   if (embedMatch) return embedMatch[1];
-
   return null;
 };
 
@@ -29,14 +23,11 @@ const extractYoutubeId = (input) => {
 export const getSiteSettings = async (req, res) => {
   try {
     const { data, error } = await supabase.from("site_settings").select("*");
-
     if (error) throw error;
-
     const settings = data.reduce((acc, item) => {
       acc[item.key] = item.value;
       return acc;
     }, {});
-
     return res.status(200).json({ success: true, data: settings });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
@@ -83,7 +74,6 @@ export const updateSiteSettings = async (req, res) => {
     req.body.whatsapp_number = cleaned;
   }
 
-  // Validasi show_whatsapp
   if (
     show_whatsapp !== undefined &&
     !["true", "false"].includes(show_whatsapp)
@@ -94,7 +84,6 @@ export const updateSiteSettings = async (req, res) => {
     });
   }
 
-  // Validasi show_footer_video
   if (
     show_footer_video !== undefined &&
     !["true", "false"].includes(show_footer_video)
@@ -105,7 +94,6 @@ export const updateSiteSettings = async (req, res) => {
     });
   }
 
-  // Validasi dan ekstrak YouTube video ID
   if (footer_video_url !== undefined) {
     if (footer_video_url === "") {
       req.body.footer_video_id = "";
@@ -124,7 +112,6 @@ export const updateSiteSettings = async (req, res) => {
 
   try {
     const updates = [];
-
     if (site_name !== undefined)
       updates.push({ key: "site_name", value: site_name });
     if (site_description !== undefined)
@@ -158,14 +145,12 @@ export const updateSiteSettings = async (req, res) => {
         .from("site_settings")
         .update({ value: update.value })
         .eq("key", update.key);
-
       if (error) throw error;
     }
 
-    return res.status(200).json({
-      success: true,
-      message: "Settings updated successfully",
-    });
+    return res
+      .status(200)
+      .json({ success: true, message: "Settings updated successfully" });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
   }
@@ -173,26 +158,21 @@ export const updateSiteSettings = async (req, res) => {
 
 export const uploadLogo = async (req, res) => {
   if (!req.file) {
-    return res.status(400).json({
-      success: false,
-      message: "No image file provided",
-    });
+    return res
+      .status(400)
+      .json({ success: false, message: "No image file provided" });
   }
-
   try {
     const logoUrl = await uploadToSupabase(
       req.file.buffer,
       req.file.mimetype,
       "settings",
     );
-
     const { error } = await supabase
       .from("site_settings")
       .update({ value: logoUrl })
       .eq("key", "navbar_logo_url");
-
     if (error) throw error;
-
     return res.status(200).json({
       success: true,
       message: "Logo uploaded successfully",
@@ -209,12 +189,169 @@ export const deleteLogo = async (req, res) => {
       .from("site_settings")
       .update({ value: "" })
       .eq("key", "navbar_logo_url");
-
     if (error) throw error;
+    return res
+      .status(200)
+      .json({ success: true, message: "Logo removed successfully" });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// ==================== PROMO SETTINGS ====================
+
+export const getPromoSettings = async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from("site_settings")
+      .select("key, value")
+      .in("key", [
+        "show_promo",
+        "promo_title",
+        "promo_description",
+        "promo_banner_url",
+        "promo_starts_at",
+        "promo_ends_at",
+      ]);
+    if (error) throw error;
+    const settings = data.reduce((acc, item) => {
+      acc[item.key] = item.value;
+      return acc;
+    }, {});
+    return res.status(200).json({ success: true, data: settings });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+export const updatePromoSettings = async (req, res) => {
+  const {
+    show_promo,
+    promo_title,
+    promo_description,
+    promo_starts_at,
+    promo_ends_at,
+  } = req.body;
+
+  // Validasi show_promo
+  if (show_promo !== undefined && !["true", "false"].includes(show_promo)) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid value for show_promo",
+    });
+  }
+
+  // Validasi tanggal — jika keduanya ada, starts_at harus sebelum ends_at
+  if (promo_starts_at && promo_ends_at) {
+    const start = new Date(promo_starts_at);
+    const end = new Date(promo_ends_at);
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      return res.status(400).json({
+        success: false,
+        message: "Format tanggal tidak valid",
+      });
+    }
+    if (start >= end) {
+      return res.status(400).json({
+        success: false,
+        message: "Tanggal mulai harus sebelum tanggal berakhir",
+      });
+    }
+  }
+
+  // Validasi individual tanggal jika hanya satu yang ada
+  if (promo_starts_at && !promo_ends_at) {
+    if (isNaN(new Date(promo_starts_at).getTime())) {
+      return res.status(400).json({
+        success: false,
+        message: "Format tanggal mulai tidak valid",
+      });
+    }
+  }
+  if (promo_ends_at && !promo_starts_at) {
+    if (isNaN(new Date(promo_ends_at).getTime())) {
+      return res.status(400).json({
+        success: false,
+        message: "Format tanggal berakhir tidak valid",
+      });
+    }
+  }
+
+  try {
+    const updates = [];
+    if (show_promo !== undefined)
+      updates.push({ key: "show_promo", value: show_promo });
+    if (promo_title !== undefined)
+      updates.push({ key: "promo_title", value: promo_title });
+    if (promo_description !== undefined)
+      updates.push({ key: "promo_description", value: promo_description });
+    // Simpan sebagai ISO string atau string kosong
+    if (promo_starts_at !== undefined)
+      updates.push({
+        key: "promo_starts_at",
+        value: promo_starts_at ? new Date(promo_starts_at).toISOString() : "",
+      });
+    if (promo_ends_at !== undefined)
+      updates.push({
+        key: "promo_ends_at",
+        value: promo_ends_at ? new Date(promo_ends_at).toISOString() : "",
+      });
+
+    for (const update of updates) {
+      const { error } = await supabase
+        .from("site_settings")
+        .update({ value: update.value })
+        .eq("key", update.key);
+      if (error) throw error;
+    }
 
     return res.status(200).json({
       success: true,
-      message: "Logo removed successfully",
+      message: "Promo settings updated successfully",
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+export const uploadPromoBanner = async (req, res) => {
+  if (!req.file) {
+    return res
+      .status(400)
+      .json({ success: false, message: "No image file provided" });
+  }
+  try {
+    // Simpan di folder "promo" agar terpisah dari "settings" (logo)
+    const bannerUrl = await uploadToSupabase(
+      req.file.buffer,
+      req.file.mimetype,
+      "promo",
+    );
+    const { error } = await supabase
+      .from("site_settings")
+      .update({ value: bannerUrl })
+      .eq("key", "promo_banner_url");
+    if (error) throw error;
+    return res.status(200).json({
+      success: true,
+      message: "Promo banner uploaded successfully",
+      data: { banner_url: bannerUrl },
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+export const deletePromoBanner = async (req, res) => {
+  try {
+    const { error } = await supabase
+      .from("site_settings")
+      .update({ value: "" })
+      .eq("key", "promo_banner_url");
+    if (error) throw error;
+    return res.status(200).json({
+      success: true,
+      message: "Promo banner removed successfully",
     });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
@@ -229,9 +366,7 @@ export const getPageSettings = async (req, res) => {
       .from("page_settings")
       .select("*")
       .order("sort_order", { ascending: true });
-
     if (error) throw error;
-
     return res.status(200).json({ success: true, data });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
@@ -258,10 +393,9 @@ export const updatePageSetting = async (req, res) => {
       .single();
 
     if (findError || !existing) {
-      return res.status(404).json({
-        success: false,
-        message: "Page not found",
-      });
+      return res
+        .status(404)
+        .json({ success: false, message: "Page not found" });
     }
 
     const updatePayload = {

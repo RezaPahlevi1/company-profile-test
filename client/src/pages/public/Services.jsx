@@ -1,21 +1,18 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { motion } from "framer-motion";
-import { Search } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Search, Tag } from "lucide-react";
 import { getServices } from "../../api/services";
+import { getSiteSettings } from "../../api/settings";
 import ServiceCard from "../../components/shared/ServiceCard";
-import SectionHeader from "../../components/ui/SectionHeader";
 import Spinner from "../../components/ui/Spinner";
 import EmptyState from "../../components/ui/EmptyState";
 import WhatsAppButton from "../../components/shared/WhatsAppButton";
 import usePageCheck from "../../hooks/usePageCheck";
+import usePromoStatus from "../../hooks/usePromoStatus";
 
 export default function Services() {
-  const {
-    pageInfo,
-    siteSettings,
-    isLoading: isPageLoading,
-  } = usePageCheck("services");
+  const { pageInfo, isLoading: isPageLoading } = usePageCheck("services");
   const [search, setSearch] = useState("");
 
   const { data, isLoading: isServicesLoading } = useQuery({
@@ -23,13 +20,28 @@ export default function Services() {
     queryFn: () => getServices(),
   });
 
+  // Fix bug: siteSettings tidak di-fetch dan tidak di-pass ke ServiceCard
+  const { data: siteData } = useQuery({
+    queryKey: ["site-settings"],
+    queryFn: getSiteSettings,
+    staleTime: 1000 * 60 * 10,
+  });
+
+  const { campaignActive, hasPromo, campaign, promoServices } =
+    usePromoStatus();
+
   const services = data?.data?.data || [];
+  const siteSettings = siteData?.data?.data || {};
 
   const filtered = services.filter(
     (s) =>
       s.name.toLowerCase().includes(search.toLowerCase()) ||
       s.description?.toLowerCase().includes(search.toLowerCase()),
   );
+
+  // Banner promo hanya tampil jika kampanye aktif dan ada service promo
+  const showPromoBanner =
+    campaignActive && hasPromo && promoServices.length > 0;
 
   if (isPageLoading) return <div className="min-h-screen"></div>;
 
@@ -75,6 +87,55 @@ export default function Services() {
       {/* Services */}
       <section className="section-padding bg-slate-50">
         <div className="container-base">
+          {/* Banner Kampanye Promo — Opsi A: di atas search bar */}
+          <AnimatePresence>
+            {showPromoBanner && (
+              <motion.div
+                initial={{ opacity: 0, y: -12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -12 }}
+                transition={{ duration: 0.4 }}
+                className="mb-8 rounded-2xl overflow-hidden shadow-sm border border-orange-100"
+              >
+                {/* Gambar banner jika ada */}
+                {campaign?.banner_url && (
+                  <div className="w-full overflow-hidden bg-orange-50">
+                    <img
+                      src={campaign.banner_url}
+                      alt={campaign?.title || "Promo Banner"}
+                      className="w-full object-cover"
+                      style={{
+                        maxHeight: "200px",
+                        objectFit: "cover",
+                        objectPosition: "center",
+                      }}
+                      loading="lazy"
+                    />
+                  </div>
+                )}
+
+                {/* Info teks kampanye */}
+                <div className="bg-gradient-to-r from-orange-500 to-red-500 px-6 py-4 flex items-center gap-4">
+                  <span className="text-2xl shrink-0">🔥</span>
+                  <div className="min-w-0">
+                    <p className="text-white font-bold text-base leading-tight">
+                      {campaign?.title || "Promo Spesial!"}
+                    </p>
+                    {campaign?.description && (
+                      <p className="text-orange-100 text-sm mt-0.5 line-clamp-1">
+                        {campaign.description}
+                      </p>
+                    )}
+                  </div>
+                  <div className="ml-auto shrink-0 flex items-center gap-1.5 bg-white/20 text-white text-xs font-semibold px-3 py-1.5 rounded-full">
+                    <Tag size={12} />
+                    {promoServices.length} Layanan Promo
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           {/* Search */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -110,7 +171,12 @@ export default function Services() {
               </p>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filtered.map((service, i) => (
-                  <ServiceCard key={service.id} service={service} index={i} />
+                  <ServiceCard
+                    key={service.id}
+                    service={service}
+                    index={i}
+                    siteSettings={siteSettings}
+                  />
                 ))}
               </div>
             </>

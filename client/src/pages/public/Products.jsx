@@ -1,20 +1,16 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { motion } from "framer-motion";
-import { Search, SlidersHorizontal } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Search, SlidersHorizontal, Tag } from "lucide-react";
 import { getProducts } from "../../api/products";
 import ProductCard from "../../components/shared/ProductCard";
-import SectionHeader from "../../components/ui/SectionHeader";
 import Spinner from "../../components/ui/Spinner";
 import EmptyState from "../../components/ui/EmptyState";
 import usePageCheck from "../../hooks/usePageCheck";
+import usePromoStatus from "../../hooks/usePromoStatus";
 
 export default function Products() {
-  const {
-    pageInfo,
-    siteSettings,
-    isLoading: isPageLoading,
-  } = usePageCheck("products");
+  const { pageInfo, isLoading: isPageLoading } = usePageCheck("products");
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
 
@@ -22,6 +18,9 @@ export default function Products() {
     queryKey: ["public-products"],
     queryFn: () => getProducts(),
   });
+
+  const { campaignActive, hasPromo, campaign, promoProducts } =
+    usePromoStatus();
 
   const products = data?.data?.data || [];
 
@@ -39,6 +38,10 @@ export default function Products() {
             : true;
     return matchSearch && matchFilter;
   });
+
+  // Banner promo hanya tampil jika kampanye aktif dan ada produk promo
+  const showPromoBanner =
+    campaignActive && hasPromo && promoProducts.length > 0;
 
   if (isPageLoading) return <div className="min-h-screen"></div>;
 
@@ -83,6 +86,55 @@ export default function Products() {
       {/* Products */}
       <section className="section-padding bg-slate-50">
         <div className="container-base">
+          {/* Banner Kampanye Promo — Opsi A: di atas search/filter */}
+          <AnimatePresence>
+            {showPromoBanner && (
+              <motion.div
+                initial={{ opacity: 0, y: -12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -12 }}
+                transition={{ duration: 0.4 }}
+                className="mb-8 rounded-2xl overflow-hidden shadow-sm border border-red-100"
+              >
+                {/* Gambar banner jika ada */}
+                {campaign?.banner_url && (
+                  <div className="w-full overflow-hidden bg-red-50">
+                    <img
+                      src={campaign.banner_url}
+                      alt={campaign?.title || "Promo Banner"}
+                      className="w-full object-cover"
+                      style={{
+                        maxHeight: "200px",
+                        objectFit: "cover",
+                        objectPosition: "center",
+                      }}
+                      loading="lazy"
+                    />
+                  </div>
+                )}
+
+                {/* Info teks kampanye */}
+                <div className="bg-gradient-to-r from-red-500 to-orange-500 px-6 py-4 flex items-center gap-4">
+                  <span className="text-2xl shrink-0">🔥</span>
+                  <div className="min-w-0">
+                    <p className="text-white font-bold text-base leading-tight">
+                      {campaign?.title || "Promo Spesial!"}
+                    </p>
+                    {campaign?.description && (
+                      <p className="text-red-100 text-sm mt-0.5 line-clamp-1">
+                        {campaign.description}
+                      </p>
+                    )}
+                  </div>
+                  <div className="ml-auto shrink-0 flex items-center gap-1.5 bg-white/20 text-white text-xs font-semibold px-3 py-1.5 rounded-full">
+                    <Tag size={12} />
+                    {promoProducts.length} Produk Promo
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           {/* Search & Filter */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}

@@ -36,6 +36,9 @@ const HomeBuilder = lazy(
 const AboutBuilder = lazy(
   () => import("./pages/admin/page-builder/AboutBuilder"),
 );
+const PromoSettings = lazy(
+  () => import("./pages/admin/settings/PromoSettings"),
+);
 
 import Navbar from "./components/layout/Navbar";
 import Footer from "./components/layout/Footer";
@@ -97,8 +100,6 @@ const PageGuard = ({ pageKey, children }) => {
   return children;
 };
 
-// ✅ useAuthVerify dan useTrackVisit dihapus dari sini
-// Dipindah ke AppInit agar hanya dipanggil sekali di level App
 const ProtectedRoute = ({ children }) => {
   const { isAuthenticated, _hasHydrated } = useAuthStore();
   if (!_hasHydrated) return <PageSpinner />;
@@ -123,8 +124,6 @@ const PublicLayout = ({ children }) => (
   </>
 );
 
-// ✅ Dipanggil sekali di level App — tidak re-mount saat navigasi antar halaman
-// Mencegah /auth/me dipanggil berkali-kali yang menyebabkan 429
 function AppInit() {
   useAuthVerify();
   useTrackVisit();
@@ -318,6 +317,14 @@ export default function App() {
             element={
               <RoleProtectedRoute allowedRoles={["superadmin"]}>
                 <SiteSettings />
+              </RoleProtectedRoute>
+            }
+          />
+          <Route
+            path="promo"
+            element={
+              <RoleProtectedRoute allowedRoles={["superadmin"]}>
+                <PromoSettings />
               </RoleProtectedRoute>
             }
           />

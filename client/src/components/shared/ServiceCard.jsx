@@ -1,10 +1,15 @@
 import { motion } from "framer-motion";
 import { ImageOff, Clock } from "lucide-react";
 import WhatsAppButton from "./WhatsAppButton";
+import usePromoStatus from "../../hooks/usePromoStatus";
 
 export default function ServiceCard({ service, index = 0, siteSettings = {} }) {
-  // ✅ Guard — jika service undefined/null, tidak crash
   if (!service) return null;
+
+  const { campaignActive } = usePromoStatus();
+
+  // Badge promo service hanya tampil jika kampanye global sedang aktif
+  const showPromoBadge = campaignActive && service.is_promo;
 
   return (
     <motion.div
@@ -31,7 +36,8 @@ export default function ServiceCard({ service, index = 0, siteSettings = {} }) {
           </div>
         )}
 
-        {service.is_promo && (
+        {/* Badge promo — hanya tampil jika kampanye aktif */}
+        {showPromoBadge && (
           <div className="absolute top-0 left-0">
             <div className="bg-red-500 text-white text-xs font-bold px-3 py-1.5 rounded-br-xl shadow-md">
               🔥 Sedang Ada Promo!
