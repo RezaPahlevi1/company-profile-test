@@ -1,5 +1,8 @@
 import { motion } from "framer-motion";
 import * as LucideIcons from "lucide-react";
+import { getColor } from "../../blockColors";
+
+const BLOCK_TYPE = "stats";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 30 },
@@ -10,10 +13,11 @@ const fadeUp = {
   }),
 };
 
-export default function StatsBlock({ content, isCustomBg }) {
+export default function StatsBlock({ content, isCustomBg, design }) {
   const items = content?.items || [];
-
   if (!items.length) return null;
+
+  const c = (key) => getColor(design, key, BLOCK_TYPE);
 
   return (
     <section
@@ -24,9 +28,7 @@ export default function StatsBlock({ content, isCustomBg }) {
       <div className="container-base px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
           {items.map((stat, i) => {
-            // ✅ Fallback ke HelpCircle jika icon tidak ditemukan
             const Icon = LucideIcons[stat.icon] || LucideIcons.HelpCircle;
-
             return (
               <motion.div
                 key={stat.id || i}
@@ -37,14 +39,18 @@ export default function StatsBlock({ content, isCustomBg }) {
                 variants={fadeUp}
                 className="text-center"
               >
-                {/* ✅ Ganti bg-blue-50/text-blue-600 → bg-brand-50/text-brand-600 */}
-                <div className="inline-flex items-center justify-center w-12 h-12 bg-brand-50 rounded-2xl mb-3">
-                  <Icon size={22} className="text-brand-600" />
+                <div
+                  style={{ backgroundColor: c("iconBg") }}
+                  className="inline-flex items-center justify-center w-12 h-12 rounded-2xl mb-3"
+                >
+                  <Icon size={22} style={{ color: c("iconColor") }} />
                 </div>
-                <p className="text-3xl font-bold text-slate-900">
+                <p style={{ color: c("value") }} className="text-3xl font-bold">
                   {stat.value}
                 </p>
-                <p className="text-slate-500 text-sm mt-1">{stat.label}</p>
+                <p style={{ color: c("label") }} className="text-sm mt-1">
+                  {stat.label}
+                </p>
               </motion.div>
             );
           })}

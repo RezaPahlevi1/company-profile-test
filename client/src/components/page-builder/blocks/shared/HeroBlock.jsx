@@ -1,8 +1,12 @@
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { ArrowRight, ChevronRight } from "lucide-react";
+import { getColor, hexWithOpacity } from "../../blockColors";
+import { useState } from "react";
 
-export default function HeroBlock({ content, isCustomBg }) {
+const BLOCK_TYPE = "hero";
+
+export default function HeroBlock({ content, isCustomBg, design }) {
   const {
     variant = "page",
     badge_text,
@@ -15,16 +19,24 @@ export default function HeroBlock({ content, isCustomBg }) {
     cta_secondary_url,
   } = content;
 
-  // Split heading by highlight to apply special styling
+  const c = (key) => getColor(design, key, BLOCK_TYPE);
+
   const renderHeading = () => {
-    if (!heading_highlight || !heading.includes(heading_highlight)) {
+    if (!heading_highlight || !heading?.includes(heading_highlight)) {
       return heading;
     }
     const parts = heading.split(heading_highlight);
     return (
       <>
         {parts[0]}
-        <span className="text-transparent bg-clip-text bg-linear-to-r from-blue-600 to-indigo-600">
+        <span
+          style={{
+            backgroundImage: `linear-gradient(to right, ${c("headingHighlightFrom")}, ${c("headingHighlightTo")})`,
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+            backgroundClip: "text",
+          }}
+        >
           {heading_highlight}
         </span>
         {parts[1]}
@@ -34,9 +46,17 @@ export default function HeroBlock({ content, isCustomBg }) {
 
   const isHome = variant === "home";
 
+  // Hover state untuk kedua tombol
+  const [primaryHovered, setPrimaryHovered] = useState(false);
+  const [secondaryHovered, setSecondaryHovered] = useState(false);
+
+  const primaryBtnBg = c("primaryBtnBg");
+  const secondaryBtnBg = c("secondaryBtnBg");
+
   return (
-    <section className={`relative overflow-hidden ${isHome ? "min-h-[90vh] flex items-center" : "py-24"} ${isCustomBg ? "bg-transparent" : ""}`}>
-      {/* Background Effects */}
+    <section
+      className={`relative overflow-hidden ${isHome ? "min-h-[90vh] flex items-center" : "py-24"} ${isCustomBg ? "bg-transparent" : ""}`}
+    >
       <div className="absolute inset-0 z-0 pointer-events-none">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-250 h-125 opacity-30 bg-linear-to-tr from-blue-100 to-indigo-50 blur-[100px] rounded-full" />
         {isHome && (
@@ -52,26 +72,52 @@ export default function HeroBlock({ content, isCustomBg }) {
             transition={{ duration: 0.5 }}
           >
             {badge_text && (
-              <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 text-blue-600 text-sm font-medium mb-6 border border-blue-100 ${isHome ? "mx-auto" : ""}`}>
-                <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
+              <div
+                style={{
+                  backgroundColor: c("badgeBg"),
+                  color: c("badgeText"),
+                  borderColor: hexWithOpacity(c("badgeText"), 0.2),
+                }}
+                className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium mb-6 border ${isHome ? "mx-auto" : ""}`}
+              >
+                <span
+                  style={{ backgroundColor: c("badgeText") }}
+                  className="w-2 h-2 rounded-full animate-pulse"
+                />
                 {badge_text}
               </div>
             )}
 
-            <h1 className={`font-bold tracking-tight text-gray-900 mb-6 ${isHome ? "text-5xl md:text-7xl leading-tight" : "text-4xl md:text-5xl"}`}>
+            <h1
+              style={{ color: c("heading") }}
+              className={`font-bold tracking-tight mb-6 ${isHome ? "text-5xl md:text-7xl leading-tight" : "text-4xl md:text-5xl"}`}
+            >
               {renderHeading()}
             </h1>
 
-            <p className={`text-lg md:text-xl text-gray-600 mb-10 ${isHome ? "mx-auto max-w-2xl" : "max-w-xl"}`}>
+            <p
+              style={{ color: c("subheading") }}
+              className={`text-lg md:text-xl mb-10 ${isHome ? "mx-auto max-w-2xl" : "max-w-xl"}`}
+            >
               {subheading}
             </p>
 
             {(cta_primary_label || cta_secondary_label) && (
-              <div className={`flex flex-wrap gap-4 ${isHome ? "justify-center" : ""}`}>
+              <div
+                className={`flex flex-wrap gap-4 ${isHome ? "justify-center" : ""}`}
+              >
                 {cta_primary_label && cta_primary_url && (
                   <Link
                     to={cta_primary_url}
-                    className="inline-flex items-center justify-center px-6 py-3.5 text-base font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm hover:shadow transition-all group"
+                    style={{
+                      backgroundColor: primaryHovered
+                        ? hexWithOpacity(primaryBtnBg, 0.85)
+                        : primaryBtnBg,
+                      color: c("primaryBtnText"),
+                    }}
+                    className="inline-flex items-center justify-center px-6 py-3.5 text-base font-medium rounded-lg shadow-sm hover:shadow transition-all group"
+                    onMouseEnter={() => setPrimaryHovered(true)}
+                    onMouseLeave={() => setPrimaryHovered(false)}
                   >
                     {cta_primary_label}
                     <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />
@@ -80,7 +126,16 @@ export default function HeroBlock({ content, isCustomBg }) {
                 {cta_secondary_label && cta_secondary_url && (
                   <Link
                     to={cta_secondary_url}
-                    className="inline-flex items-center justify-center px-6 py-3.5 text-base font-medium text-gray-700 bg-white hover:bg-gray-50 border border-gray-200 rounded-lg shadow-sm transition-all group"
+                    style={{
+                      backgroundColor: secondaryHovered
+                        ? hexWithOpacity(secondaryBtnBg, 0.85)
+                        : secondaryBtnBg,
+                      color: c("secondaryBtnText"),
+                      borderColor: c("secondaryBtnBorder"),
+                    }}
+                    className="inline-flex items-center justify-center px-6 py-3.5 text-base font-medium border rounded-lg shadow-sm transition-all group"
+                    onMouseEnter={() => setSecondaryHovered(true)}
+                    onMouseLeave={() => setSecondaryHovered(false)}
                   >
                     {cta_secondary_label}
                     <ChevronRight className="ml-1 w-4 h-4 group-hover:translate-x-1 transition-transform text-gray-400" />

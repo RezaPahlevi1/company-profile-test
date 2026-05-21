@@ -25,6 +25,7 @@ import {
   updatePageSetting,
 } from "../../../api/settings";
 import ConfirmModal from "../../../components/ui/ConfirmModal";
+import { Link } from "react-router-dom";
 
 const ALWAYS_ACTIVE = ["home", "order-track"];
 
@@ -329,12 +330,12 @@ export default function SiteSettings() {
             <h2 className="text-base font-semibold text-gray-900">WhatsApp</h2>
             <p className="text-xs text-gray-400 mt-0.5">
               To update the number, go to{" "}
-              <a
-                href="/admin/settings/company"
+              <Link
+                to="/admin/settings/company"
                 className="text-blue-600 hover:underline"
               >
                 Company Info
-              </a>
+              </Link>
             </p>
           </div>
         </div>

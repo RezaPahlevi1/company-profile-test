@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { RotateCcw } from "lucide-react";
 
 import HeroEditor from "./editors/shared/HeroEditor";
 import CtaEditor from "./editors/shared/CtaEditor";
@@ -13,6 +14,8 @@ import AboutSnippetEditor from "./editors/home/AboutSnippetEditor";
 import TimelineEditor from "./editors/about/TimelineEditor";
 import TeamGridEditor from "./editors/about/TeamGridEditor";
 import StoryEditor from "./editors/about/StoryEditor";
+
+import { BLOCK_COLOR_DEFAULTS, getDefaultColors } from "./blockColors";
 
 const EDITOR_COMPONENTS = {
   hero: HeroEditor,
@@ -149,6 +152,257 @@ function GradientEditor({ prefix, design, onDesignChange }) {
   );
 }
 
+// ============================================================
+// COLOR GROUP — kelompok color picker per kategori
+// ============================================================
+function ColorGroup({ title, children }) {
+  return (
+    <div className="space-y-3">
+      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+        {title}
+      </p>
+      <div className="grid grid-cols-2 gap-3">{children}</div>
+    </div>
+  );
+}
+
+// ============================================================
+// TEXT COLOR SECTION — per block type
+// ============================================================
+function TextColorSection({ blockType, design, onDesignChange }) {
+  const colors = design?.colors || {};
+  const defaults = BLOCK_COLOR_DEFAULTS[blockType] || {};
+
+  const setColor = (key, value) => {
+    onDesignChange("colors", { ...colors, [key]: value });
+  };
+
+  // Helper render satu color picker dengan label
+  const picker = (key, label) => (
+    <ColorPickerField
+      key={key}
+      label={label}
+      value={colors[key] ?? defaults[key] ?? "#000000"}
+      onChange={(v) => setColor(key, v)}
+    />
+  );
+
+  // ── Per block type ──
+  if (blockType === "hero") {
+    return (
+      <div className="space-y-5">
+        <ColorGroup title="Badge">
+          {picker("badgeText", "Teks Badge")}
+          {picker("badgeBg", "Background Badge")}
+        </ColorGroup>
+        <ColorGroup title="Teks Utama">
+          {picker("heading", "Heading")}
+          {picker("subheading", "Subheading")}
+        </ColorGroup>
+        <ColorGroup title="Highlight Heading">
+          {picker("headingHighlightFrom", "Warna Mulai")}
+          {picker("headingHighlightTo", "Warna Akhir")}
+        </ColorGroup>
+        <ColorGroup title="Tombol Utama">
+          {picker("primaryBtnBg", "Background")}
+          {picker("primaryBtnText", "Teks")}
+        </ColorGroup>
+        <ColorGroup title="Tombol Kedua">
+          {picker("secondaryBtnBg", "Background")}
+          {picker("secondaryBtnText", "Teks")}
+          {picker("secondaryBtnBorder", "Border")}
+        </ColorGroup>
+      </div>
+    );
+  }
+
+  if (blockType === "cta") {
+    return (
+      <div className="space-y-5">
+        <ColorGroup title="Teks Card">
+          {picker("heading", "Heading")}
+          {picker("subheading", "Subheading")}
+        </ColorGroup>
+        <ColorGroup title="Tombol Utama">
+          {picker("primaryBtnBg", "Background")}
+          {picker("primaryBtnText", "Teks")}
+        </ColorGroup>
+        <ColorGroup title="Tombol Kedua">
+          {picker("secondaryBtnText", "Teks")}
+          {picker("secondaryBtnBorder", "Border")}
+        </ColorGroup>
+      </div>
+    );
+  }
+
+  if (blockType === "rich_text") {
+    return (
+      <div className="space-y-5">
+        <ColorGroup title="Teks Konten">
+          {picker("prose", "Teks Paragraf")}
+          {picker("proseHeading", "Heading")}
+          {picker("proseLink", "Link")}
+        </ColorGroup>
+      </div>
+    );
+  }
+
+  if (blockType === "image_text") {
+    return (
+      <div className="space-y-5">
+        <ColorGroup title="Teks">{picker("heading", "Heading")}</ColorGroup>
+        <ColorGroup title="Konten HTML">
+          {picker("prose", "Teks Paragraf")}
+          {picker("proseHeading", "Heading Konten")}
+          {picker("proseLink", "Link")}
+        </ColorGroup>
+      </div>
+    );
+  }
+
+  if (blockType === "icon_grid") {
+    return (
+      <div className="space-y-5">
+        <ColorGroup title="Badge">
+          {picker("labelText", "Teks Badge")}
+          {picker("labelBg", "Background Badge")}
+        </ColorGroup>
+        <ColorGroup title="Header Section">
+          {picker("title", "Judul")}
+          {picker("subtitle", "Subjudul")}
+        </ColorGroup>
+        <ColorGroup title="Icon">
+          {picker("iconColor", "Warna Icon")}
+          {picker("iconBg", "Background Icon")}
+        </ColorGroup>
+        <ColorGroup title="Item">
+          {picker("itemTitle", "Judul Item")}
+          {picker("itemDesc", "Deskripsi Item")}
+        </ColorGroup>
+      </div>
+    );
+  }
+
+  if (
+    blockType === "products_preview" ||
+    blockType === "services_preview" ||
+    blockType === "blog_preview"
+  ) {
+    return (
+      <div className="space-y-5">
+        <ColorGroup title="Badge">
+          {picker("labelText", "Teks Badge")}
+          {picker("labelBg", "Background Badge")}
+        </ColorGroup>
+        <ColorGroup title="Header Section">
+          {picker("title", "Judul")}
+          {picker("subtitle", "Subjudul")}
+          {picker("linkText", 'Link "Lihat Semua"')}
+        </ColorGroup>
+      </div>
+    );
+  }
+
+  if (blockType === "stats") {
+    return (
+      <div className="space-y-5">
+        <ColorGroup title="Icon">
+          {picker("iconColor", "Warna Icon")}
+          {picker("iconBg", "Background Icon")}
+        </ColorGroup>
+        <ColorGroup title="Teks">
+          {picker("value", "Angka / Value")}
+          {picker("label", "Label")}
+        </ColorGroup>
+      </div>
+    );
+  }
+
+  if (blockType === "about_snippet") {
+    return (
+      <div className="space-y-5">
+        <ColorGroup title="Teks">
+          {picker("label", "Label")}
+          {picker("heading", "Heading")}
+          {picker("body", "Isi / Body")}
+        </ColorGroup>
+        <ColorGroup title="Tombol CTA">
+          {picker("ctaBg", "Background")}
+          {picker("ctaText", "Teks")}
+        </ColorGroup>
+      </div>
+    );
+  }
+
+  if (blockType === "timeline") {
+    return (
+      <div className="space-y-5">
+        <ColorGroup title="Badge">
+          {picker("labelText", "Teks Badge")}
+          {picker("labelBg", "Background Badge")}
+        </ColorGroup>
+        <ColorGroup title="Header Section">
+          {picker("title", "Judul")}
+          {picker("subtitle", "Subjudul")}
+        </ColorGroup>
+        <ColorGroup title="Item Milestone">
+          {picker("itemYear", "Tahun")}
+          {picker("itemTitle", "Judul Item")}
+          {picker("itemDesc", "Deskripsi Item")}
+          {picker("dotBg", "Warna Titik Garis")}
+        </ColorGroup>
+      </div>
+    );
+  }
+
+  if (blockType === "team_grid") {
+    return (
+      <div className="space-y-5">
+        <ColorGroup title="Badge">
+          {picker("labelText", "Teks Badge")}
+          {picker("labelBg", "Background Badge")}
+        </ColorGroup>
+        <ColorGroup title="Header Section">
+          {picker("title", "Judul")}
+          {picker("subtitle", "Subjudul")}
+        </ColorGroup>
+        <ColorGroup title="Anggota Tim">
+          {picker("memberName", "Nama")}
+          {picker("memberRole", "Jabatan")}
+        </ColorGroup>
+        <ColorGroup title="Avatar Placeholder">
+          {picker("avatarFrom", "Gradient Mulai")}
+          {picker("avatarTo", "Gradient Akhir")}
+        </ColorGroup>
+      </div>
+    );
+  }
+
+  if (blockType === "story") {
+    return (
+      <div className="space-y-5">
+        <ColorGroup title="Badge">
+          {picker("labelText", "Teks Badge")}
+          {picker("labelBg", "Background Badge")}
+        </ColorGroup>
+        <ColorGroup title="Teks Utama">
+          {picker("heading", "Heading")}
+          {picker("body", "Paragraf")}
+        </ColorGroup>
+        <ColorGroup title="Checklist">
+          {picker("checklistIcon", "Warna Icon")}
+          {picker("checklistText", "Teks")}
+        </ColorGroup>
+      </div>
+    );
+  }
+
+  return null;
+}
+
+// ============================================================
+// BLOCK EDITOR — main export, update tab Desain
+// ============================================================
 export default function BlockEditor({ block, onChange }) {
   const [activeTab, setActiveTab] = useState("content");
 
@@ -172,6 +426,14 @@ export default function BlockEditor({ block, onChange }) {
     onChange({
       ...block,
       design: { ...(block.design || {}), [field]: value },
+    });
+  };
+
+  const handleResetColors = () => {
+    const defaults = getDefaultColors(block.type);
+    onChange({
+      ...block,
+      design: { ...(block.design || {}), colors: defaults },
     });
   };
 
@@ -208,7 +470,6 @@ export default function BlockEditor({ block, onChange }) {
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
               {isCta ? "Background Section (Luar Card)" : "Background Section"}
             </p>
-
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -224,7 +485,6 @@ export default function BlockEditor({ block, onChange }) {
                   <option value="gradient">Gradien</option>
                 </select>
               </div>
-
               {bgType === "color" && (
                 <ColorPickerField
                   label="Pilih Warna"
@@ -232,7 +492,6 @@ export default function BlockEditor({ block, onChange }) {
                   onChange={(v) => handleDesignChange("bgColor", v)}
                 />
               )}
-
               {bgType === "gradient" && (
                 <GradientEditor
                   prefix=""
@@ -242,7 +501,6 @@ export default function BlockEditor({ block, onChange }) {
                     GradientDirection: design.gradientDirection,
                   }}
                   onDesignChange={(field, value) => {
-                    // strip prefix kosong → nama asli
                     const realField = field.replace(/^G/, "g");
                     handleDesignChange(realField, value);
                   }}
@@ -259,7 +517,6 @@ export default function BlockEditor({ block, onChange }) {
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
                   Warna Card CTA
                 </p>
-
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -277,7 +534,6 @@ export default function BlockEditor({ block, onChange }) {
                       <option value="gradient">Gradien</option>
                     </select>
                   </div>
-
                   {cardBgType === "color" && (
                     <ColorPickerField
                       label="Pilih Warna Card"
@@ -285,7 +541,6 @@ export default function BlockEditor({ block, onChange }) {
                       onChange={(v) => handleDesignChange("cardBgColor", v)}
                     />
                   )}
-
                   {cardBgType === "gradient" && (
                     <div className="space-y-4 p-4 border border-gray-200 rounded-lg bg-gray-50">
                       <div className="grid grid-cols-2 gap-4">
@@ -343,6 +598,28 @@ export default function BlockEditor({ block, onChange }) {
               </div>
             </>
           )}
+
+          {/* ── Warna Teks ── */}
+          <div className="h-px bg-gray-100" />
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                Warna Teks & Elemen
+              </p>
+              <button
+                onClick={handleResetColors}
+                className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-red-500 border border-gray-200 hover:border-red-200 px-2.5 py-1.5 rounded-lg transition-colors"
+              >
+                <RotateCcw size={11} />
+                Reset Warna
+              </button>
+            </div>
+            <TextColorSection
+              blockType={block.type}
+              design={design}
+              onDesignChange={handleDesignChange}
+            />
+          </div>
         </div>
       )}
     </div>

@@ -1,11 +1,14 @@
 import { motion } from "framer-motion";
-import DOMPurify from "dompurify";
+import { getColor } from "../../blockColors";
+import sanitizeHtml from "../../../../utils/sanitizeHtml";
 
-export default function ImageTextBlock({ content, isCustomBg }) {
+const BLOCK_TYPE = "image_text";
+
+export default function ImageTextBlock({ content, isCustomBg, design }) {
   const { image_url, image_position = "left", heading, body } = content || {};
 
-  // ✅ Sanitasi body HTML sebelum render — cegah XSS
-  const cleanBody = body ? DOMPurify.sanitize(body) : "";
+  const cleanBody = body ? sanitizeHtml(body) : "";
+  const c = (key) => getColor(design, key, BLOCK_TYPE);
 
   return (
     <section className={`py-20 ${isCustomBg ? "bg-transparent" : "bg-white"}`}>
@@ -49,13 +52,26 @@ export default function ImageTextBlock({ content, isCustomBg }) {
               transition={{ duration: 0.5, delay: 0.1 }}
             >
               {heading && (
-                <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-6 leading-tight">
+                <h2
+                  style={{ color: c("heading") }}
+                  className="text-3xl md:text-4xl font-bold mb-6 leading-tight"
+                >
                   {heading}
                 </h2>
               )}
               {cleanBody && (
                 <div
-                  className="prose prose-blue prose-lg max-w-none text-gray-600"
+                  style={{
+                    "--prose-color": c("prose"),
+                    "--prose-heading-color": c("proseHeading"),
+                    "--prose-link-color": c("proseLink"),
+                  }}
+                  className="prose prose-blue prose-lg max-w-none
+                    [&_p]:text-[var(--prose-color)]
+                    [&_li]:text-[var(--prose-color)]
+                    [&_h2]:text-[var(--prose-heading-color)]
+                    [&_h3]:text-[var(--prose-heading-color)]
+                    [&_a]:text-[var(--prose-link-color)]"
                   dangerouslySetInnerHTML={{ __html: cleanBody }}
                 />
               )}

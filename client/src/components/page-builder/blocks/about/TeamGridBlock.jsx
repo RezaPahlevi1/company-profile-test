@@ -1,4 +1,7 @@
 import { motion } from "framer-motion";
+import { getColor } from "../../blockColors";
+
+const BLOCK_TYPE = "team_grid";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 30 },
@@ -9,8 +12,9 @@ const fadeUp = {
   }),
 };
 
-export default function TeamGridBlock({ content, isCustomBg }) {
+export default function TeamGridBlock({ content, isCustomBg, design }) {
   const { label, title, subtitle, items = [] } = content || {};
+  const c = (key) => getColor(design, key, BLOCK_TYPE);
 
   return (
     <section
@@ -20,17 +24,29 @@ export default function TeamGridBlock({ content, isCustomBg }) {
         {(label || title || subtitle) && (
           <div className="text-center max-w-3xl mx-auto mb-16">
             {label && (
-              // ✅ Ganti bg-blue-100/text-blue-700 → brand
-              <span className="inline-block px-3 py-1 bg-brand-50 text-brand-600 font-semibold text-sm uppercase tracking-widest rounded-full mb-4">
+              <span
+                style={{
+                  backgroundColor: c("labelBg"),
+                  color: c("labelText"),
+                }}
+                className="inline-block px-3 py-1 font-semibold text-sm uppercase tracking-widest rounded-full mb-4"
+              >
                 {label}
               </span>
             )}
             {title && (
-              <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+              <h2
+                style={{ color: c("title") }}
+                className="text-3xl md:text-4xl font-bold mb-4"
+              >
                 {title}
               </h2>
             )}
-            {subtitle && <p className="text-lg text-gray-600">{subtitle}</p>}
+            {subtitle && (
+              <p style={{ color: c("subtitle") }} className="text-lg">
+                {subtitle}
+              </p>
+            )}
           </div>
         )}
 
@@ -55,18 +71,27 @@ export default function TeamGridBlock({ content, isCustomBg }) {
                     decoding="async"
                   />
                 ) : (
-                  // ✅ Ganti from-blue-500 to-blue-700 → brand
-                  <div className="w-20 h-20 bg-linear-to-br from-brand-400 to-brand-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-inner">
+                  <div
+                    style={{
+                      background: `linear-gradient(to bottom right, ${c("avatarFrom")}, ${c("avatarTo")})`,
+                    }}
+                    className="w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-inner"
+                  >
                     <span className="text-white font-bold text-2xl">
                       {member.initial || "?"}
                     </span>
                   </div>
                 )}
-                <h3 className="font-bold text-gray-900 text-lg">
+                <h3
+                  style={{ color: c("memberName") }}
+                  className="font-bold text-lg"
+                >
                   {member.name}
                 </h3>
-                {/* ✅ Ganti text-blue-600 → brand */}
-                <p className="text-brand-600 text-sm mt-1 font-medium">
+                <p
+                  style={{ color: c("memberRole") }}
+                  className="text-sm mt-1 font-medium"
+                >
                   {member.role}
                 </p>
               </motion.div>

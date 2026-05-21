@@ -1,4 +1,7 @@
 import { motion } from "framer-motion";
+import { getColor } from "../../blockColors";
+
+const BLOCK_TYPE = "timeline";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 30 },
@@ -9,8 +12,9 @@ const fadeUp = {
   }),
 };
 
-export default function TimelineBlock({ content, isCustomBg }) {
+export default function TimelineBlock({ content, isCustomBg, design }) {
   const { label, title, subtitle, items = [] } = content || {};
+  const c = (key) => getColor(design, key, BLOCK_TYPE);
 
   return (
     <section className={`py-24 ${isCustomBg ? "bg-transparent" : "bg-white"}`}>
@@ -18,17 +22,29 @@ export default function TimelineBlock({ content, isCustomBg }) {
         {(label || title || subtitle) && (
           <div className="text-center max-w-3xl mx-auto mb-16">
             {label && (
-              // ✅ Ganti bg-blue-50/text-blue-600 → bg-brand-50/text-brand-600
-              <span className="inline-block px-3 py-1 bg-brand-50 text-brand-600 font-semibold text-sm uppercase tracking-widest rounded-full mb-4">
+              <span
+                style={{
+                  backgroundColor: c("labelBg"),
+                  color: c("labelText"),
+                }}
+                className="inline-block px-3 py-1 font-semibold text-sm uppercase tracking-widest rounded-full mb-4"
+              >
                 {label}
               </span>
             )}
             {title && (
-              <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+              <h2
+                style={{ color: c("title") }}
+                className="text-3xl md:text-4xl font-bold mb-4"
+              >
                 {title}
               </h2>
             )}
-            {subtitle && <p className="text-lg text-gray-600">{subtitle}</p>}
+            {subtitle && (
+              <p style={{ color: c("subtitle") }} className="text-lg">
+                {subtitle}
+              </p>
+            )}
           </div>
         )}
 
@@ -60,21 +76,32 @@ export default function TimelineBlock({ content, isCustomBg }) {
                         i % 2 === 0 ? "lg:ml-auto" : ""
                       }`}
                     >
-                      {/* ✅ Ganti text-blue-600 → text-brand-600 */}
-                      <span className="text-brand-600 font-bold text-lg">
+                      <span
+                        style={{ color: c("itemYear") }}
+                        className="font-bold text-lg"
+                      >
                         {item.year}
                       </span>
-                      <h3 className="font-bold text-gray-900 mt-1 text-xl">
+                      <h3
+                        style={{ color: c("itemTitle") }}
+                        className="font-bold mt-1 text-xl"
+                      >
                         {item.title}
                       </h3>
-                      <p className="text-gray-500 text-sm mt-2 leading-relaxed">
+                      <p
+                        style={{ color: c("itemDesc") }}
+                        className="text-sm mt-2 leading-relaxed"
+                      >
                         {item.desc}
                       </p>
                     </div>
                   </div>
 
-                  {/* ✅ Ganti bg-blue-600 → bg-brand-600 */}
-                  <div className="hidden lg:flex w-10 h-10 bg-brand-600 rounded-full items-center justify-center shrink-0 z-10 shadow-md">
+                  {/* Dot garis tengah */}
+                  <div
+                    style={{ backgroundColor: c("dotBg") }}
+                    className="hidden lg:flex w-10 h-10 rounded-full items-center justify-center shrink-0 z-10 shadow-md"
+                  >
                     <div className="w-3 h-3 bg-white rounded-full" />
                   </div>
 

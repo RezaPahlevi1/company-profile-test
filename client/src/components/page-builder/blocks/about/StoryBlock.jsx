@@ -1,6 +1,9 @@
 import { motion } from "framer-motion";
 import { CheckCircle } from "lucide-react";
 import * as LucideIcons from "lucide-react";
+import { getColor } from "../../blockColors";
+
+const BLOCK_TYPE = "story";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 30 },
@@ -11,7 +14,7 @@ const fadeUp = {
   }),
 };
 
-// ✅ Mapping color → class Tailwind, brand sebagai default
+// COLOR_THEME dan getColorTheme tidak diubah — cards ikut sistem warna existing
 const COLOR_THEME = {
   brand: {
     icon: "bg-brand-50 text-brand-600",
@@ -37,7 +40,7 @@ const COLOR_THEME = {
 
 const getColorTheme = (color) => COLOR_THEME[color] || COLOR_THEME.brand;
 
-export default function StoryBlock({ content, isCustomBg }) {
+export default function StoryBlock({ content, isCustomBg, design }) {
   const {
     label,
     heading,
@@ -46,6 +49,8 @@ export default function StoryBlock({ content, isCustomBg }) {
     checklist = [],
     cards = [],
   } = content || {};
+
+  const c = (key) => getColor(design, key, BLOCK_TYPE);
 
   return (
     <section className={`py-24 ${isCustomBg ? "bg-transparent" : "bg-white"}`}>
@@ -59,22 +64,37 @@ export default function StoryBlock({ content, isCustomBg }) {
             transition={{ duration: 0.6 }}
           >
             {label && (
-              <span className="inline-block px-3 py-1 bg-brand-50 text-brand-600 font-semibold text-sm uppercase tracking-widest rounded-full mb-4">
+              <span
+                style={{
+                  backgroundColor: c("labelBg"),
+                  color: c("labelText"),
+                }}
+                className="inline-block px-3 py-1 font-semibold text-sm uppercase tracking-widest rounded-full mb-4"
+              >
                 {label}
               </span>
             )}
             {heading && (
-              <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 leading-tight">
+              <h2
+                style={{ color: c("heading") }}
+                className="text-3xl sm:text-4xl font-bold leading-tight"
+              >
                 {heading}
               </h2>
             )}
             {body_1 && (
-              <p className="text-gray-600 text-lg mt-6 leading-relaxed">
+              <p
+                style={{ color: c("body") }}
+                className="text-lg mt-6 leading-relaxed"
+              >
                 {body_1}
               </p>
             )}
             {body_2 && (
-              <p className="text-gray-600 text-lg mt-4 leading-relaxed">
+              <p
+                style={{ color: c("body") }}
+                className="text-lg mt-4 leading-relaxed"
+              >
                 {body_2}
               </p>
             )}
@@ -88,20 +108,21 @@ export default function StoryBlock({ content, isCustomBg }) {
                     whileInView="visible"
                     viewport={{ once: true }}
                     variants={fadeUp}
-                    className="flex items-center gap-3 text-gray-600"
+                    className="flex items-center gap-3"
                   >
                     <CheckCircle
                       size={18}
-                      className="text-brand-600 shrink-0"
+                      style={{ color: c("checklistIcon") }}
+                      className="shrink-0"
                     />
-                    <span>{item}</span>
+                    <span style={{ color: c("checklistText") }}>{item}</span>
                   </motion.li>
                 ))}
               </ul>
             )}
           </motion.div>
 
-          {/* Kanan — cards */}
+          {/* Kanan — cards, ikut sistem COLOR_THEME existing */}
           {cards.length > 0 && (
             <motion.div
               initial={{ opacity: 0, x: 30 }}
