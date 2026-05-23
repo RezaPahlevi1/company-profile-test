@@ -21,6 +21,14 @@ import pageBuilderRoutes from "./routes/pageBuilderRoutes.js";
 const app = express();
 const isDev = process.env.NODE_ENV !== "production";
 
+// ✅ Trust proxy — aktif di production agar req.ip dan x-forwarded-for
+// terbaca dengan benar saat di belakang reverse proxy (Nginx, Render, Railway, dll)
+// Nilai "1" artinya percaya satu layer proxy di depan Express
+// Jangan aktifkan di development — req.ip akan tetap ::1 (lokal)
+if (!isDev) {
+  app.set("trust proxy", 1);
+}
+
 app.use(compression());
 app.use(helmet({ contentSecurityPolicy: false }));
 
@@ -49,8 +57,6 @@ app.post("/api/orders/webhook", handleMidtransWebhook);
 app.post("/api/midtrans/webhook", handleMidtransWebhook);
 
 // ✅ Rate limit global
-// Development: 1000/15 menit — longgar untuk React StrictMode + Vite HMR
-// Production: 200/15 menit — ketat
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: isDev ? 1000 : 200,
@@ -60,14 +66,11 @@ const globalLimiter = rateLimit({
     success: false,
     message: "Too many requests, please try again later.",
   },
-  // ✅ Skip /auth/me — dipanggil sering untuk verifikasi session,
-  // tidak berbahaya karena butuh valid cookie untuk dapat response
   skip: (req) => req.method === "GET" && req.path === "/api/auth/me",
 });
 app.use(globalLimiter);
 
 // ✅ Login — anti brute force
-// Development lebih longgar agar tidak ganggu testing berulang
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: isDev ? 100 : 10,

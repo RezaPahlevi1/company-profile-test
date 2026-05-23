@@ -50,6 +50,39 @@ const isBot = (ua = "") => {
   return botPatterns.some((p) => ua.toLowerCase().includes(p));
 };
 
+// Normalisasi IP — handle semua format IPv4 dan IPv6
+// Return null jika IP adalah lokal/tidak valid
+const normalizeIp = (raw = "") => {
+  if (!raw) return null;
+
+  const ip = raw.trim();
+
+  // IPv4-mapped IPv6: ::ffff:1.2.3.4 atau ::ffff:0:1.2.3.4
+  const ipv4MappedMatch = ip.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/i);
+  if (ipv4MappedMatch) return ipv4MappedMatch[1];
+
+  // Loopback dan link-local — tidak bisa di-resolve ke negara
+  const isLocal =
+    ip === "::1" ||
+    ip === "127.0.0.1" ||
+    ip.startsWith("192.168.") ||
+    ip.startsWith("10.") ||
+    ip.startsWith("172.16.") ||
+    ip.startsWith("172.17.") ||
+    ip.startsWith("172.18.") ||
+    ip.startsWith("172.19.") ||
+    ip.startsWith("172.2") ||
+    ip.startsWith("172.30.") ||
+    ip.startsWith("172.31.") ||
+    ip.startsWith("fe80:") || // link-local IPv6
+    ip.startsWith("fc") || // unique local IPv6
+    ip.startsWith("fd"); // unique local IPv6
+
+  if (isLocal) return null;
+
+  return ip;
+};
+
 export const trackVisit = async (req, res) => {
   try {
     const ua = req.headers["user-agent"] || "";
@@ -59,21 +92,26 @@ export const trackVisit = async (req, res) => {
       return res.status(200).json({ success: true });
     }
 
+    // Di production dengan trust proxy aktif, req.ip sudah berisi
+    // IP asli user dari x-forwarded-for secara otomatis.
+    // Di development, fallback ke socket address (akan jadi ::1/lokal)
     const rawIp =
       req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
       req.headers["x-real-ip"] ||
+      req.ip ||
       req.socket.remoteAddress ||
       "";
 
-    // Hash IP untuk privacy — tidak simpan IP mentah
+    // Hash IP untuk privacy — selalu dari rawIp agar konsisten
     const ip_hash = crypto
       .createHash("sha256")
       .update(rawIp + process.env.JWT_SECRET)
       .digest("hex");
 
-    // Detect negara dari IP
-    const cleanIp = rawIp.replace("::ffff:", "");
-    const geo = geoip.lookup(cleanIp);
+    // Normalisasi IP sebelum lookup
+    // Jika null (lokal/tidak valid), country akan null — kunjungan tetap tercatat
+    const cleanIp = normalizeIp(rawIp);
+    const geo = cleanIp ? geoip.lookup(cleanIp) : null;
     const country_code = geo?.country || null;
     const country_name = country_code ? getCountryName(country_code) : null;
 
@@ -174,7 +212,7 @@ export const getAnalytics = async (req, res) => {
     if (days >= 30) {
       const monthMap = {};
       visits.forEach((v) => {
-        const monthKey = v.visited_at.substring(0, 7); // YYYY-MM
+        const monthKey = v.visited_at.substring(0, 7);
         if (!monthMap[monthKey])
           monthMap[monthKey] = { total: 0, ips: new Set() };
         monthMap[monthKey].total++;
@@ -217,11 +255,7 @@ export const getAnalytics = async (req, res) => {
     return res.status(200).json({
       success: true,
       data: {
-        summary: {
-          totalVisits,
-          uniqueVisitors,
-          range,
-        },
+        summary: { totalVisits, uniqueVisitors, range },
         dailyVisits,
         weeklyVisits,
         monthlyVisits,
