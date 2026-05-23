@@ -1,26 +1,51 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, ShoppingCart, MessageCircle, Tag } from "lucide-react";
+import { X, ShoppingCart, MessageCircle, Tag, Calendar } from "lucide-react";
 import { Link } from "react-router-dom";
+import { format } from "date-fns";
+import { id as localeId } from "date-fns/locale";
+import { useQuery } from "@tanstack/react-query";
+import { getSiteSettings } from "../../api/settings";
 import usePromoStatus from "../../hooks/usePromoStatus";
+
+// Format range tanggal: "1 Agustus – 17 Agustus 2025"
+// Jika tahun sama, tahun hanya ditampilkan sekali di akhir
+const formatDateRange = (startsAt, endsAt) => {
+  if (!startsAt || !endsAt) return null;
+  try {
+    const start = new Date(startsAt);
+    const end = new Date(endsAt);
+    const sameYear = start.getFullYear() === end.getFullYear();
+
+    const startStr = format(start, sameYear ? "d MMMM" : "d MMMM yyyy", {
+      locale: localeId,
+    });
+    const endStr = format(end, "d MMMM yyyy", { locale: localeId });
+    return `${startStr} – ${endStr}`;
+  } catch {
+    return null;
+  }
+};
 
 export default function PromoPopup() {
   const [isOpen, setIsOpen] = useState(false);
+  const { data: siteData } = useQuery({
+    queryKey: ["site-settings"],
+    queryFn: getSiteSettings,
+    staleTime: 1000 * 60 * 10,
+  });
+
   const { hasPromo, campaignActive, campaign, promoProducts, promoServices } =
     usePromoStatus();
 
   useEffect(() => {
     if (!hasPromo || !campaignActive) return;
-
-    // Hanya tampil sekali per session
     const shown = sessionStorage.getItem("promo_popup_shown");
     if (shown) return;
-
     const timer = setTimeout(() => {
       setIsOpen(true);
       sessionStorage.setItem("promo_popup_shown", "true");
     }, 1500);
-
     return () => clearTimeout(timer);
   }, [hasPromo, campaignActive]);
 
@@ -28,13 +53,12 @@ export default function PromoPopup() {
 
   if (!hasPromo || !campaignActive) return null;
 
-  const waNumber = import.meta.env.VITE_WA_NUMBER || "628123456789";
-
-  // Judul yang ditampilkan di header — dari kampanye jika ada, fallback ke default
+  const waNumber = siteData?.data?.data?.whatsapp_number;
   const headerTitle = campaign?.title || "Promo Spesial!";
   const headerDesc =
     campaign?.description || "Jangan lewatkan penawaran terbatas ini";
   const hasBanner = campaign?.banner_url && campaign.banner_url !== "";
+  const dateRange = formatDateRange(campaign?.starts_at, campaign?.ends_at);
 
   return (
     <AnimatePresence>
@@ -57,9 +81,9 @@ export default function PromoPopup() {
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
             className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none"
           >
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[85vh] overflow-hidden pointer-events-auto">
-              {/* Header gradient — selalu ada */}
-              <div className="relative bg-linear-to-r from-red-500 to-orange-500 p-6 text-white">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[85vh] flex flex-col overflow-hidden pointer-events-auto">
+              {/* Header gradient */}
+              <div className="relative bg-gradient-to-r from-red-500 to-orange-500 p-6 text-white">
                 <button
                   onClick={handleClose}
                   className="absolute top-4 right-4 w-7 h-7 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center transition-colors"
@@ -77,11 +101,20 @@ export default function PromoPopup() {
                         {headerDesc}
                       </p>
                     )}
+                    {/* Range tanggal — hanya tampil jika keduanya ada */}
+                    {dateRange && (
+                      <div className="flex items-center gap-1.5 mt-2">
+                        <Calendar size={12} className="text-red-200 shrink-0" />
+                        <p className="text-red-100 text-xs font-medium">
+                          {dateRange}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
 
-              {/* Banner gambar — Opsi A: full width di bawah header */}
+              {/* Banner gambar */}
               {hasBanner && (
                 <div className="w-full overflow-hidden">
                   <img
@@ -89,7 +122,6 @@ export default function PromoPopup() {
                     alt={headerTitle}
                     className="w-full object-cover"
                     style={{
-                      // Landscape default ~150px, auto-adjust jika portrait
                       maxHeight: "180px",
                       objectFit: "cover",
                       objectPosition: "center",
@@ -99,8 +131,8 @@ export default function PromoPopup() {
                 </div>
               )}
 
-              {/* Content — list produk dan service */}
-              <div className="overflow-y-auto max-h-[50vh] p-5 space-y-4">
+              {/* Content */}
+              <div className="flex-1 overflow-y-auto min-h-0 p-5 space-y-4">
                 {/* Promo Products */}
                 {promoProducts.length > 0 && (
                   <div>
@@ -207,16 +239,27 @@ export default function PromoPopup() {
                   )}
                   {promoServices.length > 0 && (
                     <a
-                      href={`https://wa.me/${waNumber}?text=${encodeURIComponent(
-                        "Halo, saya tertarik dengan layanan promo yang tersedia!",
-                      )}`}
-                      target="_blank"
+                      href={
+                        waNumber
+                          ? `https://wa.me/${waNumber}?text=${encodeURIComponent(
+                              "Halo, saya tertarik dengan layanan promo yang tersedia!",
+                            )}`
+                          : "#"
+                      }
+                      target={waNumber ? "_blank" : undefined}
                       rel="noopener noreferrer"
-                      onClick={handleClose}
-                      className="flex-1 flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 text-white text-sm font-semibold py-2.5 rounded-xl transition-colors"
+                      aria-disabled={!waNumber}
+                      onClick={
+                        !waNumber ? (e) => e.preventDefault() : handleClose
+                      }
+                      className={`flex-1 flex items-center justify-center gap-2 text-white text-sm font-semibold py-2.5 rounded-xl transition-colors ${
+                        waNumber
+                          ? "bg-green-500 hover:bg-green-600"
+                          : "bg-gray-300 cursor-not-allowed"
+                      }`}
                     >
                       <MessageCircle size={15} />
-                      Tanya via WA
+                      {waNumber ? "Tanya via WA" : "Loading..."}
                     </a>
                   )}
                 </div>

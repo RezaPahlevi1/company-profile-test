@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Tag } from "lucide-react";
+import { Search, Tag, Calendar } from "lucide-react";
+import { format } from "date-fns";
+import { id as localeId } from "date-fns/locale";
 import { getServices } from "../../api/services";
 import { getSiteSettings } from "../../api/settings";
 import ServiceCard from "../../components/shared/ServiceCard";
@@ -10,6 +12,22 @@ import EmptyState from "../../components/ui/EmptyState";
 import WhatsAppButton from "../../components/shared/WhatsAppButton";
 import usePageCheck from "../../hooks/usePageCheck";
 import usePromoStatus from "../../hooks/usePromoStatus";
+
+const formatDateRange = (startsAt, endsAt) => {
+  if (!startsAt || !endsAt) return null;
+  try {
+    const start = new Date(startsAt);
+    const end = new Date(endsAt);
+    const sameYear = start.getFullYear() === end.getFullYear();
+    const startStr = format(start, sameYear ? "d MMMM" : "d MMMM yyyy", {
+      locale: localeId,
+    });
+    const endStr = format(end, "d MMMM yyyy", { locale: localeId });
+    return `${startStr} \u2013 ${endStr}`;
+  } catch {
+    return null;
+  }
+};
 
 export default function Services() {
   const { pageInfo, isLoading: isPageLoading } = usePageCheck("services");
@@ -20,7 +38,6 @@ export default function Services() {
     queryFn: () => getServices(),
   });
 
-  // Fix bug: siteSettings tidak di-fetch dan tidak di-pass ke ServiceCard
   const { data: siteData } = useQuery({
     queryKey: ["site-settings"],
     queryFn: getSiteSettings,
@@ -39,9 +56,9 @@ export default function Services() {
       s.description?.toLowerCase().includes(search.toLowerCase()),
   );
 
-  // Banner promo hanya tampil jika kampanye aktif dan ada service promo
   const showPromoBanner =
     campaignActive && hasPromo && promoServices.length > 0;
+  const dateRange = formatDateRange(campaign?.starts_at, campaign?.ends_at);
 
   if (isPageLoading) return <div className="min-h-screen"></div>;
 
@@ -87,7 +104,7 @@ export default function Services() {
       {/* Services */}
       <section className="section-padding bg-slate-50">
         <div className="container-base">
-          {/* Banner Kampanye Promo — Opsi A: di atas search bar */}
+          {/* Banner Kampanye Promo */}
           <AnimatePresence>
             {showPromoBanner && (
               <motion.div
@@ -97,7 +114,6 @@ export default function Services() {
                 transition={{ duration: 0.4 }}
                 className="mb-8 rounded-2xl overflow-hidden shadow-sm border border-orange-100"
               >
-                {/* Gambar banner jika ada */}
                 {campaign?.banner_url && (
                   <div className="w-full overflow-hidden bg-orange-50">
                     <img
@@ -113,11 +129,9 @@ export default function Services() {
                     />
                   </div>
                 )}
-
-                {/* Info teks kampanye */}
                 <div className="bg-linear-to-r from-orange-500 to-red-500 px-6 py-4 flex items-center gap-4">
                   <span className="text-2xl shrink-0">🔥</span>
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <p className="text-white font-bold text-base leading-tight">
                       {campaign?.title || "Promo Spesial!"}
                     </p>
@@ -126,8 +140,20 @@ export default function Services() {
                         {campaign.description}
                       </p>
                     )}
+                    {/* Range tanggal */}
+                    {dateRange && (
+                      <div className="flex items-center gap-1.5 mt-1.5">
+                        <Calendar
+                          size={12}
+                          className="text-orange-200 shrink-0"
+                        />
+                        <p className="text-orange-100 text-xs font-medium">
+                          {dateRange}
+                        </p>
+                      </div>
+                    )}
                   </div>
-                  <div className="ml-auto shrink-0 flex items-center gap-1.5 bg-white/20 text-white text-xs font-semibold px-3 py-1.5 rounded-full">
+                  <div className="shrink-0 flex items-center gap-1.5 bg-white/20 text-white text-xs font-semibold px-3 py-1.5 rounded-full">
                     <Tag size={12} />
                     {promoServices.length} Layanan Promo
                   </div>

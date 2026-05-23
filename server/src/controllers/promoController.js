@@ -2,11 +2,6 @@ import supabase from "../config/supabase.js";
 
 // ==================== HELPER ====================
 
-// Evaluasi apakah kampanye promo sedang aktif berdasarkan settings
-// Logic:
-//   show_promo = "false" → tidak aktif apapun kondisinya
-//   show_promo = "true" + tidak ada tanggal → aktif terus (manual mode)
-//   show_promo = "true" + ada tanggal → aktif hanya dalam rentang tanggal
 const evaluateCampaignActive = (settings) => {
   if (settings.show_promo === "false") return false;
 
@@ -18,13 +13,8 @@ const evaluateCampaignActive = (settings) => {
     ? new Date(settings.promo_ends_at).getTime()
     : null;
 
-  // Tidak ada tanggal sama sekali → aktif terus selama toggle on
   if (!startsAt && !endsAt) return true;
-
-  // Ada tanggal mulai tapi belum dimulai
   if (startsAt && now < startsAt) return false;
-
-  // Ada tanggal berakhir dan sudah lewat
   if (endsAt && now > endsAt) return false;
 
   return true;
@@ -66,7 +56,6 @@ export const getActivePromos = async (req, res) => {
     if (sErr) throw sErr;
     if (stErr) throw stErr;
 
-    // Ubah array settings ke object
     const settings = (settingsRows || []).reduce((acc, item) => {
       acc[item.key] = item.value;
       return acc;
@@ -74,8 +63,6 @@ export const getActivePromos = async (req, res) => {
 
     const campaignActive = evaluateCampaignActive(settings);
 
-    // Jika kampanye tidak aktif, return hasPromo false
-    // tanpa expose data produk — badge tidak akan tampil
     if (!campaignActive) {
       return res.status(200).json({
         success: true,
@@ -91,16 +78,25 @@ export const getActivePromos = async (req, res) => {
 
     const hasPromo = products.length > 0 || services.length > 0;
 
+    // Sertakan starts_at dan ends_at di campaign
+    // agar frontend bisa menampilkan range tanggal
+    // Hanya sertakan jika KEDUANYA ada — jika salah satu kosong,
+    // frontend akan menyembunyikan range tanggal
+    const startsAt = settings.promo_starts_at || null;
+    const endsAt = settings.promo_ends_at || null;
+
     return res.status(200).json({
       success: true,
       data: {
         hasPromo,
         campaignActive: true,
-        // Info kampanye untuk ditampilkan di popup dan halaman publik
         campaign: {
           title: settings.promo_title || "",
           description: settings.promo_description || "",
           banner_url: settings.promo_banner_url || "",
+          // Range tanggal — null jika tidak lengkap
+          starts_at: startsAt && endsAt ? startsAt : null,
+          ends_at: startsAt && endsAt ? endsAt : null,
         },
         products: products.map((p) => ({
           ...p,

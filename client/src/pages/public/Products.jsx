@@ -1,13 +1,31 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, SlidersHorizontal, Tag } from "lucide-react";
+import { Search, SlidersHorizontal, Tag, Calendar } from "lucide-react";
+import { format } from "date-fns";
+import { id as localeId } from "date-fns/locale";
 import { getProducts } from "../../api/products";
 import ProductCard from "../../components/shared/ProductCard";
 import Spinner from "../../components/ui/Spinner";
 import EmptyState from "../../components/ui/EmptyState";
 import usePageCheck from "../../hooks/usePageCheck";
 import usePromoStatus from "../../hooks/usePromoStatus";
+
+const formatDateRange = (startsAt, endsAt) => {
+  if (!startsAt || !endsAt) return null;
+  try {
+    const start = new Date(startsAt);
+    const end = new Date(endsAt);
+    const sameYear = start.getFullYear() === end.getFullYear();
+    const startStr = format(start, sameYear ? "d MMMM" : "d MMMM yyyy", {
+      locale: localeId,
+    });
+    const endStr = format(end, "d MMMM yyyy", { locale: localeId });
+    return `${startStr} – ${endStr}`;
+  } catch {
+    return null;
+  }
+};
 
 export default function Products() {
   const { pageInfo, isLoading: isPageLoading } = usePageCheck("products");
@@ -39,9 +57,9 @@ export default function Products() {
     return matchSearch && matchFilter;
   });
 
-  // Banner promo hanya tampil jika kampanye aktif dan ada produk promo
   const showPromoBanner =
     campaignActive && hasPromo && promoProducts.length > 0;
+  const dateRange = formatDateRange(campaign?.starts_at, campaign?.ends_at);
 
   if (isPageLoading) return <div className="min-h-screen"></div>;
 
@@ -86,7 +104,7 @@ export default function Products() {
       {/* Products */}
       <section className="section-padding bg-slate-50">
         <div className="container-base">
-          {/* Banner Kampanye Promo — Opsi A: di atas search/filter */}
+          {/* Banner Kampanye Promo */}
           <AnimatePresence>
             {showPromoBanner && (
               <motion.div
@@ -96,7 +114,6 @@ export default function Products() {
                 transition={{ duration: 0.4 }}
                 className="mb-8 rounded-2xl overflow-hidden shadow-sm border border-red-100"
               >
-                {/* Gambar banner jika ada */}
                 {campaign?.banner_url && (
                   <div className="w-full overflow-hidden bg-red-50">
                     <img
@@ -112,11 +129,9 @@ export default function Products() {
                     />
                   </div>
                 )}
-
-                {/* Info teks kampanye */}
                 <div className="bg-linear-to-r from-red-500 to-orange-500 px-6 py-4 flex items-center gap-4">
                   <span className="text-2xl shrink-0">🔥</span>
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <p className="text-white font-bold text-base leading-tight">
                       {campaign?.title || "Promo Spesial!"}
                     </p>
@@ -125,8 +140,17 @@ export default function Products() {
                         {campaign.description}
                       </p>
                     )}
+                    {/* Range tanggal */}
+                    {dateRange && (
+                      <div className="flex items-center gap-1.5 mt-1.5">
+                        <Calendar size={12} className="text-red-200 shrink-0" />
+                        <p className="text-red-100 text-xs font-medium">
+                          {dateRange}
+                        </p>
+                      </div>
+                    )}
                   </div>
-                  <div className="ml-auto shrink-0 flex items-center gap-1.5 bg-white/20 text-white text-xs font-semibold px-3 py-1.5 rounded-full">
+                  <div className="shrink-0 flex items-center gap-1.5 bg-white/20 text-white text-xs font-semibold px-3 py-1.5 rounded-full">
                     <Tag size={12} />
                     {promoProducts.length} Produk Promo
                   </div>
