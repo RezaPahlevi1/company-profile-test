@@ -427,7 +427,7 @@ export const updatePageSetting = async (req, res) => {
   const { key } = req.params;
   const { title, navbar_label, is_active } = req.body;
 
-  const alwaysActivePages = ["home", "order-track"];
+  const alwaysActivePages = ["home"];
   if (alwaysActivePages.includes(key) && is_active === false) {
     return res.status(400).json({
       success: false,

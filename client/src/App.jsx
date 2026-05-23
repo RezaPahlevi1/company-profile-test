@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { Routes, Route, Navigate, Link } from "react-router-dom";
+import { Routes, Route, Navigate, Link, useParams } from "react-router-dom";
 import ScrollToTop from "./components/shared/ScrollToTop";
 import useAuthStore from "./store/authStore";
 import useAuthVerify from "./hooks/useAuth";
@@ -83,6 +83,44 @@ const PageGuard = ({ pageKey, children }) => {
   const page = pages.find((p) => p.page_key === pageKey);
 
   if (page && !page.is_active) {
+    return (
+      <div className="min-h-screen flex items-center justify-center pt-20">
+        <div className="text-center">
+          <h1 className="text-4xl font-bold text-slate-900">
+            Halaman Tidak Tersedia
+          </h1>
+          <p className="text-slate-500 mt-4">Halaman ini sedang tidak aktif.</p>
+          <Link to="/" className="btn-primary mt-6 inline-flex">
+            Kembali ke Home
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  return children;
+};
+
+const OrderTrackGuard = ({ children }) => {
+  const { orderNumber } = useParams();
+  const { data, isLoading } = useQuery({
+    queryKey: ["page-settings"],
+    queryFn: getPageSettings,
+    staleTime: 1000 * 60 * 10,
+  });
+
+  if (isLoading) return null;
+
+  const pages = data?.data?.data || [];
+  const page = pages.find((p) => p.page_key === "order-track");
+
+  // ✅ Cek apakah orderNumber adalah format order number yang valid
+  // Format: ORD-YYYYMMDD-XXXXXX (huruf besar, angka, minimal 6 karakter di akhir)
+  const isValidOrderNumber = /^ORD-\d{8}-[A-Z0-9]{6,}$/.test(orderNumber || "");
+
+  // Halaman nonaktif tapi ada order number valid → tetap bisa akses
+  // (user datang dari link email atau redirect setelah checkout)
+  if (page && !page.is_active && !isValidOrderNumber) {
     return (
       <div className="min-h-screen flex items-center justify-center pt-20">
         <div className="text-center">
@@ -225,7 +263,9 @@ export default function App() {
           path="/order/:orderNumber"
           element={
             <PublicLayout>
-              <OrderStatus />
+              <OrderTrackGuard>
+                <OrderStatus />
+              </OrderTrackGuard>
             </PublicLayout>
           }
         />

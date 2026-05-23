@@ -27,7 +27,7 @@ import {
 import ConfirmModal from "../../../components/ui/ConfirmModal";
 import { Link } from "react-router-dom";
 
-const ALWAYS_ACTIVE = ["home", "order-track"];
+const ALWAYS_ACTIVE = ["home"];
 
 const formatMinutes = (total) => {
   const mins = Number(total);
