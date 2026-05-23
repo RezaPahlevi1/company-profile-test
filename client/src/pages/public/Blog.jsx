@@ -27,16 +27,19 @@ export default function Blog() {
         ...(activeCategory && { category: activeCategory }),
         ...(activeTag && { tag: activeTag }),
       }),
+    staleTime: 1000 * 60 * 5,
   });
 
   const { data: categoriesData } = useQuery({
     queryKey: ["categories"],
     queryFn: getCategories,
+    staleTime: 1000 * 60 * 5,
   });
 
   const { data: tagsData } = useQuery({
     queryKey: ["tags"],
     queryFn: getTags,
+    staleTime: 1000 * 60 * 5,
   });
 
   const blogs = blogsData?.data?.data || [];

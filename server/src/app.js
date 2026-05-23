@@ -34,7 +34,13 @@ app.use(helmet({ contentSecurityPolicy: false }));
 
 // ✅ CORS
 const allowedOrigins = process.env.CLIENT_URL
-  ? [process.env.CLIENT_URL]
+  ? [
+      process.env.CLIENT_URL,
+      // ✅ Saat development, izinkan juga port preview (4173)
+      ...(process.env.NODE_ENV !== "production"
+        ? ["http://localhost:4173", "http://localhost:5173"]
+        : []),
+    ]
   : ["http://localhost:5173", "http://localhost:4173"];
 
 app.use(

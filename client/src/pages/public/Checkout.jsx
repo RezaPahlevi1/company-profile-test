@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -29,6 +30,20 @@ export default function Checkout() {
   const location = useLocation();
   const navigate = useNavigate();
   const { product, quantity = 1 } = location.state || {};
+
+  useEffect(() => {
+    const clientKey = import.meta.env.VITE_MIDTRANS_CLIENT_KEY;
+    const snapSrcUrl = "https://app.sandbox.midtrans.com/snap/snap.js";
+    
+    let script = document.querySelector(`script[src="${snapSrcUrl}"]`);
+    if (!script) {
+      script = document.createElement("script");
+      script.src = snapSrcUrl;
+      script.setAttribute("data-client-key", clientKey);
+      script.async = true;
+      document.body.appendChild(script);
+    }
+  }, []);
 
   const {
     register,
@@ -262,6 +277,8 @@ export default function Checkout() {
                       <img
                         src={product.image_url}
                         alt={product.name}
+                        loading="lazy"
+                        decoding="async"
                         className="w-full h-full object-cover"
                       />
                     ) : (

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import * as LucideIcons from "lucide-react";
+import { getIcon } from "../../iconRegistry";
 import { getColor, hexWithOpacity } from "../../blockColors";
 
 const BLOCK_TYPE = "icon_grid";
@@ -50,7 +50,7 @@ export default function IconGridBlock({ content, isCustomBg, design }) {
         {items.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {items.map((item, index) => {
-              const Icon = LucideIcons[item.icon] || LucideIcons.HelpCircle;
+              const Icon = getIcon(item.icon);
               return (
                 <IconGridItem
                   key={item.id || index}

@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import * as LucideIcons from "lucide-react";
+import { getIcon } from "../../iconRegistry";
 import { getColor } from "../../blockColors";
 
 const BLOCK_TYPE = "stats";
@@ -28,7 +28,7 @@ export default function StatsBlock({ content, isCustomBg, design }) {
       <div className="container-base px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
           {items.map((stat, i) => {
-            const Icon = LucideIcons[stat.icon] || LucideIcons.HelpCircle;
+            const Icon = getIcon(stat.icon);
             return (
               <motion.div
                 key={stat.id || i}

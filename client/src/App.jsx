@@ -41,9 +41,10 @@ const PromoSettings = lazy(
   () => import("./pages/admin/settings/PromoSettings"),
 );
 
+const AdminLayout = lazy(() => import("./components/layout/AdminLayout"));
+
 import Navbar from "./components/layout/Navbar";
 import Footer from "./components/layout/Footer";
-import AdminLayout from "./components/layout/AdminLayout";
 import PromoPopup from "./components/shared/PromoPopup";
 
 const PageSpinner = () => (

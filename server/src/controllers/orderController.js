@@ -37,8 +37,14 @@ async function getExpiryMinutes() {
 }
 
 export const createOrder = async (req, res) => {
-  const { buyer_name, buyer_email, buyer_phone, buyer_address, items } =
+  let { buyer_name, buyer_email, buyer_phone, buyer_address, items } =
     req.body;
+
+  // Sanitasi & Trim strings
+  if (typeof buyer_name === "string") buyer_name = buyer_name.trim();
+  if (typeof buyer_email === "string") buyer_email = buyer_email.trim();
+  if (typeof buyer_phone === "string") buyer_phone = buyer_phone.trim();
+  if (typeof buyer_address === "string") buyer_address = buyer_address.trim();
 
   if (!buyer_name || !buyer_email || !buyer_phone || !buyer_address) {
     return res.status(400).json({
@@ -47,11 +53,49 @@ export const createOrder = async (req, res) => {
     });
   }
 
+  // Batasi maxLength untuk input string sesuai konteks
+  if (buyer_name.length > 100) {
+    return res.status(400).json({ success: false, message: "Name is too long (max 100 characters)" });
+  }
+  if (buyer_email.length > 100) {
+    return res.status(400).json({ success: false, message: "Email is too long (max 100 characters)" });
+  }
+  if (buyer_phone.length > 30) {
+    return res.status(400).json({ success: false, message: "Phone number is too long (max 30 characters)" });
+  }
+  if (buyer_address.length > 500) {
+    return res.status(400).json({ success: false, message: "Address is too long (max 500 characters)" });
+  }
+
   if (!items || !Array.isArray(items) || items.length === 0) {
     return res.status(400).json({
       success: false,
       message: "Order must have at least one item",
     });
+  }
+
+  // Batasi maksimal item (max 50 item)
+  if (items.length > 50) {
+    return res.status(400).json({
+      success: false,
+      message: "Cannot order more than 50 different items at once",
+    });
+  }
+
+  // Validasi dan parse numerik untuk quantity
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    if (!item.product_id) {
+      return res.status(400).json({ success: false, message: "Product ID is required for each item" });
+    }
+    const qty = Number(item.quantity);
+    if (isNaN(qty) || qty <= 0 || qty > 100) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid quantity. Must be a number between 1 and 100.",
+      });
+    }
+    items[i].quantity = qty; // Simpan nilai ter-parse
   }
 
   try {

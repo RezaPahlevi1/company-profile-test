@@ -36,6 +36,7 @@ export default function Services() {
   const { data, isLoading: isServicesLoading } = useQuery({
     queryKey: ["public-services"],
     queryFn: () => getServices(),
+    staleTime: 1000 * 60 * 5,
   });
 
   const { data: siteData } = useQuery({

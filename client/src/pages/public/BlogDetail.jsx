@@ -12,6 +12,7 @@ export default function BlogDetail() {
   const { data, isLoading } = useQuery({
     queryKey: ["blog", slug],
     queryFn: () => getBlogBySlug(slug),
+    staleTime: 1000 * 60 * 5,
   });
 
   const blog = data?.data?.data;

@@ -35,6 +35,7 @@ export default function Products() {
   const { data, isLoading: isProductsLoading } = useQuery({
     queryKey: ["public-products"],
     queryFn: () => getProducts(),
+    staleTime: 1000 * 60 * 5,
   });
 
   const { campaignActive, hasPromo, campaign, promoProducts } =

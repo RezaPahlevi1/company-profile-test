@@ -108,6 +108,22 @@ export const trackVisit = async (req, res) => {
       .update(rawIp + process.env.JWT_SECRET)
       .digest("hex");
 
+    // Cek apakah ip_hash yang sama sudah visit dalam 30 menit terakhir
+    const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000)
+      .toISOString();
+
+    const { data: recentVisit } = await supabase
+      .from("visits")
+      .select("id")
+      .eq("ip_hash", ip_hash)
+      .gte("visited_at", thirtyMinutesAgo)
+      .limit(1)
+      .single();
+
+    if (recentVisit) {
+      return res.status(200).json({ success: true });
+    }
+
     // Normalisasi IP sebelum lookup
     // Jika null (lokal/tidak valid), country akan null — kunjungan tetap tercatat
     const cleanIp = normalizeIp(rawIp);
@@ -150,7 +166,8 @@ export const getAnalytics = async (req, res) => {
       .from("visits")
       .select("ip_hash, country_code, country_name, visited_at")
       .gte("visited_at", sinceIso)
-      .order("visited_at", { ascending: true });
+      .order("visited_at", { ascending: true })
+      .limit(10000);
 
     if (error) throw error;
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { motion } from "framer-motion";
@@ -78,7 +78,7 @@ const TrackForm = ({ onSearch }) => {
           placeholder="ORD-20250428-XXXXXX"
           className="input-base flex-1 font-mono"
           onKeyDown={(e) =>
-            e.key === "Enter" && input.trim() && onSearch(input.trim())
+              e.key === "Enter" && input.trim() && onSearch(input.trim())
           }
         />
         <button
@@ -97,6 +97,20 @@ export default function OrderStatus() {
   const navigate = useNavigate();
   const [orderNumber, setOrderNumber] = useState(paramOrderNumber || "");
   const [searchNumber, setSearchNumber] = useState(paramOrderNumber || "");
+
+  useEffect(() => {
+    const clientKey = import.meta.env.VITE_MIDTRANS_CLIENT_KEY;
+    const snapSrcUrl = "https://app.sandbox.midtrans.com/snap/snap.js";
+
+    let script = document.querySelector(`script[src="${snapSrcUrl}"]`);
+    if (!script) {
+      script = document.createElement("script");
+      script.src = snapSrcUrl;
+      script.setAttribute("data-client-key", clientKey);
+      script.async = true;
+      document.body.appendChild(script);
+    }
+  }, []);
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["order-track", searchNumber],
@@ -340,7 +354,7 @@ export default function OrderStatus() {
                 <div className="space-y-3">
                   {order.order_items?.map((item, i) => (
                     <div
-                      key={i}
+                      key={item.product_id || i}
                       className="flex justify-between items-center py-2 border-b border-slate-50 last:border-0"
                     >
                       <div>

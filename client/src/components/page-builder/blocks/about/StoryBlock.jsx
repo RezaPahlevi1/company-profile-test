@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { CheckCircle } from "lucide-react";
-import * as LucideIcons from "lucide-react";
+import { getIcon } from "../../iconRegistry";
 import { getColor } from "../../blockColors";
 
 const BLOCK_TYPE = "story";
@@ -102,7 +102,7 @@ export default function StoryBlock({ content, isCustomBg, design }) {
               <ul className="mt-8 space-y-3">
                 {checklist.map((item, i) => (
                   <motion.li
-                    key={i}
+                    key={item || i}
                     custom={i}
                     initial="hidden"
                     whileInView="visible"
@@ -132,7 +132,7 @@ export default function StoryBlock({ content, isCustomBg, design }) {
               className="grid grid-cols-1 sm:grid-cols-2 gap-4"
             >
               {cards.map((card, i) => {
-                const Icon = LucideIcons[card.icon] || LucideIcons.Target;
+                const Icon = getIcon(card.icon);
                 const theme = getColorTheme(card.color);
 
                 return (

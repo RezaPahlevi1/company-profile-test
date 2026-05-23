@@ -24,6 +24,7 @@ export default function ProductDetail() {
   const { data, isLoading } = useQuery({
     queryKey: ["product", id],
     queryFn: () => getProductById(id),
+    staleTime: 1000 * 60 * 5,
   });
 
   const { data: siteData } = useQuery({
@@ -84,6 +85,8 @@ export default function ProductDetail() {
                   <img
                     src={product.image_url}
                     alt={product.name}
+                    loading="lazy"
+                    decoding="async"
                     className="w-full h-full object-cover"
                   />
                 ) : (

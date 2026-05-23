@@ -1,16 +1,18 @@
-import HeroBlock from "./blocks/shared/HeroBlock";
-import CtaBlock from "./blocks/shared/CtaBlock";
-import RichTextBlock from "./blocks/shared/RichTextBlock";
-import ImageTextBlock from "./blocks/shared/ImageTextBlock";
-import IconGridBlock from "./blocks/shared/IconGridBlock";
-import ProductsPreviewBlock from "./blocks/shared/ProductsPreviewBlock";
-import ServicesPreviewBlock from "./blocks/shared/ServicesPreviewBlock";
-import BlogPreviewBlock from "./blocks/shared/BlogPreviewBlock";
-import StatsBlock from "./blocks/home/StatsBlock";
-import AboutSnippetBlock from "./blocks/home/AboutSnippetBlock";
-import TimelineBlock from "./blocks/about/TimelineBlock";
-import TeamGridBlock from "./blocks/about/TeamGridBlock";
-import StoryBlock from "./blocks/about/StoryBlock";
+import { lazy} from "react";
+
+const HeroBlock = lazy(() => import("./blocks/shared/HeroBlock"));
+const CtaBlock = lazy(() => import("./blocks/shared/CtaBlock"));
+const RichTextBlock = lazy(() => import("./blocks/shared/RichTextBlock"));
+const ImageTextBlock = lazy(() => import("./blocks/shared/ImageTextBlock"));
+const IconGridBlock = lazy(() => import("./blocks/shared/IconGridBlock"));
+const ProductsPreviewBlock = lazy(() => import("./blocks/shared/ProductsPreviewBlock"));
+const ServicesPreviewBlock = lazy(() => import("./blocks/shared/ServicesPreviewBlock"));
+const BlogPreviewBlock = lazy(() => import("./blocks/shared/BlogPreviewBlock"));
+const StatsBlock = lazy(() => import("./blocks/home/StatsBlock"));
+const AboutSnippetBlock = lazy(() => import("./blocks/home/AboutSnippetBlock"));
+const TimelineBlock = lazy(() => import("./blocks/about/TimelineBlock"));
+const TeamGridBlock = lazy(() => import("./blocks/about/TeamGridBlock"));
+const StoryBlock = lazy(() => import("./blocks/about/StoryBlock"));
 
 const BLOCK_COMPONENTS = {
   hero: HeroBlock,
@@ -52,7 +54,6 @@ export default function BlockRenderer({ block, siteSettings }) {
 
   const isCustomBg = design.bgType === "color" || design.bgType === "gradient";
 
-  // ✅ Pass design ke setiap block — dibutuhkan CTA untuk card color
   if (!isCustomBg) {
     return (
       <Component
