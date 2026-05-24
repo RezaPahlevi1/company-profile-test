@@ -339,12 +339,12 @@ export default function CompanyInfo() {
             {isSaving ? (
               <>
                 <Spinner size="sm" />
-                Saving...
+                Menyimpan...
               </>
             ) : (
               <>
                 <Save size={15} />
-                Save Changes
+                Simpan Pengaturan
               </>
             )}
           </button>
