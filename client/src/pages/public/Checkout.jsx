@@ -15,6 +15,7 @@ import {
 import toast from "react-hot-toast";
 import { z } from "zod";
 import { createOrder } from "../../api/orders";
+import usePromoStatus from "../../hooks/usePromoStatus";
 
 const checkoutSchema = z.object({
   buyer_name: z.string().min(1, "Nama wajib diisi"),
@@ -30,11 +31,12 @@ export default function Checkout() {
   const location = useLocation();
   const navigate = useNavigate();
   const { product, quantity = 1 } = location.state || {};
+  const { campaignActive, isLoading: promoLoading } = usePromoStatus();
 
   useEffect(() => {
     const clientKey = import.meta.env.VITE_MIDTRANS_CLIENT_KEY;
     const snapSrcUrl = "https://app.sandbox.midtrans.com/snap/snap.js";
-    
+
     let script = document.querySelector(`script[src="${snapSrcUrl}"]`);
     if (!script) {
       script = document.createElement("script");
@@ -114,7 +116,7 @@ export default function Checkout() {
 
   // ✅ Hitung promo price di checkout
   const promoPrice =
-    product.is_promo && product.discount_percent > 0
+    campaignActive && product.is_promo && product.discount_percent > 0
       ? product.price - (product.price * product.discount_percent) / 100
       : null;
 

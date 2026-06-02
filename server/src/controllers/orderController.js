@@ -36,9 +36,37 @@ async function getExpiryMinutes() {
   return Number(data?.value) || 1440; // default 1440 menit = 24 jam
 }
 
+// ✅ Helper — cek apakah campaign promo sedang aktif dari site_settings
+async function getCampaignActive() {
+  const { data: settingsRows } = await supabase
+    .from("site_settings")
+    .select("key, value")
+    .in("key", ["show_promo", "promo_starts_at", "promo_ends_at"]);
+
+  const settings = (settingsRows || []).reduce((acc, item) => {
+    acc[item.key] = item.value;
+    return acc;
+  }, {});
+
+  if (settings.show_promo === "false") return false;
+
+  const now = Date.now();
+  const startsAt = settings.promo_starts_at
+    ? new Date(settings.promo_starts_at).getTime()
+    : null;
+  const endsAt = settings.promo_ends_at
+    ? new Date(settings.promo_ends_at).getTime()
+    : null;
+
+  if (!startsAt && !endsAt) return true;
+  if (startsAt && now < startsAt) return false;
+  if (endsAt && now > endsAt) return false;
+
+  return true;
+}
+
 export const createOrder = async (req, res) => {
-  let { buyer_name, buyer_email, buyer_phone, buyer_address, items } =
-    req.body;
+  let { buyer_name, buyer_email, buyer_phone, buyer_address, items } = req.body;
 
   // Sanitasi & Trim strings
   if (typeof buyer_name === "string") buyer_name = buyer_name.trim();
@@ -55,16 +83,28 @@ export const createOrder = async (req, res) => {
 
   // Batasi maxLength untuk input string sesuai konteks
   if (buyer_name.length > 100) {
-    return res.status(400).json({ success: false, message: "Name is too long (max 100 characters)" });
+    return res.status(400).json({
+      success: false,
+      message: "Name is too long (max 100 characters)",
+    });
   }
   if (buyer_email.length > 100) {
-    return res.status(400).json({ success: false, message: "Email is too long (max 100 characters)" });
+    return res.status(400).json({
+      success: false,
+      message: "Email is too long (max 100 characters)",
+    });
   }
   if (buyer_phone.length > 30) {
-    return res.status(400).json({ success: false, message: "Phone number is too long (max 30 characters)" });
+    return res.status(400).json({
+      success: false,
+      message: "Phone number is too long (max 30 characters)",
+    });
   }
   if (buyer_address.length > 500) {
-    return res.status(400).json({ success: false, message: "Address is too long (max 500 characters)" });
+    return res.status(400).json({
+      success: false,
+      message: "Address is too long (max 500 characters)",
+    });
   }
 
   if (!items || !Array.isArray(items) || items.length === 0) {
@@ -86,7 +126,10 @@ export const createOrder = async (req, res) => {
   for (let i = 0; i < items.length; i++) {
     const item = items[i];
     if (!item.product_id) {
-      return res.status(400).json({ success: false, message: "Product ID is required for each item" });
+      return res.status(400).json({
+        success: false,
+        message: "Product ID is required for each item",
+      });
     }
     const qty = Number(item.quantity);
     if (isNaN(qty) || qty <= 0 || qty > 100) {
@@ -123,10 +166,12 @@ export const createOrder = async (req, res) => {
       }
     }
 
+    const campaignActive = await getCampaignActive();
+
     const orderItems = items.map((item) => {
       const product = products.find((p) => p.id === item.product_id);
       const effectivePrice =
-        product.is_promo && product.discount_percent > 0
+        campaignActive && product.is_promo && product.discount_percent > 0
           ? product.price - (product.price * product.discount_percent) / 100
           : product.price;
 
