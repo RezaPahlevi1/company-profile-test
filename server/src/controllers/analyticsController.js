@@ -129,7 +129,8 @@ export const trackVisit = async (req, res) => {
     // Jika null (lokal/tidak valid), country akan null — kunjungan tetap tercatat
     const cleanIp = normalizeIp(rawIp);
     const geo = cleanIp ? geoip.lookup(cleanIp) : null;
-    const country_code = geo?.country || null;
+    const isDev = process.env.NODE_ENV === "development";
+    const country_code = geo?.country || (isDev && !cleanIp ? "ID" : null);
     const country_name = country_code ? getCountryName(country_code) : null;
 
     await supabase.from("visits").insert([
