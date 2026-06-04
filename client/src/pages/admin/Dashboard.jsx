@@ -8,6 +8,8 @@ import {
   Users,
   TrendingUp,
   Globe,
+  DollarSign,
+  BarChart2,
 } from "lucide-react";
 import {
   LineChart,
@@ -21,7 +23,7 @@ import {
 } from "recharts";
 import axiosInstance from "../../api/axiosInstance";
 import useAuthStore from "../../store/authStore";
-import { getAnalytics } from "../../api/analytics";
+import { getAnalytics, getSalesAnalytics } from "../../api/analytics";
 
 const fetchDashboardStats = async () => {
   try {
@@ -35,7 +37,7 @@ const fetchDashboardStats = async () => {
       products: products.data.data.length,
       services: services.data.data.length,
       blogs: blogs.data.data.length,
-      orders: orders.data.data.length,
+      orders: orders.data.pagination.total,
       recentOrders: orders.data.data.slice(0, 5),
     };
   } catch {
@@ -57,14 +59,86 @@ const getFlagEmoji = (countryCode) => {
     .replace(/./g, (char) => String.fromCodePoint(127397 + char.charCodeAt()));
 };
 
+const SALES_RANGES = [
+  { label: "1 Hari", value: "1d" },
+  { label: "7 Hari", value: "7d" },
+  { label: "1 Bulan", value: "30d" },
+  { label: "3 Bulan", value: "90d" },
+  { label: "1 Tahun", value: "1y" },
+];
+
+const VISITOR_RANGES = [
+  { label: "1 Hari", value: "1d" },
+  { label: "7 Hari", value: "7d" },
+  { label: "1 Bulan", value: "30d" },
+  { label: "3 Bulan", value: "90d" },
+];
+
+// Format label X-axis sesuai granularitas
+const formatXLabel = (label, granularity) => {
+  if (granularity === "hour") {
+    return label; // sudah "HH:00"
+  }
+  if (granularity === "day") {
+    const d = new Date(label);
+    return `${d.getDate()}/${d.getMonth() + 1}`;
+  }
+  if (granularity === "month") {
+    const [year, month] = label.split("-");
+    return new Date(year, month - 1).toLocaleDateString("id-ID", {
+      month: "short",
+      year: "2-digit",
+    });
+  }
+  return label;
+};
+
+// Format tooltip label sesuai granularitas
+const formatTooltipLabel = (label, granularity) => {
+  if (granularity === "hour") return `Pukul ${label}`;
+  if (granularity === "day") {
+    return new Date(label).toLocaleDateString("id-ID", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+  }
+  if (granularity === "month") {
+    const [year, month] = label.split("-");
+    return new Date(year, month - 1).toLocaleDateString("id-ID", {
+      month: "long",
+      year: "numeric",
+    });
+  }
+  return label;
+};
+
+// Format angka rupiah ringkas untuk Y-axis
+const formatRupiahShort = (value) => {
+  if (value >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(1)}M`;
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}jt`;
+  if (value >= 1_000) return `${(value / 1_000).toFixed(0)}rb`;
+  return value;
+};
+
 export default function Dashboard() {
   const { admin } = useAuthStore();
   const isSuperAdmin = admin?.role === "superadmin";
+
+  const [salesRange, setSalesRange] = useState("7d");
+  const [salesMetric, setSalesMetric] = useState("revenue"); // "revenue" | "items_sold"
   const [analyticsRange, setAnalyticsRange] = useState("7d");
 
   const { data: stats, isLoading } = useQuery({
     queryKey: ["dashboard-stats"],
     queryFn: fetchDashboardStats,
+    retry: false,
+  });
+
+  const { data: salesData, isLoading: salesLoading } = useQuery({
+    queryKey: ["sales-analytics", salesRange],
+    queryFn: () => getSalesAnalytics(salesRange),
+    enabled: isSuperAdmin,
     retry: false,
   });
 
@@ -75,6 +149,7 @@ export default function Dashboard() {
     retry: false,
   });
 
+  const sales = salesData?.data?.data;
   const analytics = analyticsData?.data?.data;
 
   const statCards = stats
@@ -149,7 +224,199 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* Analytics — superadmin only */}
+      {/* ── Sales Trend — superadmin only ── */}
+      {isSuperAdmin && (
+        <div className="space-y-4">
+          {/* Header + controls */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <BarChart2 size={18} className="text-brand-600" />
+              <h2 className="text-base lg:text-lg font-semibold text-gray-900">
+                Tren Penjualan
+              </h2>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Metric toggle */}
+              <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
+                <button
+                  onClick={() => setSalesMetric("revenue")}
+                  className={`px-2.5 lg:px-3 py-1.5 rounded-md text-xs lg:text-sm font-medium transition-colors ${
+                    salesMetric === "revenue"
+                      ? "bg-white text-brand-600 shadow-sm"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  Pendapatan
+                </button>
+                <button
+                  onClick={() => setSalesMetric("items_sold")}
+                  className={`px-2.5 lg:px-3 py-1.5 rounded-md text-xs lg:text-sm font-medium transition-colors ${
+                    salesMetric === "items_sold"
+                      ? "bg-white text-brand-600 shadow-sm"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  Produk Terjual
+                </button>
+              </div>
+
+              {/* Range selector */}
+              <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
+                {SALES_RANGES.map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setSalesRange(opt.value)}
+                    className={`px-2.5 lg:px-3 py-1.5 rounded-md text-xs lg:text-sm font-medium transition-colors ${
+                      salesRange === opt.value
+                        ? "bg-white text-brand-600 shadow-sm"
+                        : "text-gray-500 hover:text-gray-700"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {salesLoading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {[...Array(3)].map((_, i) => (
+                <div
+                  key={i}
+                  className="bg-white rounded-xl h-24 animate-pulse"
+                />
+              ))}
+            </div>
+          ) : sales ? (
+            <>
+              {/* Summary cards */}
+              <div className="grid grid-cols-3 gap-3 lg:gap-4">
+                <div className="bg-white rounded-xl p-4 lg:p-5 shadow-sm">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 lg:w-10 lg:h-10 bg-green-50 rounded-xl flex items-center justify-center shrink-0">
+                      <DollarSign size={16} className="text-green-600" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs text-gray-400 truncate">
+                        Total Pendapatan
+                      </p>
+                      <p className="text-sm lg:text-base font-bold text-gray-900 truncate">
+                        Rp{" "}
+                        {Number(sales.summary.totalRevenue).toLocaleString(
+                          "id-ID",
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-xl p-4 lg:p-5 shadow-sm">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 lg:w-10 lg:h-10 bg-blue-50 rounded-xl flex items-center justify-center shrink-0">
+                      <Package size={16} className="text-blue-600" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs text-gray-400 truncate">
+                        Produk Terjual
+                      </p>
+                      <p className="text-xl lg:text-2xl font-bold text-gray-900">
+                        {sales.summary.totalItemsSold.toLocaleString("id-ID")}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-xl p-4 lg:p-5 shadow-sm">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 lg:w-10 lg:h-10 bg-orange-50 rounded-xl flex items-center justify-center shrink-0">
+                      <ShoppingCart size={16} className="text-orange-600" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs text-gray-400 truncate">
+                        Order Dibayar
+                      </p>
+                      <p className="text-xl lg:text-2xl font-bold text-gray-900">
+                        {sales.summary.totalPaidOrders.toLocaleString("id-ID")}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Line Chart */}
+              <div className="bg-white rounded-xl p-4 lg:p-6 shadow-sm">
+                <h3 className="text-sm font-semibold text-gray-700 mb-4">
+                  {salesMetric === "revenue" ? "Pendapatan" : "Produk Terjual"}{" "}
+                  per{" "}
+                  {sales.granularity === "hour"
+                    ? "Jam"
+                    : sales.granularity === "day"
+                      ? "Hari"
+                      : "Bulan"}
+                </h3>
+                <div className="overflow-x-auto -mx-4 lg:mx-0 px-4 lg:px-0">
+                  <div className="min-w-120 lg:min-w-0">
+                    <ResponsiveContainer width="100%" height={220}>
+                      <LineChart data={sales.chartData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                        <XAxis
+                          dataKey="label"
+                          tick={{ fontSize: 10, fill: "#94a3b8" }}
+                          tickFormatter={(val) =>
+                            formatXLabel(val, sales.granularity)
+                          }
+                        />
+                        <YAxis
+                          tick={{ fontSize: 10, fill: "#94a3b8" }}
+                          allowDecimals={false}
+                          width={salesMetric === "revenue" ? 48 : 30}
+                          tickFormatter={
+                            salesMetric === "revenue"
+                              ? formatRupiahShort
+                              : undefined
+                          }
+                        />
+                        <Tooltip
+                          formatter={(value) =>
+                            salesMetric === "revenue"
+                              ? [
+                                  `Rp ${Number(value).toLocaleString("id-ID")}`,
+                                  "Pendapatan",
+                                ]
+                              : [value, "Produk Terjual"]
+                          }
+                          labelFormatter={(label) =>
+                            formatTooltipLabel(label, sales.granularity)
+                          }
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey={salesMetric}
+                          stroke={
+                            salesMetric === "revenue" ? "#16a34a" : "#2563eb"
+                          }
+                          strokeWidth={2}
+                          dot={sales.chartData.length <= 31}
+                          activeDot={{ r: 4 }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="bg-white rounded-xl p-10 lg:p-12 text-center">
+              <BarChart2 size={28} className="text-gray-200 mx-auto mb-3" />
+              <p className="text-gray-400 text-sm">Belum ada data penjualan.</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Visitor Analytics — superadmin only ── */}
       {isSuperAdmin && (
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -162,12 +429,7 @@ export default function Dashboard() {
 
             {/* Range selector */}
             <div className="flex gap-1 bg-gray-100 rounded-lg p-1 w-fit">
-              {[
-                { label: "1 Hari", value: "1d" },
-                { label: "7 Hari", value: "7d" },
-                { label: "30 Hari", value: "30d" },
-                { label: "90 Hari", value: "90d" },
-              ].map((opt) => (
+              {VISITOR_RANGES.map((opt) => (
                 <button
                   key={opt.value}
                   onClick={() => setAnalyticsRange(opt.value)}
@@ -414,7 +676,6 @@ export default function Dashboard() {
         {!stats?.recentOrders?.length ? (
           <p className="text-gray-400 text-sm">No orders yet.</p>
         ) : (
-          /* Scroll horizontal di mobile untuk tabel */
           <div className="overflow-x-auto -mx-4 lg:mx-0 px-4 lg:px-0">
             <table className="w-full text-sm min-w-120">
               <thead>

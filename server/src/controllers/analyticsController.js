@@ -109,8 +109,9 @@ export const trackVisit = async (req, res) => {
       .digest("hex");
 
     // Cek apakah ip_hash yang sama sudah visit dalam 30 menit terakhir
-    const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000)
-      .toISOString();
+    const thirtyMinutesAgo = new Date(
+      Date.now() - 30 * 60 * 1000,
+    ).toISOString();
 
     const { data: recentVisit } = await supabase
       .from("visits")
@@ -277,6 +278,168 @@ export const getAnalytics = async (req, res) => {
         weeklyVisits,
         monthlyVisits,
         topCountries,
+      },
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+export const getSalesAnalytics = async (req, res) => {
+  const { range = "7d" } = req.query;
+
+  // Konfigurasi range → jumlah hari & granularitas
+  const rangeConfig = {
+    "1d": { days: 1, granularity: "hour" },
+    "7d": { days: 7, granularity: "day" },
+    "30d": { days: 30, granularity: "day" },
+    "90d": { days: 90, granularity: "month" },
+    "1y": { days: 365, granularity: "month" },
+  };
+
+  const config = rangeConfig[range] || rangeConfig["7d"];
+  const { days, granularity } = config;
+
+  const since = new Date();
+  since.setDate(since.getDate() - days);
+  // Untuk range 1d, mulai dari awal jam ini dikurangi 23 jam (24 data point)
+  if (granularity === "hour") {
+    since.setMinutes(0, 0, 0);
+  } else {
+    since.setHours(0, 0, 0, 0);
+  }
+  const sinceIso = since.toISOString();
+
+  try {
+    // Ambil semua order paid dalam range, beserta order_items-nya
+    const { data: orders, error } = await supabase
+      .from("orders")
+      .select(
+        `
+        id,
+        total_amount,
+        paid_at,
+        order_items ( quantity )
+      `,
+      )
+      .eq("status", "paid")
+      .gte("paid_at", sinceIso)
+      .order("paid_at", { ascending: true });
+
+    if (error) throw error;
+
+    // Hitung summary
+    const totalRevenue = orders.reduce(
+      (sum, o) => sum + Number(o.total_amount),
+      0,
+    );
+    const totalItemsSold = orders.reduce(
+      (sum, o) =>
+        sum + (o.order_items || []).reduce((s, i) => s + (i.quantity || 0), 0),
+      0,
+    );
+    const totalPaidOrders = orders.length;
+
+    // Bangun chart data sesuai granularitas
+    let chartData = [];
+
+    if (granularity === "hour") {
+      // 24 jam terakhir — label "HH:00"
+      const hourMap = {};
+      orders.forEach((o) => {
+        const d = new Date(o.paid_at);
+        const key = `${String(d.getHours()).padStart(2, "0")}:00`;
+        if (!hourMap[key])
+          hourMap[key] = { revenue: 0, items_sold: 0, orders: 0 };
+        hourMap[key].revenue += Number(o.total_amount);
+        hourMap[key].items_sold += (o.order_items || []).reduce(
+          (s, i) => s + (i.quantity || 0),
+          0,
+        );
+        hourMap[key].orders++;
+      });
+
+      // Fill 24 jam dari since sampai sekarang
+      for (let i = 0; i < 24; i++) {
+        const d = new Date(since);
+        d.setHours(since.getHours() + i);
+        const key = `${String(d.getHours()).padStart(2, "0")}:00`;
+        chartData.push({
+          label: key,
+          revenue: hourMap[key]?.revenue || 0,
+          items_sold: hourMap[key]?.items_sold || 0,
+          orders: hourMap[key]?.orders || 0,
+        });
+      }
+    } else if (granularity === "day") {
+      // Per hari — label "YYYY-MM-DD"
+      const dayMap = {};
+      orders.forEach((o) => {
+        const key = o.paid_at.split("T")[0];
+        if (!dayMap[key])
+          dayMap[key] = { revenue: 0, items_sold: 0, orders: 0 };
+        dayMap[key].revenue += Number(o.total_amount);
+        dayMap[key].items_sold += (o.order_items || []).reduce(
+          (s, i) => s + (i.quantity || 0),
+          0,
+        );
+        dayMap[key].orders++;
+      });
+
+      // Fill missing days dengan 0
+      for (let i = 0; i < days; i++) {
+        const d = new Date(since);
+        d.setDate(since.getDate() + i);
+        const key = d.toISOString().split("T")[0];
+        chartData.push({
+          label: key,
+          revenue: dayMap[key]?.revenue || 0,
+          items_sold: dayMap[key]?.items_sold || 0,
+          orders: dayMap[key]?.orders || 0,
+        });
+      }
+    } else if (granularity === "month") {
+      // Per bulan — label "YYYY-MM"
+      const monthMap = {};
+      orders.forEach((o) => {
+        const key = o.paid_at.substring(0, 7); // "YYYY-MM"
+        if (!monthMap[key])
+          monthMap[key] = { revenue: 0, items_sold: 0, orders: 0 };
+        monthMap[key].revenue += Number(o.total_amount);
+        monthMap[key].items_sold += (o.order_items || []).reduce(
+          (s, i) => s + (i.quantity || 0),
+          0,
+        );
+        monthMap[key].orders++;
+      });
+
+      // Tentukan bulan pertama sampai bulan sekarang
+      const monthCount = days === 90 ? 3 : 12;
+      for (let i = monthCount - 1; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(1);
+        d.setMonth(d.getMonth() - i);
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+        chartData.push({
+          label: key,
+          revenue: monthMap[key]?.revenue || 0,
+          items_sold: monthMap[key]?.items_sold || 0,
+          orders: monthMap[key]?.orders || 0,
+        });
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        summary: {
+          totalRevenue,
+          totalItemsSold,
+          totalPaidOrders,
+          range,
+        },
+        chartData,
+        granularity,
       },
     });
   } catch (err) {
