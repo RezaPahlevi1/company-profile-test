@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { RotateCcw } from "lucide-react";
 
-import HeroEditor from "./editors/shared/HeroEditor";
+import HeroEditor, { HeroImageManager } from "./editors/shared/HeroEditor";
 import CtaEditor from "./editors/shared/CtaEditor";
 import RichTextEditor from "./editors/shared/RichTextEditor";
 import ImageTextEditor from "./editors/shared/ImageTextEditor";
@@ -67,14 +67,12 @@ function ColorPickerField({ label, value, onChange, hint }) {
         </label>
       )}
       <div className="flex items-center gap-3">
-        {/* Native color picker */}
         <input
           type="color"
           value={isValidHex ? safeValue : "#ffffff"}
           onChange={(e) => onChange(e.target.value)}
           className="h-10 w-14 p-0.5 border border-gray-300 rounded-md cursor-pointer shadow-sm shrink-0"
         />
-        {/* ✅ Hex text input — bisa paste hex langsung */}
         <input
           type="text"
           value={safeValue}
@@ -106,7 +104,6 @@ function GradientPreview({ start, end, direction }) {
   );
 }
 
-// ✅ Reusable gradient editor — dipakai untuk section dan card
 function GradientEditor({ prefix, design, onDesignChange }) {
   const startKey = `${prefix}GradientStart`;
   const endKey = `${prefix}GradientEnd`;
@@ -152,9 +149,6 @@ function GradientEditor({ prefix, design, onDesignChange }) {
   );
 }
 
-// ============================================================
-// COLOR GROUP — kelompok color picker per kategori
-// ============================================================
 function ColorGroup({ title, children }) {
   return (
     <div className="space-y-3">
@@ -166,9 +160,6 @@ function ColorGroup({ title, children }) {
   );
 }
 
-// ============================================================
-// TEXT COLOR SECTION — per block type
-// ============================================================
 function TextColorSection({ blockType, design, onDesignChange }) {
   const colors = design?.colors || {};
   const defaults = BLOCK_COLOR_DEFAULTS[blockType] || {};
@@ -177,7 +168,6 @@ function TextColorSection({ blockType, design, onDesignChange }) {
     onDesignChange("colors", { ...colors, [key]: value });
   };
 
-  // Helper render satu color picker dengan label
   const picker = (key, label) => (
     <ColorPickerField
       key={key}
@@ -187,7 +177,6 @@ function TextColorSection({ blockType, design, onDesignChange }) {
     />
   );
 
-  // ── Per block type ──
   if (blockType === "hero") {
     return (
       <div className="space-y-5">
@@ -401,7 +390,7 @@ function TextColorSection({ blockType, design, onDesignChange }) {
 }
 
 // ============================================================
-// BLOCK EDITOR — main export, update tab Desain
+// BLOCK EDITOR — main export
 // ============================================================
 export default function BlockEditor({ block, onChange }) {
   const [activeTab, setActiveTab] = useState("content");
@@ -440,7 +429,9 @@ export default function BlockEditor({ block, onChange }) {
   const design = block.design || {};
   const bgType = design.bgType || "none";
   const isCta = block.type === "cta";
+  const isHero = block.type === "hero";
   const cardBgType = design.cardBgType || "default";
+  const isImageBg = isHero && bgType === "image";
 
   return (
     <div>
@@ -483,8 +474,11 @@ export default function BlockEditor({ block, onChange }) {
                   <option value="none">Bawaan (Default)</option>
                   <option value="color">Warna Solid</option>
                   <option value="gradient">Gradien</option>
+                  {/* ✅ Opsi gambar hanya muncul untuk hero block */}
+                  {isHero && <option value="image">Gambar / Slider</option>}
                 </select>
               </div>
+
               {bgType === "color" && (
                 <ColorPickerField
                   label="Pilih Warna"
@@ -492,6 +486,7 @@ export default function BlockEditor({ block, onChange }) {
                   onChange={(v) => handleDesignChange("bgColor", v)}
                 />
               )}
+
               {bgType === "gradient" && (
                 <GradientEditor
                   prefix=""
@@ -505,6 +500,125 @@ export default function BlockEditor({ block, onChange }) {
                     handleDesignChange(realField, value);
                   }}
                 />
+              )}
+
+              {/* ✅ Image slider controls — hanya hero + bgType image */}
+              {isImageBg && (
+                <div className="space-y-5">
+                  {/* Upload gambar */}
+                  <div className="p-4 border border-gray-200 rounded-lg bg-gray-50">
+                    <HeroImageManager
+                      content={block.content || {}}
+                      onContentChange={handleContentChange}
+                    />
+                  </div>
+
+                  <div className="h-px bg-gray-100" />
+
+                  {/* Overlay opacity */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="block text-sm font-medium text-gray-700">
+                        Kegelapan Overlay
+                      </label>
+                      <span className="text-sm font-mono text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
+                        {Math.round((design.overlayOpacity ?? 0.45) * 100)}%
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="0.9"
+                      step="0.05"
+                      value={design.overlayOpacity ?? 0.45}
+                      onChange={(e) =>
+                        handleDesignChange(
+                          "overlayOpacity",
+                          parseFloat(e.target.value),
+                        )
+                      }
+                      className="w-full accent-blue-600"
+                    />
+                    <div className="flex justify-between text-xs text-gray-400 mt-1">
+                      <span>Terang (0%)</span>
+                      <span>Gelap (90%)</span>
+                    </div>
+                  </div>
+
+                  <div className="h-px bg-gray-100" />
+
+                  {/* Autoplay settings */}
+                  <div className="space-y-4">
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                      Pengaturan Autoplay
+                    </p>
+
+                    {/* Toggle autoplay */}
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-gray-700">
+                          Autoplay
+                        </p>
+                        <p className="text-xs text-gray-400">
+                          Slide otomatis berpindah
+                        </p>
+                      </div>
+                      <button
+                        onClick={() =>
+                          handleDesignChange(
+                            "sliderAutoplay",
+                            !design.sliderAutoplay,
+                          )
+                        }
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                          design.sliderAutoplay ? "bg-blue-600" : "bg-gray-200"
+                        }`}
+                        role="switch"
+                        aria-checked={!!design.sliderAutoplay}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                            design.sliderAutoplay
+                              ? "translate-x-6"
+                              : "translate-x-1"
+                          }`}
+                        />
+                      </button>
+                    </div>
+
+                    {/* Interval — hanya tampil jika autoplay aktif */}
+                    {design.sliderAutoplay && (
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <label className="block text-sm font-medium text-gray-700">
+                            Interval Perpindahan
+                          </label>
+                          <span className="text-sm font-mono text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
+                            {design.sliderInterval ?? 5}s
+                          </span>
+                        </div>
+                        <input
+                          type="range"
+                          min="2"
+                          max="15"
+                          step="1"
+                          value={design.sliderInterval ?? 5}
+                          onChange={(e) =>
+                            handleDesignChange(
+                              "sliderInterval",
+                              parseInt(e.target.value),
+                            )
+                          }
+                          className="w-full accent-blue-600"
+                        />
+                        <div className="flex justify-between text-xs text-gray-400 mt-1">
+                          <span>2 detik</span>
+                          <span>15 detik</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
               )}
             </div>
           </div>
@@ -599,27 +713,60 @@ export default function BlockEditor({ block, onChange }) {
             </>
           )}
 
-          {/* ── Warna Teks ── */}
-          <div className="h-px bg-gray-100" />
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                Warna Teks & Elemen
-              </p>
-              <button
-                onClick={handleResetColors}
-                className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-red-500 border border-gray-200 hover:border-red-200 px-2.5 py-1.5 rounded-lg transition-colors"
-              >
-                <RotateCcw size={11} />
-                Reset Warna
-              </button>
-            </div>
-            <TextColorSection
-              blockType={block.type}
-              design={design}
-              onDesignChange={handleDesignChange}
-            />
-          </div>
+          {/* ── Warna Teks — disembunyikan saat bgType image ── */}
+          {!isImageBg && (
+            <>
+              <div className="h-px bg-gray-100" />
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                    Warna Teks & Elemen
+                  </p>
+                  <button
+                    onClick={handleResetColors}
+                    className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-red-500 border border-gray-200 hover:border-red-200 px-2.5 py-1.5 rounded-lg transition-colors"
+                  >
+                    <RotateCcw size={11} />
+                    Reset Warna
+                  </button>
+                </div>
+                <TextColorSection
+                  blockType={block.type}
+                  design={design}
+                  onDesignChange={handleDesignChange}
+                />
+              </div>
+            </>
+          )}
+
+          {/* ── Warna Teks saat image bg — tetap bisa diatur ── */}
+          {isImageBg && (
+            <>
+              <div className="h-px bg-gray-100" />
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                    Warna Teks & Tombol
+                  </p>
+                  <button
+                    onClick={handleResetColors}
+                    className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-red-500 border border-gray-200 hover:border-red-200 px-2.5 py-1.5 rounded-lg transition-colors"
+                  >
+                    <RotateCcw size={11} />
+                    Reset Warna
+                  </button>
+                </div>
+                <p className="text-xs text-gray-400 mb-4">
+                  Sesuaikan warna teks agar kontras dengan gambar background.
+                </p>
+                <TextColorSection
+                  blockType={block.type}
+                  design={design}
+                  onDesignChange={handleDesignChange}
+                />
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>

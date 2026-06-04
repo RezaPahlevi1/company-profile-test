@@ -1,8 +1,8 @@
 import supabase from "../config/supabase.js";
 import sanitizeHtml from "sanitize-html";
+import uploadToSupabase from "../utils/uploadToSupabase.js";
 
 // ✅ Konfigurasi sanitize-html — tag dan atribut yang diizinkan
-// Disesuaikan dengan fitur TipTap yang dipakai di editor
 const SANITIZE_OPTIONS = {
   allowedTags: [
     "p",
@@ -34,15 +34,12 @@ const SANITIZE_OPTIONS = {
     td: ["colspan", "rowspan"],
     th: ["colspan", "rowspan"],
   },
-  // ✅ Paksa rel="noopener noreferrer" di semua link target="_blank"
   transformTags: {
     a: (tagName, attribs) => ({
       tagName,
       attribs: {
         ...attribs,
-        ...(attribs.target === "_blank" && {
-          rel: "noopener noreferrer",
-        }),
+        ...(attribs.target === "_blank" && { rel: "noopener noreferrer" }),
       },
     }),
   },
@@ -58,13 +55,9 @@ function sanitizeField(html) {
   return sanitizeHtml(html, SANITIZE_OPTIONS);
 }
 
-// ✅ Sanitasi field HTML di dalam content block
-// Hanya field yang memang mengandung HTML
 function sanitizeBlockContent(type, content) {
   if (!content || typeof content !== "object") return content;
-
   const sanitized = { ...content };
-
   switch (type) {
     case "rich_text":
       if (sanitized.html) sanitized.html = sanitizeField(sanitized.html);
@@ -75,11 +68,9 @@ function sanitizeBlockContent(type, content) {
     default:
       break;
   }
-
   return sanitized;
 }
 
-// ✅ Validasi panjang string field di content
 function validateContentBounds(type, content) {
   if (!content || typeof content !== "object") return null;
 
@@ -107,6 +98,16 @@ function validateContentBounds(type, content) {
       if (content[field].length > maxLen) {
         return `Field "${field}" pada block "${type}" terlalu panjang (maksimal ${maxLen} karakter)`;
       }
+    }
+  }
+
+  // ✅ Validasi bg_images — khusus hero block
+  if (type === "hero" && content.bg_images !== undefined) {
+    if (!Array.isArray(content.bg_images)) {
+      return `Field "bg_images" pada block "hero" harus berupa array`;
+    }
+    if (content.bg_images.length > 10) {
+      return `Maksimal 10 gambar untuk hero slider`;
     }
   }
 
@@ -144,6 +145,22 @@ const ALLOWED_BLOCKS = {
 const VALID_PAGES = Object.keys(ALLOWED_BLOCKS);
 const MAX_BLOCKS = 30;
 
+// ✅ Helper: ekstrak path dari public URL Supabase Storage
+// URL format: https://<project>.supabase.co/storage/v1/object/public/images/<path>
+function extractStoragePath(publicUrl) {
+  try {
+    const marker = "/object/public/images/";
+    const idx = publicUrl.indexOf(marker);
+    if (idx === -1) return null;
+    return publicUrl.slice(idx + marker.length);
+  } catch {
+    return null;
+  }
+}
+
+// ─────────────────────────────────────────────
+// GET /api/page-builder/:pageKey
+// ─────────────────────────────────────────────
 export const getPageConfig = async (req, res) => {
   const { pageKey } = req.params;
 
@@ -170,6 +187,9 @@ export const getPageConfig = async (req, res) => {
   }
 };
 
+// ─────────────────────────────────────────────
+// PUT /api/page-builder/:pageKey
+// ─────────────────────────────────────────────
 export const updatePageConfig = async (req, res) => {
   const { pageKey } = req.params;
   const { blocks } = req.body;
@@ -184,7 +204,6 @@ export const updatePageConfig = async (req, res) => {
       .json({ success: false, message: "blocks must be an array" });
   }
 
-  // ✅ Limit jumlah block per halaman
   if (blocks.length > MAX_BLOCKS) {
     return res.status(400).json({
       success: false,
@@ -214,14 +233,12 @@ export const updatePageConfig = async (req, res) => {
       });
     }
 
-    // ✅ Validasi panjang string di content
     const boundsError = validateContentBounds(block.type, block.content);
     if (boundsError) {
       return res.status(400).json({ success: false, message: boundsError });
     }
   }
 
-  // ✅ Sanitasi HTML + normalize order, dead code `orders` dihapus
   const normalizedBlocks = blocks.map((block, i) => ({
     ...block,
     order: i + 1,
@@ -242,11 +259,84 @@ export const updatePageConfig = async (req, res) => {
 
     if (error) throw error;
 
-    return res.status(200).json({
+    return res
+      .status(200)
+      .json({ success: true, message: "Page config updated", data });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// ─────────────────────────────────────────────
+// POST /api/page-builder/upload-image
+// Upload satu gambar hero ke Supabase Storage
+// ─────────────────────────────────────────────
+export const uploadHeroImage = async (req, res) => {
+  if (!req.file) {
+    return res
+      .status(400)
+      .json({ success: false, message: "Tidak ada file yang diupload" });
+  }
+
+  try {
+    const imageUrl = await uploadToSupabase(
+      req.file.buffer,
+      req.file.mimetype,
+      "hero",
+    );
+
+    return res.status(201).json({
       success: true,
-      message: "Page config updated",
-      data,
+      message: "Gambar berhasil diupload",
+      url: imageUrl,
     });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// ─────────────────────────────────────────────
+// DELETE /api/page-builder/delete-image
+// Hapus satu gambar hero dari Supabase Storage
+// Body: { url: "https://..." }
+// ─────────────────────────────────────────────
+export const deleteHeroImage = async (req, res) => {
+  const { url } = req.body;
+
+  if (!url || typeof url !== "string") {
+    return res
+      .status(400)
+      .json({ success: false, message: "URL gambar tidak valid" });
+  }
+
+  const storagePath = extractStoragePath(url);
+
+  if (!storagePath) {
+    return res.status(400).json({
+      success: false,
+      message: "URL bukan dari Supabase Storage project ini",
+    });
+  }
+
+  // ✅ Pastikan hanya file di folder hero yang bisa dihapus lewat endpoint ini
+  if (!storagePath.startsWith("hero/")) {
+    return res.status(403).json({
+      success: false,
+      message:
+        "Hanya gambar di folder hero yang bisa dihapus lewat endpoint ini",
+    });
+  }
+
+  try {
+    const { error } = await supabase.storage
+      .from("images")
+      .remove([storagePath]);
+
+    if (error) throw error;
+
+    return res
+      .status(200)
+      .json({ success: true, message: "Gambar berhasil dihapus" });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
   }
