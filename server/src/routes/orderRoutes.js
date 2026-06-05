@@ -7,6 +7,7 @@ import {
   getOrderById,
   repayOrder,
   updateOrderStatus,
+  updateFulfillment,
 } from "../controllers/orderController.js";
 import authMiddleware from "../middlewares/authMiddleware.js";
 import { requireRole } from "../middlewares/roleMiddleware.js";
@@ -52,6 +53,14 @@ router.patch(
   authMiddleware,
   requireRole("superadmin", "admin_order"),
   updateOrderStatus,
+);
+
+// ✅ Update fulfillment status — superadmin + admin_order
+router.patch(
+  "/:id/fulfillment",
+  authMiddleware,
+  requireRole("superadmin", "admin_order"),
+  updateFulfillment,
 );
 
 export default router;

@@ -4,6 +4,7 @@ import generateOrderNumber from "../utils/generateOrderNumber.js";
 import {
   sendOrderCreatedEmail,
   sendPaymentSuccessEmail,
+  sendFulfillmentUpdateEmail,
 } from "../utils/emailService.js";
 
 // ✅ Helper — cek apakah order pending sudah melewati expiry window
@@ -66,7 +67,14 @@ async function getCampaignActive() {
 }
 
 export const createOrder = async (req, res) => {
-  let { buyer_name, buyer_email, buyer_phone, buyer_address, items } = req.body;
+  let {
+    buyer_name,
+    buyer_email,
+    buyer_phone,
+    buyer_address,
+    items,
+    payment_method,
+  } = req.body;
 
   // Sanitasi & Trim strings
   if (typeof buyer_name === "string") buyer_name = buyer_name.trim();
@@ -201,6 +209,7 @@ export const createOrder = async (req, res) => {
           buyer_address,
           total_amount,
           status: "pending",
+          payment_method: payment_method === "manual" ? "manual" : "gateway",
         },
       ])
       .select()
@@ -222,6 +231,30 @@ export const createOrder = async (req, res) => {
       throw new Error(`Failed to save order items: ${itemsError.message}`);
     }
 
+    if (payment_method === "manual") {
+      const { data: freshOrder } = await supabase
+        .from("orders")
+        .select("*")
+        .eq("id", order.id)
+        .single();
+
+      sendOrderCreatedEmail(freshOrder || order, orderItems, "manual").catch(
+        (err) =>
+          console.error("Failed to send order created email:", err.message),
+      );
+
+      return res.status(201).json({
+        success: true,
+        message: "Order created successfully",
+        data: {
+          order_number: order.order_number,
+          total_amount: order.total_amount,
+          payment_method: "manual",
+        },
+      });
+    }
+
+    // ✅ Gateway payment — flow Midtrans seperti semula
     const midtransItems = orderItems.map((item) => ({
       id: item.product_id,
       price: Math.round(item.price_at_purchase),
@@ -257,8 +290,9 @@ export const createOrder = async (req, res) => {
       .eq("id", order.id)
       .single();
 
-    sendOrderCreatedEmail(freshOrder || order, orderItems).catch((err) =>
-      console.error("Failed to send order created email:", err.message),
+    sendOrderCreatedEmail(freshOrder || order, orderItems, "gateway").catch(
+      (err) =>
+        console.error("Failed to send order created email:", err.message),
     );
 
     return res.status(201).json({
@@ -269,6 +303,7 @@ export const createOrder = async (req, res) => {
         total_amount: order.total_amount,
         snap_token: snapToken.token,
         snap_redirect_url: snapToken.redirect_url,
+        payment_method: "gateway",
       },
     });
   } catch (err) {
@@ -287,15 +322,25 @@ export const trackOrder = async (req, res) => {
       .from("orders")
       .select(
         `
-        order_number, buyer_name, buyer_email,
-        total_amount, status, midtrans_payment_type,
-        paid_at, created_at,
-        order_items (
-          product_name, price_at_purchase, quantity
-        )
-      `,
+    order_number, buyer_name, buyer_email,
+    total_amount, status, midtrans_payment_type,
+    payment_method, manual_payment_note,
+    fulfillment_type, fulfillment_status,
+    shipping_courier, shipping_tracking_number, shipping_note,
+    paid_at, created_at,
+    order_items (
+      product_name, price_at_purchase, quantity
+    ),
+    order_fulfillment_history (
+      id, status, note, created_at
+    )
+  `,
       )
       .eq("order_number", orderNumber)
+      .order("created_at", {
+        ascending: true,
+        foreignTable: "order_fulfillment_history",
+      })
       .single();
 
     if (error || !order) {
@@ -438,14 +483,22 @@ export const getOrderById = async (req, res) => {
       .from("orders")
       .select(
         `
-        *,
-        order_items (
-          id, product_id, product_name,
-          price_at_purchase, quantity
-        )
-      `,
+    *,
+    order_items (
+      id, product_id, product_name,
+      price_at_purchase, quantity
+    ),
+    order_fulfillment_history (
+      id, status, note, created_at,
+      admins ( name )
+    )
+  `,
       )
       .eq("id", id)
+      .order("created_at", {
+        ascending: true,
+        foreignTable: "order_fulfillment_history",
+      })
       .single();
 
     if (error || !order) {
@@ -563,9 +616,15 @@ export const repayOrder = async (req, res) => {
 
 export const updateOrderStatus = async (req, res) => {
   const { id } = req.params;
-  const { status } = req.body;
+  const { status, manual_payment_note } = req.body;
 
-  const allowedStatuses = ["paid", "cancelled", "pending", "failed"];
+  const allowedStatuses = [
+    "paid",
+    "cancelled",
+    "pending",
+    "failed",
+    "under_review",
+  ];
 
   if (!status || !allowedStatuses.includes(status)) {
     return res.status(400).json({
@@ -577,15 +636,32 @@ export const updateOrderStatus = async (req, res) => {
   try {
     const { data: existing, error: findError } = await supabase
       .from("orders")
-      .select("id, status, paid_at")
+      .select("id, status, paid_at, payment_method")
       .eq("id", id)
       .single();
 
     if (findError || !existing) {
-      return res.status(404).json({
-        success: false,
-        message: "Order not found",
-      });
+      return res
+        .status(404)
+        .json({ success: false, message: "Order not found" });
+    }
+
+    // ✅ under_review hanya berlaku untuk order manual yang masih pending
+    if (status === "under_review") {
+      if (existing.payment_method !== "manual") {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Status under_review hanya untuk order dengan pembayaran manual",
+        });
+      }
+      if (existing.status !== "pending") {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Hanya order berstatus pending yang bisa ditandai under_review",
+        });
+      }
     }
 
     const wasAlreadyPaid = existing.status === "paid";
@@ -596,6 +672,10 @@ export const updateOrderStatus = async (req, res) => {
         !existing.paid_at && {
           paid_at: new Date().toISOString(),
           midtrans_payment_type: "manual_confirmation",
+        }),
+      ...(status === "paid" &&
+        manual_payment_note && {
+          manual_payment_note,
         }),
     };
 
@@ -608,6 +688,7 @@ export const updateOrderStatus = async (req, res) => {
 
     if (error) throw error;
 
+    // ✅ Kirim email payment success jika baru pertama kali paid
     if (status === "paid" && !wasAlreadyPaid) {
       const { data: fullOrder } = await supabase
         .from("orders")
@@ -631,9 +712,151 @@ export const updateOrderStatus = async (req, res) => {
       data,
     });
   } catch (err) {
-    return res.status(500).json({
-      success: false,
-      message: err.message,
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// ─────────────────────────────────────────────
+// PATCH /:id/fulfillment — update fulfillment status
+// Hanya admin, dipanggil setelah order paid
+// ─────────────────────────────────────────────
+export const updateFulfillment = async (req, res) => {
+  const { id } = req.params;
+  const {
+    fulfillment_type,
+    fulfillment_status,
+    shipping_courier,
+    shipping_tracking_number,
+    shipping_note,
+    note, // catatan untuk history
+  } = req.body;
+
+  const PHYSICAL_STATUSES = ["processing", "packed", "shipped", "delivered"];
+  const DIGITAL_STATUSES = ["processing", "completed"];
+
+  try {
+    const { data: existing, error: findError } = await supabase
+      .from("orders")
+      .select(
+        "id, status, fulfillment_type, fulfillment_status, buyer_email, buyer_name, order_number",
+      )
+      .eq("id", id)
+      .single();
+
+    if (findError || !existing) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Order not found" });
+    }
+
+    if (existing.status !== "paid") {
+      return res.status(400).json({
+        success: false,
+        message: "Fulfillment hanya bisa diupdate untuk order yang sudah paid",
+      });
+    }
+
+    // ✅ Validasi fulfillment_type — hanya bisa diset sekali
+    const resolvedType = existing.fulfillment_type || fulfillment_type;
+    if (!resolvedType) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Fulfillment type harus ditentukan terlebih dahulu (physical/digital)",
+      });
+    }
+    if (!["physical", "digital"].includes(resolvedType)) {
+      return res.status(400).json({
+        success: false,
+        message: "fulfillment_type harus physical atau digital",
+      });
+    }
+
+    // ✅ Validasi status sesuai tipe
+    const allowedStatuses =
+      resolvedType === "physical" ? PHYSICAL_STATUSES : DIGITAL_STATUSES;
+    if (fulfillment_status && !allowedStatuses.includes(fulfillment_status)) {
+      return res.status(400).json({
+        success: false,
+        message: `Status "${fulfillment_status}" tidak valid untuk tipe ${resolvedType}. Allowed: ${allowedStatuses.join(", ")}`,
+      });
+    }
+
+    // ✅ Jika shipped, kurir dan resi wajib diisi
+    if (fulfillment_status === "shipped") {
+      if (!shipping_courier?.trim() || !shipping_tracking_number?.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: "Kurir dan nomor resi wajib diisi saat status shipped",
+        });
+      }
+    }
+
+    const updatePayload = {
+      fulfillment_type: resolvedType,
+      ...(fulfillment_status && { fulfillment_status }),
+      ...(shipping_courier && { shipping_courier: shipping_courier.trim() }),
+      ...(shipping_tracking_number && {
+        shipping_tracking_number: shipping_tracking_number.trim(),
+      }),
+      ...(shipping_note !== undefined && { shipping_note }),
+    };
+
+    const { data: updatedOrder, error: updateError } = await supabase
+      .from("orders")
+      .update(updatePayload)
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (updateError) throw updateError;
+
+    // ✅ Insert ke history
+    if (fulfillment_status) {
+      await supabase.from("order_fulfillment_history").insert({
+        order_id: id,
+        status: fulfillment_status,
+        note: note || null,
+        created_by: req.admin.id,
+      });
+    } else if (fulfillment_type && !existing.fulfillment_type) {
+      // Catat saat tipe pertama kali dipilih
+      await supabase.from("order_fulfillment_history").insert({
+        order_id: id,
+        status: "type_set",
+        note: `Tipe fulfillment ditetapkan: ${resolvedType}`,
+        created_by: req.admin.id,
+      });
+    }
+
+    // ✅ Kirim email notifikasi ke buyer jika status berubah
+    if (
+      fulfillment_status &&
+      fulfillment_status !== existing.fulfillment_status
+    ) {
+      const { data: fullOrder } = await supabase
+        .from("orders")
+        .select(`*, order_items(product_name, price_at_purchase, quantity)`)
+        .eq("id", id)
+        .single();
+
+      if (fullOrder) {
+        sendFulfillmentUpdateEmail(
+          fullOrder,
+          fullOrder.order_items,
+          fulfillment_status,
+        ).catch((err) =>
+          console.error("Failed to send fulfillment email:", err.message),
+        );
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Fulfillment updated",
+      data: updatedOrder,
     });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
   }
 };

@@ -61,6 +61,8 @@ export default function SiteSettings() {
     site_name: "",
     payment_expiry_minutes: "1440",
     delivery_estimation: "",
+    bank_account_info: "",
+    manual_payment_verification_hours: "",
   });
 
   const [footerForm, setFooterForm] = useState({
@@ -78,6 +80,9 @@ export default function SiteSettings() {
         site_name: settings.site_name || "",
         payment_expiry_minutes: settings.payment_expiry_minutes || "1440",
         delivery_estimation: settings.delivery_estimation || "",
+        bank_account_info: settings.bank_account_info || "",
+        manual_payment_verification_hours:
+          settings.manual_payment_verification_hours || "",
       });
       setFooterForm({
         footer_tagline: settings.footer_tagline || "",
@@ -424,6 +429,47 @@ export default function SiteSettings() {
               Ditampilkan di email konfirmasi pembayaran berhasil.
             </p>
           </div>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Informasi Rekening Bank (Manual Payment)
+          </label>
+          <textarea
+            value={form.bank_account_info || ""}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, bank_account_info: e.target.value }))
+            }
+            rows={4}
+            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+            placeholder={
+              "BCA: 1234567890 a.n. PT Company\nMandiri: 0987654321 a.n. PT Company"
+            }
+          />
+          <p className="text-xs text-gray-400 mt-1.5">
+            Ditampilkan kepada pembeli yang memilih bayar manual. Kosongkan
+            untuk menonaktifkan opsi manual payment.
+          </p>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Estimasi Verifikasi Manual Payment
+          </label>
+          <input
+            value={form.manual_payment_verification_hours || ""}
+            onChange={(e) =>
+              setForm((f) => ({
+                ...f,
+                manual_payment_verification_hours: e.target.value,
+              }))
+            }
+            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Contoh: 1x24 jam kerja"
+          />
+          <p className="text-xs text-gray-400 mt-1.5">
+            Ditampilkan di halaman status order sebagai estimasi waktu
+            konfirmasi.
+          </p>
         </div>
       </div>
 

@@ -54,6 +54,8 @@ export const updateSiteSettings = async (req, res) => {
     company_email,
     company_address,
     company_maps_embed_url,
+    bank_account_info,
+    manual_payment_verification_hours,
   } = req.body;
 
   // Validasi payment_expiry_minutes — 1 menit sampai 1440 menit (24 jam)
@@ -188,6 +190,13 @@ export const updateSiteSettings = async (req, res) => {
       updates.push({
         key: "company_maps_embed_url",
         value: company_maps_embed_url,
+      });
+    if (bank_account_info !== undefined)
+      updates.push({ key: "bank_account_info", value: bank_account_info });
+    if (manual_payment_verification_hours !== undefined)
+      updates.push({
+        key: "manual_payment_verification_hours",
+        value: manual_payment_verification_hours,
       });
 
     for (const update of updates) {

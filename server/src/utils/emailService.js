@@ -4,7 +4,7 @@ import supabase from "../config/supabase.js";
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 // ============================================================
-// RENDER ENGINE — ganti {{variable}} dengan nilai nyata
+// RENDER ENGINE
 // ============================================================
 const renderTemplate = (text, variables) => {
   if (!text) return "";
@@ -44,7 +44,6 @@ const getTemplate = async (templateKey) => {
 // ============================================================
 const getSiteSettings = async () => {
   const { data } = await supabase.from("site_settings").select("key, value");
-
   return (data || []).reduce((acc, item) => {
     acc[item.key] = item.value;
     return acc;
@@ -83,7 +82,6 @@ const buildEmailHtml = (template, contentHtml, variables) => {
       <p style="color:#475569;font-size:15px;line-height:1.6;margin:0 0 24px;">
         ${bodyMessage}
       </p>
-
       ${contentHtml}
     </div>
 
@@ -98,50 +96,53 @@ const buildEmailHtml = (template, contentHtml, variables) => {
 };
 
 // ============================================================
-// CONTENT HTML PER TEMPLATE TYPE
+// CONTENT BUILDERS
 // ============================================================
-const buildOrderCreatedContent = (order, items, variables) => {
-  const trackUrl = `${process.env.CLIENT_URL}/order/${order.order_number}`;
 
+// ── Tabel item (dipakai di beberapa template) ────────────────
+const buildItemsTable = (items, totalAmount, accentColor = "#1d4ed8") => `
+  <h3 style="color:#0f172a;font-size:15px;margin:0 0 10px;">Item Pesanan</h3>
+  <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
+    <thead>
+      <tr style="background:#f8fafc;">
+        <th style="text-align:left;padding:8px 10px;color:#64748b;font-size:12px;border-bottom:1px solid #e2e8f0;">Produk</th>
+        <th style="text-align:center;padding:8px 10px;color:#64748b;font-size:12px;border-bottom:1px solid #e2e8f0;">Qty</th>
+        <th style="text-align:right;padding:8px 10px;color:#64748b;font-size:12px;border-bottom:1px solid #e2e8f0;">Harga</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${items
+        .map(
+          (item) => `
+        <tr>
+          <td style="padding:10px;color:#334155;font-size:13px;border-bottom:1px solid #f1f5f9;">${item.product_name}</td>
+          <td style="padding:10px;color:#334155;font-size:13px;text-align:center;border-bottom:1px solid #f1f5f9;">${item.quantity}</td>
+          <td style="padding:10px;color:#334155;font-size:13px;text-align:right;border-bottom:1px solid #f1f5f9;">${formatCurrency(item.price_at_purchase * item.quantity)}</td>
+        </tr>
+      `,
+        )
+        .join("")}
+    </tbody>
+    <tfoot>
+      <tr>
+        <td colspan="2" style="padding:10px;font-weight:700;font-size:14px;color:#0f172a;">Total</td>
+        <td style="padding:10px;font-weight:800;font-size:16px;text-align:right;color:${accentColor};">${formatCurrency(totalAmount)}</td>
+      </tr>
+    </tfoot>
+  </table>`;
+
+// ── Order Created — Gateway ──────────────────────────────────
+const buildOrderCreatedGatewayContent = (order, items, variables) => {
+  const trackUrl = `${process.env.CLIENT_URL}/order/${order.order_number}`;
   return `
     <div style="background:#eff6ff;border:2px dashed #93c5fd;border-radius:12px;padding:20px;text-align:center;margin-bottom:24px;">
-      <p style="color:#64748b;font-size:12px;margin:0 0 4px;text-transform:uppercase;letter-spacing:1px;">
-        Nomor Order
-      </p>
+      <p style="color:#64748b;font-size:12px;margin:0 0 4px;text-transform:uppercase;letter-spacing:1px;">Nomor Order</p>
       <p style="color:#1d4ed8;font-size:22px;font-weight:800;margin:0;letter-spacing:2px;font-family:monospace;">
         ${order.order_number}
       </p>
     </div>
 
-    <h3 style="color:#0f172a;font-size:15px;margin:0 0 10px;">Item Pesanan</h3>
-    <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
-      <thead>
-        <tr style="background:#f8fafc;">
-          <th style="text-align:left;padding:8px 10px;color:#64748b;font-size:12px;border-bottom:1px solid #e2e8f0;">Produk</th>
-          <th style="text-align:center;padding:8px 10px;color:#64748b;font-size:12px;border-bottom:1px solid #e2e8f0;">Qty</th>
-          <th style="text-align:right;padding:8px 10px;color:#64748b;font-size:12px;border-bottom:1px solid #e2e8f0;">Harga</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${items
-          .map(
-            (item) => `
-          <tr>
-            <td style="padding:10px;color:#334155;font-size:13px;border-bottom:1px solid #f1f5f9;">${item.product_name}</td>
-            <td style="padding:10px;color:#334155;font-size:13px;text-align:center;border-bottom:1px solid #f1f5f9;">${item.quantity}</td>
-            <td style="padding:10px;color:#334155;font-size:13px;text-align:right;border-bottom:1px solid #f1f5f9;">${formatCurrency(item.price_at_purchase * item.quantity)}</td>
-          </tr>
-        `,
-          )
-          .join("")}
-      </tbody>
-      <tfoot>
-        <tr>
-          <td colspan="2" style="padding:10px;font-weight:700;font-size:14px;color:#0f172a;">Total</td>
-          <td style="padding:10px;font-weight:800;font-size:16px;text-align:right;color:#1d4ed8;">${formatCurrency(order.total_amount)}</td>
-        </tr>
-      </tfoot>
-    </table>
+    ${buildItemsTable(items, order.total_amount)}
 
     <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:14px;margin-bottom:20px;">
       <p style="color:#92400e;font-size:13px;margin:0;">
@@ -156,6 +157,53 @@ const buildOrderCreatedContent = (order, items, variables) => {
     </div>`;
 };
 
+// ── Order Created — Manual Payment ──────────────────────────
+const buildOrderCreatedManualContent = (order, items, variables) => {
+  const trackUrl = `${process.env.CLIENT_URL}/order/${order.order_number}`;
+  const bankInfo = variables.bank_account_info || "";
+  const verificationHours =
+    variables.manual_payment_verification_hours || "1x24 jam kerja";
+
+  return `
+    <div style="background:#eff6ff;border:2px dashed #93c5fd;border-radius:12px;padding:20px;text-align:center;margin-bottom:24px;">
+      <p style="color:#64748b;font-size:12px;margin:0 0 4px;text-transform:uppercase;letter-spacing:1px;">Nomor Order</p>
+      <p style="color:#1d4ed8;font-size:22px;font-weight:800;margin:0;letter-spacing:2px;font-family:monospace;">
+        ${order.order_number}
+      </p>
+    </div>
+
+    ${buildItemsTable(items, order.total_amount)}
+
+    ${
+      bankInfo
+        ? `
+    <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:12px;padding:20px;margin-bottom:20px;">
+      <p style="color:#15803d;font-size:13px;font-weight:700;margin:0 0 10px;">
+        💳 Informasi Rekening Transfer
+      </p>
+      <pre style="color:#1e3a2f;font-size:13px;margin:0;white-space:pre-wrap;font-family:inherit;line-height:1.7;">${bankInfo}</pre>
+    </div>`
+        : ""
+    }
+
+    <div style="background:#fefce8;border:1px solid #fde68a;border-radius:10px;padding:14px;margin-bottom:20px;">
+      <p style="color:#854d0e;font-size:13px;margin:0 0 6px;font-weight:600;">📋 Langkah Selanjutnya</p>
+      <ol style="color:#713f12;font-size:13px;margin:0;padding-left:18px;line-height:1.8;">
+        <li>Transfer sesuai total di atas ke rekening yang tertera</li>
+        <li>Gunakan nomor order sebagai berita acara transfer</li>
+        <li>Tim kami akan memverifikasi pembayaran dalam <strong>${verificationHours}</strong></li>
+        <li>Status pesanan akan diperbarui setelah pembayaran terkonfirmasi</li>
+      </ol>
+    </div>
+
+    <div style="text-align:center;">
+      <a href="${trackUrl}" style="display:inline-block;background:${variables.header_color || "#2563eb"};color:white;text-decoration:none;padding:13px 28px;border-radius:10px;font-weight:600;font-size:14px;">
+        Lacak Status Pesanan
+      </a>
+    </div>`;
+};
+
+// ── Payment Success ──────────────────────────────────────────
 const buildPaymentSuccessContent = (order, items, variables) => {
   const trackUrl = `${process.env.CLIENT_URL}/order/${order.order_number}`;
 
@@ -193,39 +241,118 @@ const buildPaymentSuccessContent = (order, items, variables) => {
         : ""
     }
 
-    <h3 style="color:#0f172a;font-size:15px;margin:0 0 10px;">Item yang Dibeli</h3>
-    <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
-      <thead>
-        <tr style="background:#f8fafc;">
-          <th style="text-align:left;padding:8px 10px;color:#64748b;font-size:12px;border-bottom:1px solid #e2e8f0;">Produk</th>
-          <th style="text-align:center;padding:8px 10px;color:#64748b;font-size:12px;border-bottom:1px solid #e2e8f0;">Qty</th>
-          <th style="text-align:right;padding:8px 10px;color:#64748b;font-size:12px;border-bottom:1px solid #e2e8f0;">Harga</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${items
-          .map(
-            (item) => `
-          <tr>
-            <td style="padding:10px;color:#334155;font-size:13px;border-bottom:1px solid #f1f5f9;">${item.product_name}</td>
-            <td style="padding:10px;color:#334155;font-size:13px;text-align:center;border-bottom:1px solid #f1f5f9;">${item.quantity}</td>
-            <td style="padding:10px;color:#334155;font-size:13px;text-align:right;border-bottom:1px solid #f1f5f9;">${formatCurrency(item.price_at_purchase * item.quantity)}</td>
-          </tr>
-        `,
-          )
-          .join("")}
-      </tbody>
-      <tfoot>
-        <tr>
-          <td colspan="2" style="padding:10px;font-weight:700;font-size:14px;color:#0f172a;">Total</td>
-          <td style="padding:10px;font-weight:800;font-size:16px;text-align:right;color:#059669;">${formatCurrency(order.total_amount)}</td>
-        </tr>
-      </tfoot>
-    </table>
+    ${buildItemsTable(items, order.total_amount, "#059669")}
 
     <div style="text-align:center;">
-      <a href="${trackUrl}" style="display:inline-block;background:${variables.header_color || "#059669"};color:white;text-decoration:none;padding:13px 28px;border-radius:10px;font-weight:600;font-size:14px;">
+      <a href="${`${process.env.CLIENT_URL}/order/${order.order_number}`}" style="display:inline-block;background:${variables.header_color || "#059669"};color:white;text-decoration:none;padding:13px 28px;border-radius:10px;font-weight:600;font-size:14px;">
         Lihat Detail Pesanan
+      </a>
+    </div>`;
+};
+
+// ── Fulfillment Update ───────────────────────────────────────
+const FULFILLMENT_STATUS_LABELS = {
+  processing: {
+    label: "Pesanan Diproses",
+    emoji: "⚙️",
+    color: "#7c3aed",
+    bg: "#f5f3ff",
+    border: "#ddd6fe",
+  },
+  packed: {
+    label: "Pesanan Dikemas",
+    emoji: "📦",
+    color: "#b45309",
+    bg: "#fffbeb",
+    border: "#fde68a",
+  },
+  shipped: {
+    label: "Pesanan Dikirim",
+    emoji: "🚚",
+    color: "#0369a1",
+    bg: "#eff6ff",
+    border: "#bfdbfe",
+  },
+  delivered: {
+    label: "Pesanan Tiba",
+    emoji: "✅",
+    color: "#15803d",
+    bg: "#f0fdf4",
+    border: "#86efac",
+  },
+  completed: {
+    label: "Pesanan Selesai",
+    emoji: "🎉",
+    color: "#15803d",
+    bg: "#f0fdf4",
+    border: "#86efac",
+  },
+};
+
+const buildFulfillmentUpdateContent = (
+  order,
+  items,
+  fulfillmentStatus,
+  variables,
+) => {
+  const trackUrl = `${process.env.CLIENT_URL}/order/${order.order_number}`;
+  const meta = FULFILLMENT_STATUS_LABELS[fulfillmentStatus] || {
+    label: fulfillmentStatus,
+    emoji: "📋",
+    color: "#475569",
+    bg: "#f8fafc",
+    border: "#e2e8f0",
+  };
+
+  const shippingBlock =
+    fulfillmentStatus === "shipped" &&
+    order.shipping_courier &&
+    order.shipping_tracking_number
+      ? `
+    <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:16px;margin-bottom:20px;">
+      <p style="color:#1e40af;font-size:13px;font-weight:700;margin:0 0 10px;">🔍 Informasi Pengiriman</p>
+      <table style="width:100%;border-collapse:collapse;">
+        <tr>
+          <td style="padding:4px 0;color:#64748b;font-size:13px;width:100px;">Kurir</td>
+          <td style="padding:4px 0;color:#0f172a;font-size:13px;font-weight:600;">${order.shipping_courier}</td>
+        </tr>
+        <tr>
+          <td style="padding:4px 0;color:#64748b;font-size:13px;">No. Resi</td>
+          <td style="padding:4px 0;color:#1d4ed8;font-size:14px;font-weight:800;font-family:monospace;">${order.shipping_tracking_number}</td>
+        </tr>
+        ${
+          order.shipping_note
+            ? `
+        <tr>
+          <td style="padding:4px 0;color:#64748b;font-size:13px;">Catatan</td>
+          <td style="padding:4px 0;color:#334155;font-size:13px;">${order.shipping_note}</td>
+        </tr>`
+            : ""
+        }
+      </table>
+    </div>`
+      : "";
+
+  return `
+    <div style="background:${meta.bg};border:1px solid ${meta.border};border-radius:12px;padding:20px;text-align:center;margin-bottom:24px;">
+      <p style="font-size:32px;margin:0 0 8px;">${meta.emoji}</p>
+      <p style="color:${meta.color};font-size:18px;font-weight:800;margin:0;">${meta.label}</p>
+      <p style="color:#64748b;font-size:12px;margin:6px 0 0;font-family:monospace;">${order.order_number}</p>
+    </div>
+
+    ${shippingBlock}
+
+    <div style="background:#f8fafc;border-radius:10px;padding:14px;margin-bottom:20px;">
+      <p style="color:#334155;font-size:13px;margin:0;">
+        Pantau status terbaru pesanan Anda melalui halaman lacak pesanan.
+      </p>
+    </div>
+
+    ${buildItemsTable(items, order.total_amount)}
+
+    <div style="text-align:center;">
+      <a href="${trackUrl}" style="display:inline-block;background:${meta.color};color:white;text-decoration:none;padding:13px 28px;border-radius:10px;font-weight:600;font-size:14px;">
+        Lacak Pesanan
       </a>
     </div>`;
 };
@@ -233,7 +360,14 @@ const buildPaymentSuccessContent = (order, items, variables) => {
 // ============================================================
 // SEND FUNCTIONS
 // ============================================================
-export const sendOrderCreatedEmail = async (order, items) => {
+
+// ── sendOrderCreatedEmail ────────────────────────────────────
+// paymentMethod: "gateway" | "manual"
+export const sendOrderCreatedEmail = async (
+  order,
+  items,
+  paymentMethod = "gateway",
+) => {
   try {
     const [template, siteSettings] = await Promise.all([
       getTemplate("order_created"),
@@ -248,11 +382,20 @@ export const sendOrderCreatedEmail = async (order, items) => {
       site_name: siteSettings.site_name || "CompanyName",
       track_url: `${process.env.CLIENT_URL}/order/${order.order_number}`,
       delivery_estimation: siteSettings.delivery_estimation || "",
+      bank_account_info: siteSettings.bank_account_info || "",
+      manual_payment_verification_hours:
+        siteSettings.manual_payment_verification_hours || "1x24 jam kerja",
       header_color: template.header_color,
     };
 
     const subject = renderTemplate(template.subject, variables);
-    const contentHtml = buildOrderCreatedContent(order, items, variables);
+
+    // ✅ Konten email berbeda berdasarkan metode bayar
+    const contentHtml =
+      paymentMethod === "manual"
+        ? buildOrderCreatedManualContent(order, items, variables)
+        : buildOrderCreatedGatewayContent(order, items, variables);
+
     const html = buildEmailHtml(template, contentHtml, variables);
 
     const { data, error } = await resend.emails.send({
@@ -271,6 +414,7 @@ export const sendOrderCreatedEmail = async (order, items) => {
   }
 };
 
+// ── sendPaymentSuccessEmail ──────────────────────────────────
 export const sendPaymentSuccessEmail = async (order, items) => {
   try {
     const [template, siteSettings] = await Promise.all([
@@ -310,6 +454,61 @@ export const sendPaymentSuccessEmail = async (order, items) => {
   }
 };
 
+// ── sendFulfillmentUpdateEmail ───────────────────────────────
+export const sendFulfillmentUpdateEmail = async (
+  order,
+  items,
+  fulfillmentStatus,
+) => {
+  try {
+    const [template, siteSettings] = await Promise.all([
+      getTemplate("order_created"), // pakai template yang sama, override subject
+      getSiteSettings(),
+    ]);
+
+    const meta = FULFILLMENT_STATUS_LABELS[fulfillmentStatus] || {
+      label: fulfillmentStatus,
+      emoji: "📋",
+    };
+
+    const variables = {
+      buyer_name: order.buyer_name,
+      order_number: order.order_number,
+      total_amount: formatCurrency(order.total_amount),
+      site_name: siteSettings.site_name || "CompanyName",
+      track_url: `${process.env.CLIENT_URL}/order/${order.order_number}`,
+      header_color: template.header_color,
+      fulfillment_status_label: meta.label,
+    };
+
+    // ✅ Subject override — tidak pakai template subject
+    const subject = `${meta.emoji} Update Pesanan: ${meta.label} — ${order.order_number}`;
+
+    const contentHtml = buildFulfillmentUpdateContent(
+      order,
+      items,
+      fulfillmentStatus,
+      variables,
+    );
+    const html = buildEmailHtml(template, contentHtml, variables);
+
+    const { data, error } = await resend.emails.send({
+      from: process.env.RESEND_FROM_EMAIL,
+      to: order.buyer_email,
+      subject,
+      html,
+    });
+
+    if (error) throw error;
+    console.log("Fulfillment update email sent:", data?.id);
+    return true;
+  } catch (err) {
+    console.error("sendFulfillmentUpdateEmail error:", err);
+    return false;
+  }
+};
+
+// ── sendBroadcastEmail ───────────────────────────────────────
 export const sendBroadcastEmail = async (broadcast, recipients) => {
   if (!recipients.length) return { sent: 0, failed: 0 };
 
@@ -339,15 +538,9 @@ export const sendBroadcastEmail = async (broadcast, recipients) => {
         };
 
         const subject = renderTemplate(broadcast.subject, variables);
-
-        // ✅ greeting boleh kosong
         const greeting = template.greeting
           ? renderTemplate(template.greeting, variables)
           : "";
-
-        // ✅ body_message adalah HTML dari Tiptap — tidak di-renderTemplate,
-        // langsung dipakai sebagai HTML content
-        // Sanitasi sudah dilakukan saat save di controller via sanitize-html
         const bodyHtml = broadcast.body_message || "";
 
         const html = `
@@ -359,24 +552,16 @@ export const sendBroadcastEmail = async (broadcast, recipients) => {
 </head>
 <body style="margin:0;padding:0;background-color:#f8fafc;font-family:'Segoe UI',Arial,sans-serif;">
   <div style="max-width:600px;margin:40px auto;background:white;border-radius:16px;overflow:hidden;box-shadow:0 4px 6px rgba(0,0,0,0.07);">
-
     <div style="background:${headerColor};padding:36px 32px;text-align:center;">
       <h1 style="color:white;margin:0;font-size:22px;font-weight:700;">${siteName}</h1>
     </div>
-
     <div style="padding:32px;">
       ${greeting ? `<p style="color:#334155;font-size:15px;margin:0 0 16px;">${greeting}</p>` : ""}
-      <div style="color:#475569;font-size:15px;line-height:1.7;">
-        ${bodyHtml}
-      </div>
+      <div style="color:#475569;font-size:15px;line-height:1.7;">${bodyHtml}</div>
     </div>
-
     <div style="background:#f8fafc;padding:20px 32px;text-align:center;border-top:1px solid #e2e8f0;">
-      <p style="color:#94a3b8;font-size:12px;margin:0;line-height:1.6;">
-        ${footerText}
-      </p>
+      <p style="color:#94a3b8;font-size:12px;margin:0;line-height:1.6;">${footerText}</p>
     </div>
-
   </div>
 </body>
 </html>`;
