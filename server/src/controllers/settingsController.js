@@ -56,6 +56,7 @@ export const updateSiteSettings = async (req, res) => {
     company_maps_embed_url,
     bank_account_info,
     manual_payment_verification_hours,
+    manual_payment_expiry_minutes,
   } = req.body;
 
   // Validasi payment_expiry_minutes — 1 menit sampai 1440 menit (24 jam)
@@ -66,6 +67,17 @@ export const updateSiteSettings = async (req, res) => {
         success: false,
         message:
           "Batas waktu pembayaran harus antara 1 hingga 1440 menit (24 jam)",
+      });
+    }
+  }
+
+  if (manual_payment_expiry_minutes !== undefined) {
+    const minutes = Number(manual_payment_expiry_minutes);
+    if (isNaN(minutes) || minutes < 1 || minutes > 1440) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Batas waktu pembayaran manual harus antara 1 hingga 1440 menit (24 jam)",
       });
     }
   }
@@ -163,6 +175,11 @@ export const updateSiteSettings = async (req, res) => {
       updates.push({
         key: "payment_expiry_minutes",
         value: String(payment_expiry_minutes),
+      });
+    if (manual_payment_expiry_minutes !== undefined)
+      updates.push({
+        key: "manual_payment_expiry_minutes",
+        value: String(manual_payment_expiry_minutes),
       });
     if (delivery_estimation !== undefined)
       updates.push({ key: "delivery_estimation", value: delivery_estimation });

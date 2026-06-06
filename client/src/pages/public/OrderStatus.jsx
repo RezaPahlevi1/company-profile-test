@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { motion } from "framer-motion";
@@ -16,14 +16,15 @@ import {
   Settings,
   Archive,
   PartyPopper,
-  ExternalLink,
+  AlertCircle,
+  MessageCircle,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { trackOrder, repayOrder } from "../../api/orders";
 import { getSiteSettings } from "../../api/settings";
 import { useQuery as useSettingsQuery } from "@tanstack/react-query";
 
-// ─── Payment status config ───────────────────────────────────
+// ─── Payment status config ────────────────────────────────────
 const paymentStatusConfig = {
   pending: {
     icon: Clock,
@@ -75,7 +76,7 @@ const paymentStatusConfig = {
   },
 };
 
-// ─── Fulfillment status config ───────────────────────────────
+// ─── Fulfillment status config ────────────────────────────────
 const fulfillmentConfig = {
   processing: {
     icon: Settings,
@@ -124,7 +125,6 @@ const fulfillmentConfig = {
   },
 };
 
-// ─── History timeline item label ─────────────────────────────
 const historyStatusLabel = {
   processing: "Pesanan Diproses",
   packed: "Pesanan Dikemas",
@@ -134,7 +134,172 @@ const historyStatusLabel = {
   type_set: "Tipe Pengiriman Ditetapkan",
 };
 
-// ─── Track Form ──────────────────────────────────────────────
+// ─── Countdown Hook ───────────────────────────────────────────
+// Menghitung sisa waktu dari createdAt + expiryMs
+// Return: { hours, minutes, seconds, isExpired, totalSeconds }
+function useCountdown(createdAt, expiryMs) {
+  const calcRemaining = () => {
+    if (!createdAt || !expiryMs) return null;
+    const expiredAt = new Date(createdAt).getTime() + expiryMs;
+    const diff = expiredAt - Date.now();
+    if (diff <= 0)
+      return {
+        hours: 0,
+        minutes: 0,
+        seconds: 0,
+        isExpired: true,
+        totalSeconds: 0,
+      };
+    const totalSeconds = Math.floor(diff / 1000);
+    return {
+      hours: Math.floor(totalSeconds / 3600),
+      minutes: Math.floor((totalSeconds % 3600) / 60),
+      seconds: totalSeconds % 60,
+      isExpired: false,
+      totalSeconds,
+    };
+  };
+
+  const [remaining, setRemaining] = useState(calcRemaining);
+
+  useEffect(() => {
+    if (!createdAt || !expiryMs) return;
+    const interval = setInterval(() => {
+      const r = calcRemaining();
+      setRemaining(r);
+      if (r?.isExpired) clearInterval(interval);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [createdAt, expiryMs]);
+
+  return remaining;
+}
+
+// ─── Countdown Display ────────────────────────────────────────
+function CountdownBar({ remaining, isManual }) {
+  if (!remaining) return null;
+
+  const pad = (n) => String(n).padStart(2, "0");
+
+  if (remaining.isExpired) {
+    return (
+      <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl">
+        <AlertCircle size={14} className="text-red-500 shrink-0" />
+        <p className="text-xs text-red-600 font-medium">
+          {isManual
+            ? "Batas waktu transfer telah habis. Silakan hubungi kami atau buat order baru."
+            : "Waktu pembayaran telah habis. Silakan buat order baru."}
+        </p>
+      </div>
+    );
+  }
+
+  const urgency = remaining.totalSeconds < 600; // < 10 menit = urgent
+
+  return (
+    <div
+      className={`p-3 rounded-xl border ${
+        urgency
+          ? "bg-red-50 border-red-200"
+          : isManual
+            ? "bg-emerald-50 border-emerald-200"
+            : "bg-yellow-50 border-yellow-200"
+      }`}
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Clock
+            size={13}
+            className={
+              urgency
+                ? "text-red-500"
+                : isManual
+                  ? "text-emerald-600"
+                  : "text-yellow-600"
+            }
+          />
+          <p
+            className={`text-xs font-medium ${urgency ? "text-red-600" : isManual ? "text-emerald-700" : "text-yellow-700"}`}
+          >
+            {isManual ? "Batas waktu transfer" : "Selesaikan pembayaran dalam"}
+          </p>
+        </div>
+        {/* Digit countdown */}
+        <div className="flex items-center gap-1">
+          {remaining.hours > 0 && (
+            <>
+              <span
+                className={`text-sm font-mono font-bold px-1.5 py-0.5 rounded ${urgency ? "bg-red-100 text-red-700" : isManual ? "bg-emerald-100 text-emerald-700" : "bg-yellow-100 text-yellow-700"}`}
+              >
+                {pad(remaining.hours)}
+              </span>
+              <span
+                className={`text-xs ${urgency ? "text-red-400" : "text-slate-400"}`}
+              >
+                j
+              </span>
+            </>
+          )}
+          <span
+            className={`text-sm font-mono font-bold px-1.5 py-0.5 rounded ${urgency ? "bg-red-100 text-red-700" : isManual ? "bg-emerald-100 text-emerald-700" : "bg-yellow-100 text-yellow-700"}`}
+          >
+            {pad(remaining.minutes)}
+          </span>
+          <span
+            className={`text-xs ${urgency ? "text-red-400" : "text-slate-400"}`}
+          >
+            m
+          </span>
+          <span
+            className={`text-sm font-mono font-bold px-1.5 py-0.5 rounded ${urgency ? "bg-red-100 text-red-700" : isManual ? "bg-emerald-100 text-emerald-700" : "bg-yellow-100 text-yellow-700"}`}
+          >
+            {pad(remaining.seconds)}
+          </span>
+          <span
+            className={`text-xs ${urgency ? "text-red-400" : "text-slate-400"}`}
+          >
+            d
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── WA Help Button ───────────────────────────────────────────
+function WAHelpButton({ orderNumber, isManual, waNumber }) {
+  if (!waNumber) return null;
+
+  const message = isManual
+    ? `Halo, saya sudah melakukan transfer untuk order ${orderNumber} namun belum mendapat konfirmasi. Mohon bantuannya.`
+    : `Halo, saya mengalami kendala pembayaran untuk order ${orderNumber}. Mohon bantuannya.`;
+
+  const waUrl = `https://wa.me/${waNumber}?text=${encodeURIComponent(message)}`;
+
+  return (
+    <div className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-xl">
+      <div>
+        <p className="text-xs font-medium text-slate-700">
+          Ada masalah dengan pembayaran?
+        </p>
+        <p className="text-xs text-slate-400 mt-0.5">
+          Tim kami siap membantu Anda
+        </p>
+      </div>
+      <a
+        href={waUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center gap-1.5 bg-green-500 hover:bg-green-600 text-white text-xs font-semibold px-3 py-2 rounded-lg transition-colors shrink-0 ml-3"
+      >
+        <MessageCircle size={13} />
+        Hubungi Kami
+      </a>
+    </div>
+  );
+}
+
+// ─── Track Form ───────────────────────────────────────────────
 const TrackForm = ({ onSearch }) => {
   const [input, setInput] = useState("");
   return (
@@ -170,7 +335,7 @@ const TrackForm = ({ onSearch }) => {
   );
 };
 
-// ─── Main Component ──────────────────────────────────────────
+// ─── Main Component ───────────────────────────────────────────
 export default function OrderStatus() {
   const { orderNumber: paramOrderNumber } = useParams();
   const navigate = useNavigate();
@@ -189,7 +354,7 @@ export default function OrderStatus() {
     }
   }, []);
 
-  // ✅ Ambil site settings untuk info rekening & verifikasi
+  // ✅ Site settings — ambil sekaligus untuk info rekening, expiry, dan WA number
   const { data: settingsData } = useSettingsQuery({
     queryKey: ["site-settings-public"],
     queryFn: getSiteSettings,
@@ -199,6 +364,12 @@ export default function OrderStatus() {
   const bankAccountInfo = siteSettings.bank_account_info || "";
   const verificationHours =
     siteSettings.manual_payment_verification_hours || "1x24 jam kerja";
+  const waNumber = siteSettings.whatsapp_number || "";
+  // ✅ Expiry dalam ms — dua setting terpisah
+  const gatewayExpiryMs =
+    (Number(siteSettings.payment_expiry_minutes) || 1440) * 60 * 1000;
+  const manualExpiryMs =
+    (Number(siteSettings.manual_payment_expiry_minutes) || 4320) * 60 * 1000;
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["order-track", searchNumber],
@@ -246,10 +417,26 @@ export default function OrderStatus() {
     : null;
   const FulfillmentIcon = fulfillment?.icon;
   const history = order?.order_fulfillment_history || [];
+  const isManualOrder = order?.payment_method === "manual";
 
-  // ✅ Manual payment pending — tampilkan info rekening
+  // ✅ Countdown — pilih expiry yang tepat berdasarkan payment_method
+  // Hanya aktif jika status pending (gateway) atau pending/under_review (manual)
+  const showGatewayCountdown = order?.status === "pending" && !isManualOrder;
+  const showManualCountdown =
+    isManualOrder &&
+    (order?.status === "pending" || order?.status === "under_review");
+
+  const gatewayCountdown = useCountdown(
+    showGatewayCountdown ? order?.created_at : null,
+    gatewayExpiryMs,
+  );
+  const manualCountdown = useCountdown(
+    showManualCountdown ? order?.created_at : null,
+    manualExpiryMs,
+  );
+
   const showManualInfo =
-    order?.payment_method === "manual" &&
+    isManualOrder &&
     (order?.status === "pending" || order?.status === "under_review");
 
   return (
@@ -358,44 +545,64 @@ export default function OrderStatus() {
                   </div>
                 </div>
 
-                {/* Repay — hanya gateway + pending */}
-                {order.status === "pending" &&
-                  order.payment_method !== "manual" && (
-                    <button
-                      onClick={() => doRepay()}
-                      disabled={isRepaying}
-                      className="btn-primary w-full justify-center mt-4"
-                    >
-                      {isRepaying ? (
-                        <>
-                          <svg
-                            className="animate-spin h-4 w-4"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                          >
-                            <circle
-                              className="opacity-25"
-                              cx="12"
-                              cy="12"
-                              r="10"
-                              stroke="currentColor"
-                              strokeWidth="4"
-                            />
-                            <path
-                              className="opacity-75"
-                              fill="currentColor"
-                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                            />
-                          </svg>{" "}
-                          Memproses...
-                        </>
-                      ) : (
-                        <>
-                          <RefreshCw size={16} /> Lanjutkan Pembayaran
-                        </>
-                      )}
-                    </button>
-                  )}
+                {/* ✅ Countdown Gateway — hanya untuk order gateway + pending */}
+                {showGatewayCountdown && gatewayCountdown && (
+                  <div className="mt-4">
+                    <CountdownBar
+                      remaining={gatewayCountdown}
+                      isManual={false}
+                    />
+                  </div>
+                )}
+
+                {/* Repay button — hanya gateway + pending + belum expired */}
+                {order.status === "pending" && !isManualOrder && (
+                  <button
+                    onClick={() => doRepay()}
+                    disabled={isRepaying || gatewayCountdown?.isExpired}
+                    className="btn-primary w-full justify-center mt-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isRepaying ? (
+                      <>
+                        <svg
+                          className="animate-spin h-4 w-4"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          />
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                          />
+                        </svg>{" "}
+                        Memproses...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw size={16} /> Lanjutkan Pembayaran
+                      </>
+                    )}
+                  </button>
+                )}
+
+                {/* ✅ WA Help — untuk gateway pending */}
+                {order.status === "pending" && !isManualOrder && (
+                  <div className="mt-3">
+                    <WAHelpButton
+                      orderNumber={order.order_number}
+                      isManual={false}
+                      waNumber={waNumber}
+                    />
+                  </div>
+                )}
               </div>
 
               {/* ── Manual Payment Info ── */}
@@ -403,9 +610,9 @@ export default function OrderStatus() {
                 <motion.div
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="card-base p-6 border border-emerald-200 bg-emerald-50"
+                  className="card-base p-6 border border-emerald-200 bg-emerald-50 space-y-4"
                 >
-                  <div className="flex items-center gap-3 mb-4">
+                  <div className="flex items-center gap-3">
                     <div className="w-9 h-9 bg-emerald-100 rounded-xl flex items-center justify-center shrink-0">
                       <Landmark size={18} className="text-emerald-600" />
                     </div>
@@ -419,8 +626,18 @@ export default function OrderStatus() {
                     </div>
                   </div>
 
+                  {/* ✅ Countdown Manual — hanya pending/under_review */}
+                  {showManualCountdown &&
+                    manualCountdown &&
+                    order.status !== "under_review" && (
+                      <CountdownBar
+                        remaining={manualCountdown}
+                        isManual={true}
+                      />
+                    )}
+
                   {/* Info rekening */}
-                  <div className="bg-white rounded-xl p-4 border border-emerald-100 mb-4">
+                  <div className="bg-white rounded-xl p-4 border border-emerald-100">
                     <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
                       Rekening Tujuan
                     </p>
@@ -430,7 +647,7 @@ export default function OrderStatus() {
                   </div>
 
                   {/* Total transfer */}
-                  <div className="bg-emerald-100 rounded-xl p-4 mb-4">
+                  <div className="bg-emerald-100 rounded-xl p-4">
                     <div className="flex justify-between items-center">
                       <p className="text-sm font-medium text-emerald-800">
                         Jumlah Transfer
@@ -449,7 +666,7 @@ export default function OrderStatus() {
                   <div className="space-y-2">
                     {[
                       "Transfer tepat sesuai jumlah di atas",
-                      `Cantumkan nomor order sebagai keterangan transfer`,
+                      "Cantumkan nomor order sebagai keterangan transfer",
                       `Pembayaran akan diverifikasi dalam ${verificationHours}`,
                       "Status pesanan diperbarui otomatis setelah konfirmasi",
                     ].map((step, i) => (
@@ -462,8 +679,9 @@ export default function OrderStatus() {
                     ))}
                   </div>
 
+                  {/* Under review info */}
                   {order.status === "under_review" && (
-                    <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-xl flex items-start gap-2">
+                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl flex items-start gap-2">
                       <Eye
                         size={14}
                         className="text-blue-500 mt-0.5 shrink-0"
@@ -474,6 +692,13 @@ export default function OrderStatus() {
                       </p>
                     </div>
                   )}
+
+                  {/* ✅ WA Help — untuk manual payment */}
+                  <WAHelpButton
+                    orderNumber={order.order_number}
+                    isManual={true}
+                    waNumber={waNumber}
+                  />
                 </motion.div>
               )}
 
@@ -508,7 +733,7 @@ export default function OrderStatus() {
                     </div>
                   </div>
 
-                  {/* Shipping info — hanya jika shipped/delivered */}
+                  {/* Shipping info */}
                   {(order.fulfillment_status === "shipped" ||
                     order.fulfillment_status === "delivered") &&
                     order.shipping_courier &&
@@ -556,7 +781,6 @@ export default function OrderStatus() {
                   <div className="space-y-0">
                     {history.map((item, i) => (
                       <div key={item.id} className="flex gap-4">
-                        {/* Dot + line */}
                         <div className="flex flex-col items-center">
                           <div
                             className={`w-3 h-3 rounded-full mt-1 shrink-0 ${
@@ -573,10 +797,7 @@ export default function OrderStatus() {
                             />
                           )}
                         </div>
-                        {/* Content */}
-                        <div
-                          className={`pb-4 ${i === history.length - 1 ? "" : ""}`}
-                        >
+                        <div className="pb-4">
                           <p
                             className={`text-sm font-semibold ${
                               i === history.length - 1
@@ -642,7 +863,7 @@ export default function OrderStatus() {
                   <div className="flex justify-between">
                     <span className="text-slate-500">Metode Bayar</span>
                     <span className="text-slate-700">
-                      {order.payment_method === "manual"
+                      {isManualOrder
                         ? "Transfer Manual"
                         : order.midtrans_payment_type
                           ? order.midtrans_payment_type.replace(/_/g, " ")

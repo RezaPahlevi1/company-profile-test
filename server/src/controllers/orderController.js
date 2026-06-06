@@ -7,11 +7,32 @@ import {
   sendFulfillmentUpdateEmail,
 } from "../utils/emailService.js";
 
-// ✅ Helper — cek apakah order pending sudah melewati expiry window
-// Jika ya, update status ke failed di database dan return true
+// ─────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────
+
+// ✅ Cek apakah order pending sudah melewati expiry window
+// Berlaku untuk SEMUA order pending (gateway maupun manual)
 async function checkAndExpireOrder(order, expiryMinutes) {
   if (order.status !== "pending") return false;
 
+  if (order.payment_method === "manual") {
+    const manualExpiryMinutes = await getManualExpiryMinutes();
+    const orderCreatedAt = new Date(order.created_at).getTime();
+    const expiredAt = orderCreatedAt + manualExpiryMinutes * 60 * 1000;
+    const isExpired = Date.now() > expiredAt;
+
+    if (isExpired) {
+      await supabase
+        .from("orders")
+        .update({ status: "failed" })
+        .eq("order_number", order.order_number);
+      return true;
+    }
+    return false;
+  }
+
+  // ✅ Gateway payment — tetap pakai expiry menit
   const orderCreatedAt = new Date(order.created_at).getTime();
   const expiredAt = orderCreatedAt + expiryMinutes * 60 * 1000;
   const isExpired = Date.now() > expiredAt;
@@ -27,17 +48,27 @@ async function checkAndExpireOrder(order, expiryMinutes) {
   return false;
 }
 
-// ✅ Helper — ambil expiry minutes dari site_settings
+// ✅ Ambil expiry minutes dari site_settings
 async function getExpiryMinutes() {
   const { data } = await supabase
     .from("site_settings")
     .select("value")
     .eq("key", "payment_expiry_minutes")
     .single();
-  return Number(data?.value) || 1440; // default 1440 menit = 24 jam
+  return Number(data?.value) || 1440;
 }
 
-// ✅ Helper — cek apakah campaign promo sedang aktif dari site_settings
+// ✅ Ambil manual payment expiry minutes dari site_settings
+async function getManualExpiryMinutes() {
+  const { data } = await supabase
+    .from("site_settings")
+    .select("value")
+    .eq("key", "manual_payment_expiry_minutes")
+    .single();
+  return Number(data?.value) || 4320; // default 4320 menit = 3 hari
+}
+
+// ✅ Cek apakah campaign promo sedang aktif
 async function getCampaignActive() {
   const { data: settingsRows } = await supabase
     .from("site_settings")
@@ -66,6 +97,13 @@ async function getCampaignActive() {
   return true;
 }
 
+// ✅ Flow urutan fulfillment status — dipakai di controller dan validasi
+const PHYSICAL_FLOW = ["processing", "packed", "shipped", "delivered"];
+const DIGITAL_FLOW = ["processing", "completed"];
+
+// ─────────────────────────────────────────────
+// CREATE ORDER
+// ─────────────────────────────────────────────
 export const createOrder = async (req, res) => {
   let {
     buyer_name,
@@ -76,7 +114,6 @@ export const createOrder = async (req, res) => {
     payment_method,
   } = req.body;
 
-  // Sanitasi & Trim strings
   if (typeof buyer_name === "string") buyer_name = buyer_name.trim();
   if (typeof buyer_email === "string") buyer_email = buyer_email.trim();
   if (typeof buyer_phone === "string") buyer_phone = buyer_phone.trim();
@@ -89,68 +126,76 @@ export const createOrder = async (req, res) => {
     });
   }
 
-  // Batasi maxLength untuk input string sesuai konteks
-  if (buyer_name.length > 100) {
+  if (buyer_name.length > 100)
     return res.status(400).json({
       success: false,
       message: "Name is too long (max 100 characters)",
     });
-  }
-  if (buyer_email.length > 100) {
+  if (buyer_email.length > 100)
     return res.status(400).json({
       success: false,
       message: "Email is too long (max 100 characters)",
     });
-  }
-  if (buyer_phone.length > 30) {
+  if (buyer_phone.length > 30)
     return res.status(400).json({
       success: false,
       message: "Phone number is too long (max 30 characters)",
     });
-  }
-  if (buyer_address.length > 500) {
+  if (buyer_address.length > 500)
     return res.status(400).json({
       success: false,
       message: "Address is too long (max 500 characters)",
     });
-  }
 
-  if (!items || !Array.isArray(items) || items.length === 0) {
-    return res.status(400).json({
-      success: false,
-      message: "Order must have at least one item",
-    });
-  }
+  if (!items || !Array.isArray(items) || items.length === 0)
+    return res
+      .status(400)
+      .json({ success: false, message: "Order must have at least one item" });
 
-  // Batasi maksimal item (max 50 item)
-  if (items.length > 50) {
+  if (items.length > 50)
     return res.status(400).json({
       success: false,
       message: "Cannot order more than 50 different items at once",
     });
-  }
 
-  // Validasi dan parse numerik untuk quantity
   for (let i = 0; i < items.length; i++) {
     const item = items[i];
-    if (!item.product_id) {
+    if (!item.product_id)
       return res.status(400).json({
         success: false,
         message: "Product ID is required for each item",
       });
-    }
     const qty = Number(item.quantity);
-    if (isNaN(qty) || qty <= 0 || qty > 100) {
+    if (isNaN(qty) || qty <= 0 || qty > 100)
       return res.status(400).json({
         success: false,
         message: "Invalid quantity. Must be a number between 1 and 100.",
       });
-    }
-    items[i].quantity = qty; // Simpan nilai ter-parse
+    items[i].quantity = qty;
   }
+
+  // ✅ Validasi payment_method — hanya gateway atau manual
+  const resolvedPaymentMethod =
+    payment_method === "manual" ? "manual" : "gateway";
 
   try {
     const productIds = items.map((item) => item.product_id);
+
+    // ✅ Jika manual, pastikan bank_account_info sudah diisi admin
+    if (resolvedPaymentMethod === "manual") {
+      const { data: bankSetting } = await supabase
+        .from("site_settings")
+        .select("value")
+        .eq("key", "bank_account_info")
+        .single();
+
+      if (!bankSetting?.value?.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: "Pembayaran manual belum tersedia saat ini",
+        });
+      }
+    }
     const { data: products, error: productError } = await supabase
       .from("products")
       .select("id, name, price, is_active, is_promo, discount_percent")
@@ -160,18 +205,15 @@ export const createOrder = async (req, res) => {
 
     for (const item of items) {
       const product = products.find((p) => p.id === item.product_id);
-      if (!product) {
-        return res.status(404).json({
-          success: false,
-          message: "Product not found",
-        });
-      }
-      if (!product.is_active) {
+      if (!product)
+        return res
+          .status(404)
+          .json({ success: false, message: "Product not found" });
+      if (!product.is_active)
         return res.status(400).json({
           success: false,
           message: `Product "${product.name}" is no longer available`,
         });
-      }
     }
 
     const campaignActive = await getCampaignActive();
@@ -182,7 +224,6 @@ export const createOrder = async (req, res) => {
         campaignActive && product.is_promo && product.discount_percent > 0
           ? product.price - (product.price * product.discount_percent) / 100
           : product.price;
-
       return {
         product_id: item.product_id,
         product_name: product.name,
@@ -209,7 +250,7 @@ export const createOrder = async (req, res) => {
           buyer_address,
           total_amount,
           status: "pending",
-          payment_method: payment_method === "manual" ? "manual" : "gateway",
+          payment_method: resolvedPaymentMethod,
         },
       ])
       .select()
@@ -231,7 +272,8 @@ export const createOrder = async (req, res) => {
       throw new Error(`Failed to save order items: ${itemsError.message}`);
     }
 
-    if (payment_method === "manual") {
+    // ✅ Manual payment — skip Midtrans
+    if (resolvedPaymentMethod === "manual") {
       const { data: freshOrder } = await supabase
         .from("orders")
         .select("*")
@@ -254,7 +296,7 @@ export const createOrder = async (req, res) => {
       });
     }
 
-    // ✅ Gateway payment — flow Midtrans seperti semula
+    // ✅ Gateway payment — flow Midtrans
     const midtransItems = orderItems.map((item) => ({
       id: item.product_id,
       price: Math.round(item.price_at_purchase),
@@ -276,10 +318,7 @@ export const createOrder = async (req, res) => {
         billing_address: { address: buyer_address },
       },
       item_details: midtransItems,
-      expiry: {
-        unit: "minute",
-        duration: expiryMinutes,
-      },
+      expiry: { unit: "minute", duration: expiryMinutes },
     };
 
     const snapToken = await snap.createTransaction(midtransParameter);
@@ -307,13 +346,13 @@ export const createOrder = async (req, res) => {
       },
     });
   } catch (err) {
-    return res.status(500).json({
-      success: false,
-      message: err.message,
-    });
+    return res.status(500).json({ success: false, message: err.message });
   }
 };
 
+// ─────────────────────────────────────────────
+// TRACK ORDER (public)
+// ─────────────────────────────────────────────
 export const trackOrder = async (req, res) => {
   const { orderNumber } = req.params;
 
@@ -322,19 +361,15 @@ export const trackOrder = async (req, res) => {
       .from("orders")
       .select(
         `
-    order_number, buyer_name, buyer_email,
-    total_amount, status, midtrans_payment_type,
-    payment_method, manual_payment_note,
-    fulfillment_type, fulfillment_status,
-    shipping_courier, shipping_tracking_number, shipping_note,
-    paid_at, created_at,
-    order_items (
-      product_name, price_at_purchase, quantity
-    ),
-    order_fulfillment_history (
-      id, status, note, created_at
-    )
-  `,
+        order_number, buyer_name, buyer_email,
+        total_amount, status, midtrans_payment_type,
+        payment_method, manual_payment_note,
+        fulfillment_type, fulfillment_status,
+        shipping_courier, shipping_tracking_number, shipping_note,
+        paid_at, created_at,
+        order_items ( product_name, price_at_purchase, quantity ),
+        order_fulfillment_history ( id, status, note, created_at )
+      `,
       )
       .eq("order_number", orderNumber)
       .order("created_at", {
@@ -344,18 +379,16 @@ export const trackOrder = async (req, res) => {
       .single();
 
     if (error || !order) {
-      return res.status(404).json({
-        success: false,
-        message: "Order not found",
-      });
+      return res
+        .status(404)
+        .json({ success: false, message: "Order not found" });
     }
 
+    // ✅ Expiry berlaku untuk semua order pending termasuk manual
     if (order.status === "pending") {
       const expiryMinutes = await getExpiryMinutes();
       const expired = await checkAndExpireOrder(order, expiryMinutes);
-      if (expired) {
-        order.status = "failed";
-      }
+      if (expired) order.status = "failed";
     }
 
     return res.status(200).json({ success: true, data: order });
@@ -364,6 +397,9 @@ export const trackOrder = async (req, res) => {
   }
 };
 
+// ─────────────────────────────────────────────
+// MIDTRANS WEBHOOK
+// ─────────────────────────────────────────────
 export const handleMidtransWebhook = async (req, res) => {
   try {
     const isDev = process.env.NODE_ENV === "development";
@@ -385,8 +421,18 @@ export const handleMidtransWebhook = async (req, res) => {
 
     const order_id = rawOrderId.replace(/-R\d+$/, "");
 
-    let orderStatus = "pending";
+    // ✅ Fix celah 5 — abaikan webhook untuk order manual
+    const { data: existingOrder } = await supabase
+      .from("orders")
+      .select("payment_method")
+      .eq("order_number", order_id)
+      .single();
 
+    if (existingOrder?.payment_method === "manual") {
+      return res.status(200).json({ success: true });
+    }
+
+    let orderStatus = "pending";
     if (transaction_status === "capture") {
       orderStatus = fraud_status === "accept" ? "paid" : "failed";
     } else if (transaction_status === "settlement") {
@@ -431,26 +477,47 @@ export const handleMidtransWebhook = async (req, res) => {
   }
 };
 
+// ─────────────────────────────────────────────
+// GET ALL ORDERS (admin)
+// ─────────────────────────────────────────────
 export const getAllOrders = async (req, res) => {
-  const { status, search, page = 1, limit = 10 } = req.query;
+  const { status, search } = req.query;
+
+  // ✅ Validasi dan batasi pagination parameter
+  const safePage = Math.max(1, parseInt(req.query.page) || 1);
+  const safeLimit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 10));
 
   try {
-    const offset = (Number(page) - 1) * Number(limit);
+    const offset = (safePage - 1) * safeLimit;
 
     let query = supabase
       .from("orders")
       .select(
-        `
-        id, order_number, buyer_name, buyer_email,
-        buyer_phone, total_amount, status,
-        midtrans_payment_type, paid_at, created_at
-      `,
+        `id, order_number, buyer_name, buyer_email,
+          buyer_phone, total_amount, status, payment_method,
+          midtrans_payment_type, fulfillment_type, fulfillment_status,
+          paid_at, created_at`,
         { count: "exact" },
       )
       .order("created_at", { ascending: false })
-      .range(offset, offset + Number(limit) - 1);
+      .range(offset, offset + safeLimit - 1);
 
-    if (status) query = query.eq("status", status);
+    if (status === "needs_action") {
+      // ✅ Gabungan semua kondisi yang butuh tindakan admin
+      query = query.or(
+        [
+          // Manual payment belum dikonfirmasi
+          `and(payment_method.eq.manual,status.in.(pending,under_review))`,
+          // Paid tapi fulfillment belum dimulai
+          `and(status.eq.paid,fulfillment_type.is.null)`,
+          // Paid, tipe sudah dipilih, tapi belum selesai
+          `and(status.eq.paid,fulfillment_type.eq.physical,fulfillment_status.neq.delivered)`,
+          `and(status.eq.paid,fulfillment_type.eq.digital,fulfillment_status.neq.completed)`,
+        ].join(","),
+      );
+    } else if (status) {
+      query = query.eq("status", status);
+    }
     if (search) {
       query = query.or(
         `buyer_name.ilike.%${search}%,buyer_email.ilike.%${search}%,order_number.ilike.%${search}%`,
@@ -465,9 +532,9 @@ export const getAllOrders = async (req, res) => {
       data,
       pagination: {
         total: count,
-        page: Number(page),
-        limit: Number(limit),
-        totalPages: Math.ceil(count / Number(limit)),
+        page: safePage,
+        limit: safeLimit,
+        totalPages: Math.ceil(count / safeLimit),
       },
     });
   } catch (err) {
@@ -475,6 +542,9 @@ export const getAllOrders = async (req, res) => {
   }
 };
 
+// ─────────────────────────────────────────────
+// GET ORDER BY ID (admin)
+// ─────────────────────────────────────────────
 export const getOrderById = async (req, res) => {
   const { id } = req.params;
 
@@ -483,16 +553,10 @@ export const getOrderById = async (req, res) => {
       .from("orders")
       .select(
         `
-    *,
-    order_items (
-      id, product_id, product_name,
-      price_at_purchase, quantity
-    ),
-    order_fulfillment_history (
-      id, status, note, created_at,
-      admins ( name )
-    )
-  `,
+        *,
+        order_items ( id, product_id, product_name, price_at_purchase, quantity ),
+        order_fulfillment_history ( id, status, note, created_at, admins ( name ) )
+      `,
       )
       .eq("id", id)
       .order("created_at", {
@@ -502,18 +566,15 @@ export const getOrderById = async (req, res) => {
       .single();
 
     if (error || !order) {
-      return res.status(404).json({
-        success: false,
-        message: "Order not found",
-      });
+      return res
+        .status(404)
+        .json({ success: false, message: "Order not found" });
     }
 
     if (order.status === "pending") {
       const expiryMinutes = await getExpiryMinutes();
       const expired = await checkAndExpireOrder(order, expiryMinutes);
-      if (expired) {
-        order.status = "failed";
-      }
+      if (expired) order.status = "failed";
     }
 
     return res.status(200).json({ success: true, data: order });
@@ -522,6 +583,9 @@ export const getOrderById = async (req, res) => {
   }
 };
 
+// ─────────────────────────────────────────────
+// REPAY ORDER (public)
+// ─────────────────────────────────────────────
 export const repayOrder = async (req, res) => {
   const { orderNumber } = req.params;
 
@@ -529,20 +593,23 @@ export const repayOrder = async (req, res) => {
     const { data: order, error } = await supabase
       .from("orders")
       .select(
-        `
-        *,
-        order_items (
-          product_id, product_name, price_at_purchase, quantity
-        )
-      `,
+        `*, order_items ( product_id, product_name, price_at_purchase, quantity )`,
       )
       .eq("order_number", orderNumber)
       .single();
 
     if (error || !order) {
-      return res.status(404).json({
+      return res
+        .status(404)
+        .json({ success: false, message: "Order not found" });
+    }
+
+    // ✅ Fix celah 4 — repay tidak berlaku untuk order manual
+    if (order.payment_method === "manual") {
+      return res.status(400).json({
         success: false,
-        message: "Order not found",
+        message:
+          "Order dengan pembayaran manual tidak memerlukan repay. Silakan tunggu konfirmasi admin.",
       });
     }
 
@@ -554,7 +621,6 @@ export const repayOrder = async (req, res) => {
     }
 
     const expiryMinutes = await getExpiryMinutes();
-
     const expired = await checkAndExpireOrder(order, expiryMinutes);
     if (expired) {
       return res.status(400).json({
@@ -563,7 +629,6 @@ export const repayOrder = async (req, res) => {
       });
     }
 
-    // Hitung sisa menit dari window original
     const orderCreatedAt = new Date(order.created_at).getTime();
     const expiredAt = orderCreatedAt + expiryMinutes * 60 * 1000;
     const remainingMinutes = Math.floor((expiredAt - Date.now()) / 1000 / 60);
@@ -589,10 +654,7 @@ export const repayOrder = async (req, res) => {
         billing_address: { address: order.buyer_address },
       },
       item_details: midtransItems,
-      expiry: {
-        unit: "minute",
-        duration: remainingMinutes,
-      },
+      expiry: { unit: "minute", duration: remainingMinutes },
     };
 
     const snapToken = await snap.createTransaction(midtransParameter);
@@ -607,13 +669,13 @@ export const repayOrder = async (req, res) => {
       },
     });
   } catch (err) {
-    return res.status(500).json({
-      success: false,
-      message: err.message,
-    });
+    return res.status(500).json({ success: false, message: err.message });
   }
 };
 
+// ─────────────────────────────────────────────
+// UPDATE ORDER STATUS (admin) — payment status
+// ─────────────────────────────────────────────
 export const updateOrderStatus = async (req, res) => {
   const { id } = req.params;
   const { status, manual_payment_note } = req.body;
@@ -646,7 +708,7 @@ export const updateOrderStatus = async (req, res) => {
         .json({ success: false, message: "Order not found" });
     }
 
-    // ✅ under_review hanya berlaku untuk order manual yang masih pending
+    // ✅ under_review hanya untuk order manual yang masih pending
     if (status === "under_review") {
       if (existing.payment_method !== "manual") {
         return res.status(400).json({
@@ -662,6 +724,19 @@ export const updateOrderStatus = async (req, res) => {
             "Hanya order berstatus pending yang bisa ditandai under_review",
         });
       }
+    }
+
+    // ✅ Validasi transisi status yang logis
+    const invalidTransitions = {
+      paid: ["paid", "failed"], // sudah paid tidak bisa paid/failed lagi
+      cancelled: ["paid", "failed", "cancelled"], // sudah cancelled tidak bisa berubah
+      failed: ["failed"], // sudah failed tidak bisa failed lagi
+    };
+    if (invalidTransitions[existing.status]?.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: `Tidak bisa mengubah status dari "${existing.status}" ke "${status}"`,
+      });
     }
 
     const wasAlreadyPaid = existing.status === "paid";
@@ -688,7 +763,6 @@ export const updateOrderStatus = async (req, res) => {
 
     if (error) throw error;
 
-    // ✅ Kirim email payment success jika baru pertama kali paid
     if (status === "paid" && !wasAlreadyPaid) {
       const { data: fullOrder } = await supabase
         .from("orders")
@@ -717,8 +791,7 @@ export const updateOrderStatus = async (req, res) => {
 };
 
 // ─────────────────────────────────────────────
-// PATCH /:id/fulfillment — update fulfillment status
-// Hanya admin, dipanggil setelah order paid
+// UPDATE FULFILLMENT (admin)
 // ─────────────────────────────────────────────
 export const updateFulfillment = async (req, res) => {
   const { id } = req.params;
@@ -728,11 +801,8 @@ export const updateFulfillment = async (req, res) => {
     shipping_courier,
     shipping_tracking_number,
     shipping_note,
-    note, // catatan untuk history
+    note,
   } = req.body;
-
-  const PHYSICAL_STATUSES = ["processing", "packed", "shipped", "delivered"];
-  const DIGITAL_STATUSES = ["processing", "completed"];
 
   try {
     const { data: existing, error: findError } = await supabase
@@ -756,7 +826,18 @@ export const updateFulfillment = async (req, res) => {
       });
     }
 
-    // ✅ Validasi fulfillment_type — hanya bisa diset sekali
+    // ✅ Fix celah 3 — fulfillment_type tidak bisa diubah setelah ditetapkan
+    if (
+      existing.fulfillment_type &&
+      fulfillment_type &&
+      fulfillment_type !== existing.fulfillment_type
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Tipe fulfillment tidak bisa diubah setelah ditetapkan",
+      });
+    }
+
     const resolvedType = existing.fulfillment_type || fulfillment_type;
     if (!resolvedType) {
       return res.status(400).json({
@@ -772,14 +853,29 @@ export const updateFulfillment = async (req, res) => {
       });
     }
 
-    // ✅ Validasi status sesuai tipe
-    const allowedStatuses =
-      resolvedType === "physical" ? PHYSICAL_STATUSES : DIGITAL_STATUSES;
-    if (fulfillment_status && !allowedStatuses.includes(fulfillment_status)) {
-      return res.status(400).json({
-        success: false,
-        message: `Status "${fulfillment_status}" tidak valid untuk tipe ${resolvedType}. Allowed: ${allowedStatuses.join(", ")}`,
-      });
+    // ✅ Fix celah 2 — validasi urutan status harus berurutan
+    if (fulfillment_status) {
+      const flow = resolvedType === "physical" ? PHYSICAL_FLOW : DIGITAL_FLOW;
+
+      if (!flow.includes(fulfillment_status)) {
+        return res.status(400).json({
+          success: false,
+          message: `Status "${fulfillment_status}" tidak valid untuk tipe ${resolvedType}. Allowed: ${flow.join(", ")}`,
+        });
+      }
+
+      const currentIdx = existing.fulfillment_status
+        ? flow.indexOf(existing.fulfillment_status)
+        : -1;
+      const nextIdx = flow.indexOf(fulfillment_status);
+
+      // ✅ Harus tepat satu langkah maju
+      if (nextIdx !== currentIdx + 1) {
+        return res.status(400).json({
+          success: false,
+          message: `Status fulfillment harus diupdate secara berurutan. Status berikutnya yang valid: "${flow[currentIdx + 1]}"`,
+        });
+      }
     }
 
     // ✅ Jika shipped, kurir dan resi wajib diisi
@@ -820,7 +916,6 @@ export const updateFulfillment = async (req, res) => {
         created_by: req.admin.id,
       });
     } else if (fulfillment_type && !existing.fulfillment_type) {
-      // Catat saat tipe pertama kali dipilih
       await supabase.from("order_fulfillment_history").insert({
         order_id: id,
         status: "type_set",
@@ -829,7 +924,7 @@ export const updateFulfillment = async (req, res) => {
       });
     }
 
-    // ✅ Kirim email notifikasi ke buyer jika status berubah
+    // ✅ Kirim email notifikasi ke buyer jika fulfillment_status berubah
     if (
       fulfillment_status &&
       fulfillment_status !== existing.fulfillment_status

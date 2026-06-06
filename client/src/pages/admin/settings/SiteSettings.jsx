@@ -63,6 +63,7 @@ export default function SiteSettings() {
     delivery_estimation: "",
     bank_account_info: "",
     manual_payment_verification_hours: "",
+    manual_payment_expiry_minutes: "4320",
   });
 
   const [footerForm, setFooterForm] = useState({
@@ -83,6 +84,8 @@ export default function SiteSettings() {
         bank_account_info: settings.bank_account_info || "",
         manual_payment_verification_hours:
           settings.manual_payment_verification_hours || "",
+        manual_payment_expiry_minutes:
+          settings.manual_payment_expiry_minutes || "4320",
       });
       setFooterForm({
         footer_tagline: settings.footer_tagline || "",
@@ -168,6 +171,13 @@ export default function SiteSettings() {
     const mins = Number(form.payment_expiry_minutes);
     if (isNaN(mins) || mins < 1 || mins > 1440) {
       toast.error("Batas waktu pembayaran harus antara 1 hingga 1440 menit");
+      return;
+    }
+    const manualMinutes = Number(form.manual_payment_expiry_minutes);
+    if (isNaN(manualMinutes) || manualMinutes < 1 || manualMinutes > 1440) {
+      toast.error(
+        "Batas waktu pembayaran manual harus antara 1 hingga 1440 menit (24 jam)",
+      );
       return;
     }
     saveSiteSettings(form);
@@ -410,6 +420,37 @@ export default function SiteSettings() {
             <p className="text-xs text-gray-400 mt-1.5">
               Antara 1 menit hingga 1440 menit (24 jam). Berlaku untuk semua
               order baru.
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              <Clock size={13} className="inline mr-1.5 -mt-0.5" />
+              Batas Waktu Pembayaran Manual (menit)
+            </label>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+              <input
+                type="number"
+                min="1"
+                max="1440"
+                value={form.manual_payment_expiry_minutes}
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    manual_payment_expiry_minutes: e.target.value,
+                  }))
+                }
+                className="w-full sm:w-32 px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              {form.manual_payment_expiry_minutes && (
+                <span className="text-sm text-gray-500">
+                  = {formatMinutes(form.manual_payment_expiry_minutes)}
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-gray-400 mt-1.5">
+              Antara 1 menit hingga 1440 menit (24 jam). Order manual yang
+              melewati batas ini akan otomatis gagal.
             </p>
           </div>
 
