@@ -1,6 +1,61 @@
 import supabase from "../config/supabase.js";
 import uploadToSupabase from "../utils/uploadToSupabase.js";
 import slugify from "slugify";
+import sanitizeHtml from "sanitize-html";
+
+const sanitizeBlogContent = (dirty) =>
+  sanitizeHtml(dirty, {
+    allowedTags: [
+      "p",
+      "br",
+      "strong",
+      "em",
+      "u",
+      "s",
+      "blockquote",
+      "code",
+      "pre",
+      "h1",
+      "h2",
+      "h3",
+      "h4",
+      "h5",
+      "h6",
+      "ul",
+      "ol",
+      "li",
+      "a",
+      "img",
+      "table",
+      "thead",
+      "tbody",
+      "tr",
+      "th",
+      "td",
+      "hr",
+      "div",
+      "span",
+    ],
+    allowedAttributes: {
+      a: ["href", "target", "rel"],
+      img: ["src", "alt", "width", "height"],
+      td: ["colspan", "rowspan"],
+      th: ["colspan", "rowspan"],
+      "*": ["class"],
+    },
+    allowedSchemes: ["https", "http", "mailto"],
+    // ✅ Paksa rel noopener pada semua link eksternal
+    transformTags: {
+      a: (tagName, attribs) => ({
+        tagName,
+        attribs: {
+          ...attribs,
+          rel: "noopener noreferrer",
+          target: attribs.target || "_blank",
+        },
+      }),
+    },
+  });
 
 // ==================== CATEGORIES ====================
 
@@ -317,7 +372,7 @@ export const createBlog = async (req, res) => {
       admin_id: req.admin.id,
       title,
       slug,
-      content,
+      content: sanitizeBlogContent(content),
       cover_image_url,
       category_id,
       status: blogStatus,
@@ -357,13 +412,11 @@ export const createBlog = async (req, res) => {
       }
     }
 
-    return res
-      .status(201)
-      .json({
-        success: true,
-        message: "Blog created successfully",
-        data: blog,
-      });
+    return res.status(201).json({
+      success: true,
+      message: "Blog created successfully",
+      data: blog,
+    });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
   }
@@ -415,7 +468,7 @@ export const updateBlog = async (req, res) => {
         title,
         slug: slugify(title, { lower: true, strict: true }),
       }),
-      ...(content && { content }),
+      ...(content && { content: sanitizeBlogContent(content) }),
       category_id: finalCategoryId,
       ...(status && { status }),
       cover_image_url,
@@ -456,13 +509,11 @@ export const updateBlog = async (req, res) => {
       }
     }
 
-    return res
-      .status(200)
-      .json({
-        success: true,
-        message: "Blog updated successfully",
-        data: blog,
-      });
+    return res.status(200).json({
+      success: true,
+      message: "Blog updated successfully",
+      data: blog,
+    });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
   }

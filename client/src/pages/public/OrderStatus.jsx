@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { motion } from "framer-motion";
@@ -338,6 +338,7 @@ export default function OrderStatus() {
   const { orderNumber: paramOrderNumber } = useParams();
   const navigate = useNavigate();
   const [searchNumber, setSearchNumber] = useState(paramOrderNumber || "");
+  const statusCardRef = useRef(null);
 
   // ✅ Fix #14 — gunakan shared hook, tidak perlu useEffect inject script di sini
   useSnapScript();
@@ -355,12 +356,21 @@ export default function OrderStatus() {
     siteSettings.manual_payment_verification_hours || "1x24 jam kerja";
   const waNumber = siteSettings.whatsapp_number || "";
 
-  const { data, isLoading, refetch } = useQuery({
+  const { data, isLoading, isFetching, refetch } = useQuery({
     queryKey: ["order-track", searchNumber],
     queryFn: () => trackOrder(searchNumber),
     enabled: Boolean(searchNumber),
     retry: false,
   });
+
+  useEffect(() => {
+    if (!isFetching && statusCardRef.current) {
+      statusCardRef.current.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }
+  }, [isFetching]);
 
   const { mutate: doRepay, isPending: isRepaying } = useMutation({
     mutationFn: () => repayOrder(searchNumber),
@@ -500,6 +510,7 @@ export default function OrderStatus() {
           {/* Order found */}
           {order && paymentConfig && (
             <motion.div
+              ref={statusCardRef}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               className="mt-8 space-y-4"
@@ -904,11 +915,15 @@ export default function OrderStatus() {
                   Belanja Lagi
                 </button>
                 <button
-                  onClick={() => refetch()}
-                  className="btn-outline flex-1 justify-center"
+                  onClick={() => refetch({ cancelRefetch: false })}
+                  disabled={isFetching}
+                  className="btn-outline flex-1 justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <RefreshCw size={16} />
-                  Refresh Status
+                  <RefreshCw
+                    size={16}
+                    className={isFetching ? "animate-spin" : ""}
+                  />
+                  {isFetching ? "Memperbarui..." : "Refresh Status"}
                 </button>
               </div>
             </motion.div>
