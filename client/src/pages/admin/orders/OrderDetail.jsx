@@ -87,7 +87,6 @@ const historyLabel = {
   type_set: "Tipe Fulfillment Ditetapkan",
 };
 
-// ─── Physical flow steps ──────────────────────────────────────
 const PHYSICAL_FLOW = ["processing", "packed", "shipped", "delivered"];
 const DIGITAL_FLOW = ["processing", "completed"];
 
@@ -99,9 +98,9 @@ function getNextStatus(fulfillmentType, currentStatus) {
   return flow[idx + 1];
 }
 
-// ─── Sub-components ──────────────────────────────────────────
-
-// Modal: Confirm Paid — tambah catatan manual
+// ─── Modal: Confirm Paid ──────────────────────────────────────
+// ✅ Fix #13 — gunakan conditional render bukan className hidden
+// agar state form (catatan) ter-reset saat modal ditutup
 function ConfirmPaidModal({
   isOpen,
   onConfirm,
@@ -110,10 +109,11 @@ function ConfirmPaidModal({
   isManual,
 }) {
   const [note, setNote] = useState("");
+
+  if (!isOpen) return null;
+
   return (
-    <div
-      className={`fixed inset-0 z-50 flex items-center justify-center p-4 ${isOpen ? "" : "hidden"}`}
-    >
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div
         className="absolute inset-0 bg-black/40 backdrop-blur-sm"
         onClick={onCancel}
@@ -191,12 +191,14 @@ function ConfirmPaidModal({
   );
 }
 
-// Modal: Shipping info saat update ke shipped
+// ─── Modal: Shipping Info ─────────────────────────────────────
 function ShippingModal({ isOpen, onConfirm, onCancel, isLoading }) {
   const [courier, setCourier] = useState("");
   const [trackingNumber, setTrackingNumber] = useState("");
   const [shippingNote, setShippingNote] = useState("");
   const [noteText, setNoteText] = useState("");
+
+  if (!isOpen) return null;
 
   const handleConfirm = () => {
     if (!courier.trim() || !trackingNumber.trim()) {
@@ -207,9 +209,7 @@ function ShippingModal({ isOpen, onConfirm, onCancel, isLoading }) {
   };
 
   return (
-    <div
-      className={`fixed inset-0 z-50 flex items-center justify-center p-4 ${isOpen ? "" : "hidden"}`}
-    >
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div
         className="absolute inset-0 bg-black/40 backdrop-blur-sm"
         onClick={onCancel}
@@ -337,6 +337,79 @@ function ShippingModal({ isOpen, onConfirm, onCancel, isLoading }) {
   );
 }
 
+// ─── Modal: Note (non-shipped status) ────────────────────────
+// ✅ Fix #13 — conditional render agar state note ter-reset
+function NoteModal({ status, onConfirm, onCancel, isLoading }) {
+  const [note, setNote] = useState("");
+  const cfg = fulfillmentStatusConfig[status] || {};
+
+  if (!status) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        onClick={onCancel}
+      />
+      <div className="relative bg-white rounded-2xl shadow-xl p-6 w-full max-w-md">
+        <h3 className="font-bold text-gray-900 text-lg mb-1">
+          Update Status: {cfg.label || status}
+        </h3>
+        <p className="text-gray-500 text-sm mb-5">
+          Tambahkan catatan untuk history (opsional).
+        </p>
+        <textarea
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          rows={3}
+          placeholder="Catatan untuk pembeli..."
+          className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none mb-5"
+        />
+        <div className="flex gap-3">
+          <button
+            onClick={onCancel}
+            className="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            Batal
+          </button>
+          <button
+            onClick={() => onConfirm(note)}
+            disabled={isLoading}
+            className="flex-1 px-4 py-2.5 bg-gray-900 hover:bg-gray-800 disabled:bg-gray-400 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+          >
+            {isLoading ? (
+              <>
+                <svg
+                  className="animate-spin h-4 w-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                  />
+                </svg>{" "}
+                Menyimpan...
+              </>
+            ) : (
+              "Konfirmasi"
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Component ──────────────────────────────────────────
 export default function OrderDetail() {
   const { id } = useParams();
@@ -407,7 +480,6 @@ export default function OrderDetail() {
 
   const order = data?.data?.data;
 
-  // ── Handlers ─────────────────────────────────────────────────
   const handleFulfillmentTypeSelect = (type) => {
     doFulfillment({ fulfillment_type: type });
   };
@@ -440,8 +512,6 @@ export default function OrderDetail() {
     doFulfillment({ fulfillment_status: noteModal.status, note });
     setNoteModal({ open: false, status: null });
   };
-
-  // ─────────────────────────────────────────────────────────────
 
   if (isLoading) {
     return (
@@ -549,25 +619,20 @@ export default function OrderDetail() {
                   </button>
                 )}
 
-                {/* Cancel — pending, under_review, processing */}
-                {["pending", "under_review", "processing"].includes(
-                  order.status === "paid"
-                    ? order.fulfillment_status
-                    : order.status,
-                ) &&
-                  order.status !== "paid" && (
-                    <button
-                      onClick={() => setConfirmCancelOpen(true)}
-                      className="flex items-center gap-1.5 border border-red-200 hover:bg-red-50 text-red-600 text-xs font-medium px-3 py-2 rounded-lg transition-colors"
-                    >
-                      <XCircle size={14} />
-                      Cancel Order
-                    </button>
-                  )}
+                {/* ✅ Fix #10 — Cancel button: hanya untuk pending dan under_review
+                    Order paid tidak bisa di-cancel (backend juga memblokir) */}
+                {["pending", "under_review"].includes(order.status) && (
+                  <button
+                    onClick={() => setConfirmCancelOpen(true)}
+                    className="flex items-center gap-1.5 border border-red-200 hover:bg-red-50 text-red-600 text-xs font-medium px-3 py-2 rounded-lg transition-colors"
+                  >
+                    <XCircle size={14} />
+                    Cancel Order
+                  </button>
+                )}
               </div>
             </div>
 
-            {/* Manual payment note */}
             {order.manual_payment_note && (
               <div className="mt-4 p-3 bg-gray-50 rounded-lg border border-gray-100">
                 <p className="text-xs text-gray-500 font-medium mb-0.5">
@@ -591,7 +656,7 @@ export default function OrderDetail() {
             )}
           </div>
 
-          {/* ── Fulfillment Section — hanya setelah paid ── */}
+          {/* ── Fulfillment Section ── */}
           {order.status === "paid" && (
             <div className="bg-white rounded-xl shadow-sm p-6">
               <h2 className="text-base font-semibold text-gray-900 mb-4 flex items-center gap-2">
@@ -599,7 +664,6 @@ export default function OrderDetail() {
                 Fulfillment
               </h2>
 
-              {/* Step 1: Pilih tipe jika belum dipilih */}
               {!order.fulfillment_type && (
                 <div className="space-y-3">
                   <p className="text-sm text-gray-600 mb-3">
@@ -640,10 +704,8 @@ export default function OrderDetail() {
                 </div>
               )}
 
-              {/* Step 2: Status saat ini + tombol next */}
               {order.fulfillment_type && (
                 <div className="space-y-4">
-                  {/* Status saat ini */}
                   {order.fulfillment_status &&
                     fulfillmentStatusConfig[order.fulfillment_status] &&
                     (() => {
@@ -667,7 +729,6 @@ export default function OrderDetail() {
                       );
                     })()}
 
-                  {/* Tipe badge */}
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-gray-400">Tipe:</span>
                     <span
@@ -683,7 +744,6 @@ export default function OrderDetail() {
                     </span>
                   </div>
 
-                  {/* Tombol next status */}
                   {nextFulfillmentStatus && nextConfig && (
                     <button
                       onClick={() => handleNextStatus(nextFulfillmentStatus)}
@@ -700,7 +760,6 @@ export default function OrderDetail() {
                     </button>
                   )}
 
-                  {/* Sudah selesai */}
                   {!nextFulfillmentStatus && order.fulfillment_status && (
                     <div className="flex items-center gap-2 p-3 bg-green-50 rounded-xl border border-green-200">
                       <CheckCircle size={16} className="text-green-600" />
@@ -710,7 +769,6 @@ export default function OrderDetail() {
                     </div>
                   )}
 
-                  {/* Shipping info jika shipped/delivered */}
                   {(order.fulfillment_status === "shipped" ||
                     order.fulfillment_status === "delivered") &&
                     order.shipping_courier && (
@@ -812,7 +870,7 @@ export default function OrderDetail() {
             </div>
           </div>
 
-          {/* Order Timeline (payment) */}
+          {/* Order Timeline */}
           <div className="bg-white rounded-xl shadow-sm p-6">
             <h2 className="text-base font-semibold text-gray-900 mb-4">
               Order Timeline
@@ -879,7 +937,11 @@ export default function OrderDetail() {
                     </div>
                     <div className="pb-4">
                       <p
-                        className={`text-sm font-medium ${i === history.length - 1 ? "text-gray-900" : "text-gray-500"}`}
+                        className={`text-sm font-medium ${
+                          i === history.length - 1
+                            ? "text-gray-900"
+                            : "text-gray-500"
+                        }`}
                       >
                         {historyLabel[item.status] || item.status}
                       </p>
@@ -906,8 +968,6 @@ export default function OrderDetail() {
       </div>
 
       {/* ── Modals ── */}
-
-      {/* Confirm Paid */}
       <ConfirmPaidModal
         isOpen={confirmPaidOpen}
         isLoading={isChangingStatus}
@@ -916,7 +976,6 @@ export default function OrderDetail() {
         onCancel={() => setConfirmPaidOpen(false)}
       />
 
-      {/* Cancel Order */}
       <ConfirmModal
         isOpen={confirmCancelOpen}
         title="Cancel Order"
@@ -928,7 +987,6 @@ export default function OrderDetail() {
         isLoading={isChangingStatus}
       />
 
-      {/* Shipping Modal */}
       <ShippingModal
         isOpen={shippingModalOpen}
         isLoading={isFulfilling}
@@ -939,84 +997,12 @@ export default function OrderDetail() {
         }}
       />
 
-      {/* Note Modal — untuk status selain shipped */}
-      {noteModal.open && (
-        <NoteModal
-          status={noteModal.status}
-          isLoading={isFulfilling}
-          onConfirm={handleNoteConfirm}
-          onCancel={() => setNoteModal({ open: false, status: null })}
-        />
-      )}
-    </div>
-  );
-}
-
-// ── Note Modal — untuk status non-shipped ────────────────────
-function NoteModal({ status, onConfirm, onCancel, isLoading }) {
-  const [note, setNote] = useState("");
-  const cfg = fulfillmentStatusConfig[status] || {};
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div
-        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-        onClick={onCancel}
+      <NoteModal
+        status={noteModal.open ? noteModal.status : null}
+        isLoading={isFulfilling}
+        onConfirm={handleNoteConfirm}
+        onCancel={() => setNoteModal({ open: false, status: null })}
       />
-      <div className="relative bg-white rounded-2xl shadow-xl p-6 w-full max-w-md">
-        <h3 className="font-bold text-gray-900 text-lg mb-1">
-          Update Status: {cfg.label || status}
-        </h3>
-        <p className="text-gray-500 text-sm mb-5">
-          Tambahkan catatan untuk history (opsional).
-        </p>
-        <textarea
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          rows={3}
-          placeholder="Catatan untuk pembeli..."
-          className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none mb-5"
-        />
-        <div className="flex gap-3">
-          <button
-            onClick={onCancel}
-            className="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-          >
-            Batal
-          </button>
-          <button
-            onClick={() => onConfirm(note)}
-            disabled={isLoading}
-            className="flex-1 px-4 py-2.5 bg-gray-900 hover:bg-gray-800 disabled:bg-gray-400 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
-          >
-            {isLoading ? (
-              <>
-                <svg
-                  className="animate-spin h-4 w-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  />
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                  />
-                </svg>{" "}
-                Menyimpan...
-              </>
-            ) : (
-              "Konfirmasi"
-            )}
-          </button>
-        </div>
-      </div>
     </div>
   );
 }

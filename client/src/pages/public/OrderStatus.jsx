@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { motion } from "framer-motion";
@@ -22,7 +22,7 @@ import {
 import toast from "react-hot-toast";
 import { trackOrder, repayOrder } from "../../api/orders";
 import { getSiteSettings } from "../../api/settings";
-import { useQuery as useSettingsQuery } from "@tanstack/react-query";
+import useSnapScript from "../../hooks/useSnapScript";
 
 // ─── Payment status config ────────────────────────────────────
 const paymentStatusConfig = {
@@ -135,13 +135,12 @@ const historyStatusLabel = {
 };
 
 // ─── Countdown Hook ───────────────────────────────────────────
-// Menghitung sisa waktu dari createdAt + expiryMs
-// Return: { hours, minutes, seconds, isExpired, totalSeconds }
-function useCountdown(createdAt, expiryMs) {
+// ✅ Terima expiresAt (timestamp absolut dari order.expires_at)
+// Tidak perlu lagi hitung dari created_at + expiryMs
+function useCountdown(expiresAt) {
   const calcRemaining = () => {
-    if (!createdAt || !expiryMs) return null;
-    const expiredAt = new Date(createdAt).getTime() + expiryMs;
-    const diff = expiredAt - Date.now();
+    if (!expiresAt) return null;
+    const diff = new Date(expiresAt).getTime() - Date.now();
     if (diff <= 0)
       return {
         hours: 0,
@@ -163,14 +162,14 @@ function useCountdown(createdAt, expiryMs) {
   const [remaining, setRemaining] = useState(calcRemaining);
 
   useEffect(() => {
-    if (!createdAt || !expiryMs) return;
+    if (!expiresAt) return;
     const interval = setInterval(() => {
       const r = calcRemaining();
       setRemaining(r);
       if (r?.isExpired) clearInterval(interval);
     }, 1000);
     return () => clearInterval(interval);
-  }, [createdAt, expiryMs]);
+  }, [expiresAt]);
 
   return remaining;
 }
@@ -194,7 +193,7 @@ function CountdownBar({ remaining, isManual }) {
     );
   }
 
-  const urgency = remaining.totalSeconds < 600; // < 10 menit = urgent
+  const urgency = remaining.totalSeconds < 600;
 
   return (
     <div
@@ -224,7 +223,6 @@ function CountdownBar({ remaining, isManual }) {
             {isManual ? "Batas waktu transfer" : "Selesaikan pembayaran dalam"}
           </p>
         </div>
-        {/* Digit countdown */}
         <div className="flex items-center gap-1">
           {remaining.hours > 0 && (
             <>
@@ -341,21 +339,12 @@ export default function OrderStatus() {
   const navigate = useNavigate();
   const [searchNumber, setSearchNumber] = useState(paramOrderNumber || "");
 
-  useEffect(() => {
-    const clientKey = import.meta.env.VITE_MIDTRANS_CLIENT_KEY;
-    const snapSrcUrl = "https://app.sandbox.midtrans.com/snap/snap.js";
-    let script = document.querySelector(`script[src="${snapSrcUrl}"]`);
-    if (!script) {
-      script = document.createElement("script");
-      script.src = snapSrcUrl;
-      script.setAttribute("data-client-key", clientKey);
-      script.async = true;
-      document.body.appendChild(script);
-    }
-  }, []);
+  // ✅ Fix #14 — gunakan shared hook, tidak perlu useEffect inject script di sini
+  useSnapScript();
 
-  // ✅ Site settings — ambil sekaligus untuk info rekening, expiry, dan WA number
-  const { data: settingsData } = useSettingsQuery({
+  // ✅ Fix #12 — site settings hanya untuk bank info, WA, dan verification hours
+  // expires_at sudah dari order langsung, tidak perlu expiry settings di sini
+  const { data: settingsData } = useQuery({
     queryKey: ["site-settings-public"],
     queryFn: getSiteSettings,
     staleTime: 5 * 60 * 1000,
@@ -365,11 +354,6 @@ export default function OrderStatus() {
   const verificationHours =
     siteSettings.manual_payment_verification_hours || "1x24 jam kerja";
   const waNumber = siteSettings.whatsapp_number || "";
-  // ✅ Expiry dalam ms — dua setting terpisah
-  const gatewayExpiryMs =
-    (Number(siteSettings.payment_expiry_minutes) || 1440) * 60 * 1000;
-  const manualExpiryMs =
-    (Number(siteSettings.manual_payment_expiry_minutes) || 4320) * 60 * 1000;
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["order-track", searchNumber],
@@ -419,20 +403,17 @@ export default function OrderStatus() {
   const history = order?.order_fulfillment_history || [];
   const isManualOrder = order?.payment_method === "manual";
 
-  // ✅ Countdown — pilih expiry yang tepat berdasarkan payment_method
-  // Hanya aktif jika status pending (gateway) atau pending/under_review (manual)
+  // ✅ Fix #8 — showManualCountdown hanya saat pending, bukan under_review
+  // under_review artinya admin sudah melihat, countdown tidak relevan
   const showGatewayCountdown = order?.status === "pending" && !isManualOrder;
-  const showManualCountdown =
-    isManualOrder &&
-    (order?.status === "pending" || order?.status === "under_review");
+  const showManualCountdown = isManualOrder && order?.status === "pending";
 
+  // ✅ Countdown langsung dari order.expires_at — tidak perlu hitung ulang
   const gatewayCountdown = useCountdown(
-    showGatewayCountdown ? order?.created_at : null,
-    gatewayExpiryMs,
+    showGatewayCountdown ? order?.expires_at : null,
   );
   const manualCountdown = useCountdown(
-    showManualCountdown ? order?.created_at : null,
-    manualExpiryMs,
+    showManualCountdown ? order?.expires_at : null,
   );
 
   const showManualInfo =
@@ -545,7 +526,7 @@ export default function OrderStatus() {
                   </div>
                 </div>
 
-                {/* ✅ Countdown Gateway — hanya untuk order gateway + pending */}
+                {/* Countdown Gateway */}
                 {showGatewayCountdown && gatewayCountdown && (
                   <div className="mt-4">
                     <CountdownBar
@@ -555,7 +536,7 @@ export default function OrderStatus() {
                   </div>
                 )}
 
-                {/* Repay button — hanya gateway + pending + belum expired */}
+                {/* Repay button */}
                 {order.status === "pending" && !isManualOrder && (
                   <button
                     onClick={() => doRepay()}
@@ -593,7 +574,7 @@ export default function OrderStatus() {
                   </button>
                 )}
 
-                {/* ✅ WA Help — untuk gateway pending */}
+                {/* WA Help — gateway pending */}
                 {order.status === "pending" && !isManualOrder && (
                   <div className="mt-3">
                     <WAHelpButton
@@ -626,15 +607,10 @@ export default function OrderStatus() {
                     </div>
                   </div>
 
-                  {/* ✅ Countdown Manual — hanya pending/under_review */}
-                  {showManualCountdown &&
-                    manualCountdown &&
-                    order.status !== "under_review" && (
-                      <CountdownBar
-                        remaining={manualCountdown}
-                        isManual={true}
-                      />
-                    )}
+                  {/* ✅ Countdown Manual — hanya pending */}
+                  {showManualCountdown && manualCountdown && (
+                    <CountdownBar remaining={manualCountdown} isManual={true} />
+                  )}
 
                   {/* Info rekening */}
                   <div className="bg-white rounded-xl p-4 border border-emerald-100">
@@ -693,7 +669,7 @@ export default function OrderStatus() {
                     </div>
                   )}
 
-                  {/* ✅ WA Help — untuk manual payment */}
+                  {/* WA Help — manual payment */}
                   <WAHelpButton
                     orderNumber={order.order_number}
                     isManual={true}

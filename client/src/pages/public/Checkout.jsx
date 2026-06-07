@@ -21,6 +21,7 @@ import { z } from "zod";
 import { createOrder } from "../../api/orders";
 import { getSiteSettings } from "../../api/settings";
 import usePromoStatus from "../../hooks/usePromoStatus";
+import useSnapScript from "../../hooks/useSnapScript";
 
 const checkoutSchema = z.object({
   buyer_name: z.string().min(1, "Nama wajib diisi"),
@@ -38,10 +39,11 @@ export default function Checkout() {
   const { product, quantity = 1 } = location.state || {};
   const { campaignActive } = usePromoStatus();
 
-  // ✅ Metode bayar: "gateway" | "manual"
+  // ✅ Fix #14 — gunakan shared hook
+  useSnapScript();
+
   const [paymentMethod, setPaymentMethod] = useState("gateway");
 
-  // ✅ Ambil site settings untuk cek apakah manual payment tersedia
   const { data: settingsData } = useQuery({
     queryKey: ["site-settings-public"],
     queryFn: getSiteSettings,
@@ -49,23 +51,9 @@ export default function Checkout() {
   });
   const siteSettings = settingsData?.data?.data || {};
   const bankAccountInfo = siteSettings.bank_account_info || "";
-  // ✅ Manual payment hanya tersedia jika admin sudah isi info rekening
   const manualPaymentAvailable = bankAccountInfo.trim().length > 0;
   const verificationHours =
     siteSettings.manual_payment_verification_hours || "1x24 jam kerja";
-
-  useEffect(() => {
-    const clientKey = import.meta.env.VITE_MIDTRANS_CLIENT_KEY;
-    const snapSrcUrl = "https://app.sandbox.midtrans.com/snap/snap.js";
-    let script = document.querySelector(`script[src="${snapSrcUrl}"]`);
-    if (!script) {
-      script = document.createElement("script");
-      script.src = snapSrcUrl;
-      script.setAttribute("data-client-key", clientKey);
-      script.async = true;
-      document.body.appendChild(script);
-    }
-  }, []);
 
   // ✅ Reset ke gateway jika manual tidak tersedia
   useEffect(() => {
@@ -90,7 +78,6 @@ export default function Checkout() {
       } = res.data.data;
 
       if (method === "manual" || !snap_token) {
-        // ✅ Manual payment — langsung ke halaman order
         toast.success(
           "Order berhasil dibuat! Silakan transfer sesuai instruksi.",
         );
@@ -98,7 +85,6 @@ export default function Checkout() {
         return;
       }
 
-      // ✅ Gateway payment — buka Snap
       window.snap.pay(snap_token, {
         onSuccess: () => {
           toast.success("Pembayaran berhasil!");
@@ -263,7 +249,7 @@ export default function Checkout() {
                   )}
                 </div>
 
-                {/* ✅ Pilihan Metode Pembayaran */}
+                {/* ── Pilihan Metode Pembayaran ── */}
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-3">
                     Metode Pembayaran
@@ -370,7 +356,7 @@ export default function Checkout() {
                     )}
                   </div>
 
-                  {/* ✅ Info manual payment */}
+                  {/* Info manual payment */}
                   <AnimatePresence>
                     {paymentMethod === "manual" && (
                       <motion.div
@@ -392,7 +378,6 @@ export default function Checkout() {
                               <strong>{verificationHours}</strong>.
                             </p>
                           </div>
-                          {/* Preview rekening */}
                           <div className="bg-white rounded-lg p-3 border border-emerald-100">
                             <p className="text-xs font-semibold text-slate-600 mb-1.5">
                               Rekening Tujuan:
@@ -538,7 +523,7 @@ export default function Checkout() {
                 </div>
               </div>
 
-              {/* ✅ Payment method info card — berubah sesuai pilihan */}
+              {/* Payment method info card */}
               <AnimatePresence mode="wait">
                 {paymentMethod === "gateway" ? (
                   <motion.div

@@ -31,12 +31,11 @@ const statusOptions = [
   { label: "Cancelled", value: "cancelled" },
 ];
 
+// ✅ Fix #11 — satu konstanta saja, hapus duplikat LIMIT yang tidak terpakai
 const LIMIT = 10;
 
 // ─── Helper: tentukan action badge untuk satu order ──────────
-// Return: { dot, label } atau null jika tidak ada tindakan
 function getActionBadge(order) {
-  // 1. Manual payment belum dikonfirmasi
   if (
     order.payment_method === "manual" &&
     (order.status === "pending" || order.status === "under_review")
@@ -51,7 +50,6 @@ function getActionBadge(order) {
     };
   }
 
-  // 2. Paid tapi fulfillment_type belum dipilih
   if (order.status === "paid" && !order.fulfillment_type) {
     return {
       dot: "bg-blue-400",
@@ -60,7 +58,6 @@ function getActionBadge(order) {
     };
   }
 
-  // 3. Paid, tipe fisik, belum delivered
   if (
     order.status === "paid" &&
     order.fulfillment_type === "physical" &&
@@ -73,7 +70,6 @@ function getActionBadge(order) {
     };
   }
 
-  // 4. Paid, tipe digital, belum completed
   if (
     order.status === "paid" &&
     order.fulfillment_type === "digital" &&
@@ -90,8 +86,6 @@ function getActionBadge(order) {
 }
 
 // ─── Main Component ──────────────────────────────────────────
-const LIMIT_CONST = 10;
-
 export default function OrderList() {
   const navigate = useNavigate();
   const [statusFilter, setStatusFilter] = useState("");
@@ -107,7 +101,7 @@ export default function OrderList() {
         ...(statusFilter && { status: statusFilter }),
         ...(debouncedSearch && { search: debouncedSearch }),
         page,
-        limit: LIMIT_CONST,
+        limit: LIMIT,
       }),
     retry: false,
     placeholderData: (prev) => prev,
@@ -190,7 +184,7 @@ export default function OrderList() {
           </div>
         </div>
 
-        {/* ✅ Banner info jika filter needs_action aktif */}
+        {/* Banner info needs_action */}
         {isNeedsAction && (
           <div className="mt-2 flex items-center gap-2 px-3 py-2 bg-orange-50 border border-orange-200 rounded-lg">
             <AlertCircle size={13} className="text-orange-500 shrink-0" />
@@ -268,10 +262,8 @@ export default function OrderList() {
                       key={order.id}
                       className={`hover:bg-gray-50 transition-colors ${badge ? "bg-orange-50/30" : ""}`}
                     >
-                      {/* Order number */}
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
-                          {/* ✅ Dot indikator */}
                           {badge ? (
                             <span
                               className={`w-2 h-2 rounded-full shrink-0 ${badge.dot}`}
@@ -284,8 +276,6 @@ export default function OrderList() {
                           </span>
                         </div>
                       </td>
-
-                      {/* Buyer */}
                       <td className="px-6 py-4">
                         <p className="font-medium text-gray-900">
                           {order.buyer_name}
@@ -294,13 +284,9 @@ export default function OrderList() {
                           {order.buyer_email}
                         </p>
                       </td>
-
-                      {/* Total */}
                       <td className="px-6 py-4 text-gray-700 font-medium">
                         Rp {Number(order.total_amount).toLocaleString("id-ID")}
                       </td>
-
-                      {/* Metode */}
                       <td className="px-6 py-4">
                         {order.payment_method === "manual" ? (
                           <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
@@ -314,8 +300,6 @@ export default function OrderList() {
                           <span className="text-xs text-gray-300">—</span>
                         )}
                       </td>
-
-                      {/* Status */}
                       <td className="px-6 py-4">
                         <span
                           className={`px-2 py-1 rounded-full text-xs font-medium ${statusStyles[order.status] || "bg-gray-100 text-gray-500"}`}
@@ -323,8 +307,6 @@ export default function OrderList() {
                           {statusLabels[order.status] || order.status}
                         </span>
                       </td>
-
-                      {/* ✅ Kolom tindakan */}
                       <td className="px-6 py-4">
                         {badge ? (
                           <span
@@ -336,8 +318,6 @@ export default function OrderList() {
                           <span className="text-xs text-gray-300">—</span>
                         )}
                       </td>
-
-                      {/* Tanggal */}
                       <td className="px-6 py-4 text-gray-500 text-xs">
                         {new Date(order.created_at).toLocaleDateString(
                           "id-ID",
@@ -348,8 +328,6 @@ export default function OrderList() {
                           },
                         )}
                       </td>
-
-                      {/* Action */}
                       <td className="px-6 py-4">
                         <button
                           onClick={() => navigate(`/admin/orders/${order.id}`)}
@@ -387,9 +365,7 @@ export default function OrderList() {
                   }`}
                 >
                   <div className="flex-1 min-w-0">
-                    {/* Row 1: order number + status + dot */}
                     <div className="flex items-center gap-2 flex-wrap">
-                      {/* ✅ Dot di mobile */}
                       {badge && (
                         <span
                           className={`w-2 h-2 rounded-full shrink-0 ${badge.dot}`}
@@ -403,7 +379,6 @@ export default function OrderList() {
                       >
                         {statusLabels[order.status] || order.status}
                       </span>
-                      {/* ✅ Badge tindakan di mobile */}
                       {badge && (
                         <span
                           className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${badge.labelClass}`}
@@ -412,16 +387,12 @@ export default function OrderList() {
                         </span>
                       )}
                     </div>
-
-                    {/* Row 2: nama */}
                     <p className="font-medium text-gray-900 text-sm mt-1 line-clamp-1">
                       {order.buyer_name}
                     </p>
                     <p className="text-[11px] text-gray-400 line-clamp-1">
                       {order.buyer_email}
                     </p>
-
-                    {/* Row 3: total + tanggal */}
                     <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                       <span className="text-sm font-semibold text-gray-800">
                         Rp {Number(order.total_amount).toLocaleString("id-ID")}
@@ -437,8 +408,6 @@ export default function OrderList() {
                         )}
                       </span>
                     </div>
-
-                    {/* Row 4: metode bayar */}
                     <div className="mt-0.5">
                       {order.payment_method === "manual" ? (
                         <span className="text-[10px] font-medium text-emerald-600">
@@ -453,8 +422,6 @@ export default function OrderList() {
                       )}
                     </div>
                   </div>
-
-                  {/* Action */}
                   <button
                     onClick={() => navigate(`/admin/orders/${order.id}`)}
                     className="p-2 hover:bg-blue-50 hover:text-blue-600 text-gray-400 rounded-lg transition-colors border border-gray-100 shrink-0"
