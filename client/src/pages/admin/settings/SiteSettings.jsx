@@ -729,9 +729,7 @@ const PageRow = ({ page, alwaysActive, onUpdate }) => {
   };
 
   const toggleTitle = alwaysActive
-    ? page.page_key === "home"
-      ? "Home tidak bisa dinonaktifkan"
-      : "Track Order tidak bisa dinonaktifkan"
+    ? "Home tidak bisa dinonaktifkan"
     : undefined;
 
   return (
