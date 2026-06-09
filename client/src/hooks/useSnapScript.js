@@ -6,7 +6,10 @@ import { useEffect } from "react";
 export default function useSnapScript() {
   useEffect(() => {
     const clientKey = import.meta.env.VITE_MIDTRANS_CLIENT_KEY;
-    const snapSrcUrl = "https://app.sandbox.midtrans.com/snap/snap.js";
+    const snapSrcUrl =
+      import.meta.env.VITE_MIDTRANS_ENV === "production"
+        ? "https://app.midtrans.com/snap/snap.js"
+        : "https://app.sandbox.midtrans.com/snap/snap.js";
 
     let script = document.querySelector(`script[src="${snapSrcUrl}"]`);
     if (!script) {
