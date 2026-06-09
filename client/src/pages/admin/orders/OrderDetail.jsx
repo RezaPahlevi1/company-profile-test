@@ -237,7 +237,7 @@ function ShippingModal({ isOpen, onConfirm, onCancel, isLoading }) {
                 "JNE",
                 "J&T Express",
                 "SiCepat",
-                "AnterAja",
+                "Gojek",
                 "Ninja Express",
                 "Pos Indonesia",
                 "Tiki",
@@ -425,6 +425,8 @@ export default function OrderDetail() {
   const { data, isLoading } = useQuery({
     queryKey: ["admin-order", id],
     queryFn: () => getOrderById(id),
+    refetchInterval: 15000,
+    refetchIntervalInBackground: false,
   });
 
   const invalidate = () => {

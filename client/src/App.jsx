@@ -46,6 +46,7 @@ const AdminLayout = lazy(() => import("./components/layout/AdminLayout"));
 import Navbar from "./components/layout/Navbar";
 import Footer from "./components/layout/Footer";
 import PromoPopup from "./components/shared/PromoPopup";
+import useSiteTitle from "./hooks/useSiteTitle";
 
 const PageSpinner = () => (
   <div className="min-h-screen flex items-center justify-center bg-gray-100">
@@ -171,6 +172,7 @@ function AppInit() {
 }
 
 export default function App() {
+  useSiteTitle();
   return (
     <Suspense fallback={<PageSpinner />}>
       <AppInit />

@@ -105,6 +105,8 @@ export default function OrderList() {
       }),
     retry: false,
     placeholderData: (prev) => prev,
+    refetchInterval: 15000,
+    refetchIntervalInBackground: false,
   });
 
   const orders = data?.data?.data || [];
