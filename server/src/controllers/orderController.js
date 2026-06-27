@@ -5,6 +5,7 @@ import {
   sendOrderCreatedEmail,
   sendPaymentSuccessEmail,
   sendFulfillmentUpdateEmail,
+  sendInvoiceEmail,
 } from "../utils/emailService.js";
 
 // ─────────────────────────────────────────────
@@ -452,13 +453,16 @@ export const handleMidtransWebhook = async (req, res) => {
     // ✅ Abaikan webhook untuk order manual
     const { data: existingOrder } = await supabase
       .from("orders")
-      .select("payment_method")
+      .select("payment_method, status")
       .eq("order_number", order_id)
       .single();
 
     if (existingOrder?.payment_method === "manual") {
       return res.status(200).json({ success: true });
     }
+
+    // Catat apakah sebelumnya sudah paid (mencegah webhook duplikat Midtrans)
+    const wasAlreadyPaid = existingOrder?.status === "paid";
 
     let orderStatus = "pending";
     if (transaction_status === "capture") {
@@ -485,7 +489,7 @@ export const handleMidtransWebhook = async (req, res) => {
 
     if (error) throw error;
 
-    if (orderStatus === "paid") {
+    if (orderStatus === "paid" && !wasAlreadyPaid) {
       const { data: fullOrder } = await supabase
         .from("orders")
         .select(`*, order_items(product_name, price_at_purchase, quantity)`)
@@ -495,6 +499,10 @@ export const handleMidtransWebhook = async (req, res) => {
       if (fullOrder) {
         sendPaymentSuccessEmail(fullOrder, fullOrder.order_items).catch((err) =>
           console.error("Failed to send payment success email:", err.message),
+        );
+
+        sendInvoiceEmail(fullOrder, fullOrder.order_items).catch((err) =>
+          console.error("Failed to send invoice email:", err.message),
         );
       }
     }
@@ -817,6 +825,11 @@ export const updateOrderStatus = async (req, res) => {
             err.message,
           ),
         );
+
+        // ✅ KIRIM INVOICE PDF
+        sendInvoiceEmail(fullOrder, fullOrder.order_items).catch((err) =>
+          console.error("Failed to send manual invoice email:", err.message),
+        );
       }
     }
 
@@ -953,7 +966,10 @@ export const updateFulfillment = async (req, res) => {
     if (updateError) throw updateError;
 
     // ✅ Insert ke history
-    if (fulfillment_status) {
+    if (
+      fulfillment_status &&
+      fulfillment_status !== existing.fulfillment_status
+    ) {
       await supabase.from("order_fulfillment_history").insert({
         order_id: id,
         status: fulfillment_status,

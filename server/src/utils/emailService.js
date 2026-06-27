@@ -1,5 +1,6 @@
 import { Resend } from "resend";
 import supabase from "../config/supabase.js";
+import { generateInvoiceBuffer } from "./invoiceGenerator.js";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -594,4 +595,65 @@ export const sendBroadcastEmail = async (broadcast, recipients) => {
   }
 
   return { sent, failed };
+};
+
+// ── sendInvoiceEmail ────────────────────────────────────────
+export const sendInvoiceEmail = async (order, items) => {
+  try {
+    const [template, siteSettings] = await Promise.all([
+      getTemplate("payment_success"), // Kita gunakan template yang sama, tapi override subject
+      getSiteSettings(),
+    ]);
+
+    const variables = {
+      buyer_name: order.buyer_name,
+      order_number: order.order_number,
+      total_amount: formatCurrency(order.total_amount),
+      site_name: siteSettings.site_name || "CompanyName",
+      header_color: template.header_color,
+    };
+
+    // Generate PDF Buffer (adminFee dikosongkan dulu 0)
+    const pdfBuffer = await generateInvoiceBuffer(order, items, siteSettings, 0);
+    const base64Pdf = pdfBuffer.toString("base64");
+
+    const subject = `Invoice Tagihan ${order.order_number}`;
+    
+    // Konten email sederhana karena ada attachment PDF
+    const contentHtml = `
+      <div style="background:#f8fafc;border-radius:12px;padding:20px;text-align:center;margin-bottom:24px;">
+        <p style="color:#64748b;font-size:12px;margin:0 0 4px;text-transform:uppercase;letter-spacing:1px;">Nomor Invoice</p>
+        <p style="color:#0f172a;font-size:22px;font-weight:800;margin:0;letter-spacing:2px;font-family:monospace;">
+          ${order.order_number}
+        </p>
+      </div>
+      <p style="color:#475569;font-size:15px;line-height:1.6;margin:0 0 20px;">
+        Terlampir adalah invoice resmi untuk pembayaran Anda. Mohon simpan email ini atau unduh file PDF terlampir untuk arsip keuangan Anda.
+      </p>
+      <div style="text-align:center;margin-top:30px;">
+        <p style="color:#94a3b8;font-size:13px;margin:0;">Detail lengkap dapat dilihat pada file PDF terlampir.</p>
+      </div>`;
+
+    const html = buildEmailHtml(template, contentHtml, variables);
+
+    const { data, error } = await resend.emails.send({
+      from: process.env.RESEND_FROM_EMAIL,
+      to: order.buyer_email,
+      subject,
+      html,
+      attachments: [
+        {
+          filename: `Invoice_${order.order_number}.pdf`,
+          content: base64Pdf,
+        },
+      ],
+    });
+
+    if (error) throw error;
+    console.log("Invoice email sent:", data?.id);
+    return true;
+  } catch (err) {
+    console.error("sendInvoiceEmail error:", err);
+    return false;
+  }
 };

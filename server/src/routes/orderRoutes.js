@@ -1,4 +1,5 @@
 import { Router } from "express";
+import rateLimit from "express-rate-limit";
 import {
   createOrder,
   trackOrder,
@@ -15,12 +16,22 @@ import { sanitizeBody, checkBounds } from "../middlewares/sanitize.js";
 
 const router = Router();
 
-// ✅ Webhook didaftarkan di app.js langsung — hapus dari sini
-// agar tidak konflik dengan POST "/" dan bebas dari middleware apapun
+// ✅ Rate limiter untuk mencegah spam bot pada endpoint publik
+const publicLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 menit
+  max: 20, // Maksimal 20 request per 15 menit per IP
+  message: {
+    success: false,
+    message: "Terlalu banyak request dari IP ini, silakan coba lagi nanti.",
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
-// ✅ Create order
+// ✅ Create order (dilindungi sanitize, checkBounds, dan rateLimit)
 router.post(
   "/",
+  publicLimiter,
   sanitizeBody,
   checkBounds({
     buyer_name: { min: 2, max: 100 },
@@ -31,11 +42,11 @@ router.post(
   createOrder,
 );
 
-// ✅ Public routes
-router.get("/track/:orderNumber", trackOrder);
-router.post("/:orderNumber/repay", repayOrder);
+// ✅ Public routes (dilindungi rateLimit)
+router.get("/track/:orderNumber", publicLimiter, trackOrder);
+router.post("/:orderNumber/repay", publicLimiter, repayOrder);
 
-// ✅ Admin routes
+// ✅ Admin routes (tidak perlu publicLimiter, sudah pakai authMiddleware)
 router.get(
   "/",
   authMiddleware,
