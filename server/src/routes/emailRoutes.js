@@ -1,4 +1,5 @@
 import { Router } from "express";
+import rateLimit from "express-rate-limit";
 import {
   getTemplates,
   getTemplate,
@@ -22,6 +23,19 @@ import {
 import upload from "../middlewares/uploadMiddleware.js";
 
 const router = Router();
+
+const isDev = process.env.NODE_ENV !== "production";
+
+const broadcastSendLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: isDev ? 100 : 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: "Too many broadcast attempts, please try again later.",
+  },
+});
 
 router.use(authMiddleware);
 router.use(requireRole("superadmin"));
@@ -73,6 +87,6 @@ router.put(
   updateBroadcast,
 );
 router.delete("/broadcasts/:id", deleteBroadcast);
-router.post("/broadcasts/:id/send", sendBroadcast);
+router.post("/broadcasts/:id/send", broadcastSendLimiter, sendBroadcast);
 
 export default router;

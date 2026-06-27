@@ -59,8 +59,14 @@ app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 app.use(cookieParser());
 
 // ✅ Webhook Midtrans — sebelum rate limiter
-app.post("/api/orders/webhook", handleMidtransWebhook);
-app.post("/api/midtrans/webhook", handleMidtransWebhook);
+const webhookLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.post("/api/orders/webhook", webhookLimiter, handleMidtransWebhook);
+app.post("/api/midtrans/webhook", webhookLimiter, handleMidtransWebhook);
 
 // ✅ Rate limit global
 const globalLimiter = rateLimit({
@@ -80,6 +86,7 @@ app.use(globalLimiter);
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: isDev ? 100 : 10,
+  skipSuccessfulRequests: true,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -88,34 +95,6 @@ const authLimiter = rateLimit({
   },
 });
 app.use("/api/auth/login", authLimiter);
-
-// ✅ Create order
-const orderCreateLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000,
-  max: isDev ? 100 : 20,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: {
-    success: false,
-    message: "Too many orders, please try again later.",
-  },
-  skip: (req) => req.method === "GET" || req.path.includes("webhook"),
-});
-app.use("/api/orders", orderCreateLimiter);
-
-// ✅ Broadcast
-const broadcastSendLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000,
-  max: isDev ? 100 : 10,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: {
-    success: false,
-    message: "Too many broadcast attempts, please try again later.",
-  },
-  skip: (req) => req.method === "GET",
-});
-app.use("/api/email/broadcasts", broadcastSendLimiter);
 
 // Routes
 app.use("/api/auth", authRoutes);
