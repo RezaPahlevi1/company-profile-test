@@ -1,6 +1,15 @@
 import supabase from "../config/supabase.js";
 import bcrypt from "bcryptjs";
 
+const isDev = process.env.NODE_ENV !== "production";
+const internalError = (err, res) => {
+  console.error(err);
+  return res.status(500).json({
+    success: false,
+    message: isDev ? err.message : "Internal server error",
+  });
+};
+
 export const getAllAdmins = async (req, res) => {
   try {
     const { data, error } = await supabase
@@ -12,7 +21,7 @@ export const getAllAdmins = async (req, res) => {
 
     return res.status(200).json({ success: true, data });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return internalError(err, res);
   }
 };
 
@@ -72,7 +81,7 @@ export const createAdmin = async (req, res) => {
       data,
     });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return internalError(err, res);
   }
 };
 
@@ -119,6 +128,22 @@ export const updateAdmin = async (req, res) => {
       });
     }
 
+    // ✅ Cek duplikat email jika email diubah
+    if (email && email !== existing.email) {
+      const { data: emailTaken } = await supabase
+        .from("admins")
+        .select("id")
+        .eq("email", email)
+        .single();
+
+      if (emailTaken) {
+        return res.status(409).json({
+          success: false,
+          message: "Email already registered",
+        });
+      }
+    }
+
     const updatePayload = {
       ...(name && { name }),
       ...(email && { email }),
@@ -150,7 +175,7 @@ export const updateAdmin = async (req, res) => {
       data,
     });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return internalError(err, res);
   }
 };
 
@@ -195,6 +220,6 @@ export const deleteAdmin = async (req, res) => {
       message: "Admin deleted successfully",
     });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return internalError(err, res);
   }
 };

@@ -1,8 +1,59 @@
 import { Resend } from "resend";
+import sanitizeHtml from "sanitize-html";
 import supabase from "../config/supabase.js";
 import { generateInvoiceBuffer } from "./invoiceGenerator.js";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
+
+// ============================================================
+// SECURITY HELPERS
+// ============================================================
+
+// ✅ Escape karakter HTML — mencegah injeksi dari data user
+// (buyer_name, product_name, shipping info, dll)
+const escapeHtml = (str) => {
+  if (str === null || str === undefined) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+};
+
+// ✅ Sanitasi HTML broadcast dari Tiptap editor
+// Izinkan tag formatting umum, strip script dan event handler
+const sanitizeBroadcastHtml = (dirty) => {
+  if (!dirty) return "";
+  return sanitizeHtml(dirty, {
+    allowedTags: [
+      "p", "br", "strong", "em", "u", "s", "blockquote",
+      "code", "pre", "h1", "h2", "h3", "h4", "h5", "h6",
+      "ul", "ol", "li", "a", "img",
+      "table", "thead", "tbody", "tr", "th", "td",
+      "hr", "div", "span",
+    ],
+    allowedAttributes: {
+      a: ["href", "target", "rel"],
+      img: ["src", "alt", "width", "height"],
+      td: ["colspan", "rowspan"],
+      th: ["colspan", "rowspan"],
+      "*": ["class", "style"],
+    },
+    allowedSchemes: ["https", "http", "mailto"],
+    // ✅ Paksa rel noopener pada semua link
+    transformTags: {
+      a: (tagName, attribs) => ({
+        tagName,
+        attribs: {
+          ...attribs,
+          rel: "noopener noreferrer",
+          target: attribs.target || "_blank",
+        },
+      }),
+    },
+  });
+};
 
 // ============================================================
 // RENDER ENGINE
@@ -55,6 +106,7 @@ const getSiteSettings = async () => {
 // BUILD HTML EMAIL
 // ============================================================
 const buildEmailHtml = (template, contentHtml, variables) => {
+  // ✅ Variabel template (site_name, dll) di-escape karena bisa diubah admin
   const greeting = renderTemplate(template.greeting, variables);
   const bodyMessage = renderTemplate(template.body_message, variables);
   const footerText = renderTemplate(template.footer_text, variables);
@@ -70,9 +122,9 @@ const buildEmailHtml = (template, contentHtml, variables) => {
 <body style="margin:0;padding:0;background-color:#f8fafc;font-family:'Segoe UI',Arial,sans-serif;">
   <div style="max-width:600px;margin:40px auto;background:white;border-radius:16px;overflow:hidden;box-shadow:0 4px 6px rgba(0,0,0,0.07);">
 
-    <div style="background:${headerColor};padding:36px 32px;text-align:center;">
+    <div style="background:${escapeHtml(headerColor)};padding:36px 32px;text-align:center;">
       <h1 style="color:white;margin:0;font-size:22px;font-weight:700;">
-        ${variables.site_name || "CompanyName"}
+        ${escapeHtml(variables.site_name || "CompanyName")}
       </h1>
     </div>
 
@@ -116,8 +168,8 @@ const buildItemsTable = (items, totalAmount, accentColor = "#1d4ed8") => `
         .map(
           (item) => `
         <tr>
-          <td style="padding:10px;color:#334155;font-size:13px;border-bottom:1px solid #f1f5f9;">${item.product_name}</td>
-          <td style="padding:10px;color:#334155;font-size:13px;text-align:center;border-bottom:1px solid #f1f5f9;">${item.quantity}</td>
+          <td style="padding:10px;color:#334155;font-size:13px;border-bottom:1px solid #f1f5f9;">${escapeHtml(item.product_name)}</td>
+          <td style="padding:10px;color:#334155;font-size:13px;text-align:center;border-bottom:1px solid #f1f5f9;">${escapeHtml(item.quantity)}</td>
           <td style="padding:10px;color:#334155;font-size:13px;text-align:right;border-bottom:1px solid #f1f5f9;">${formatCurrency(item.price_at_purchase * item.quantity)}</td>
         </tr>
       `,
@@ -127,19 +179,19 @@ const buildItemsTable = (items, totalAmount, accentColor = "#1d4ed8") => `
     <tfoot>
       <tr>
         <td colspan="2" style="padding:10px;font-weight:700;font-size:14px;color:#0f172a;">Total</td>
-        <td style="padding:10px;font-weight:800;font-size:16px;text-align:right;color:${accentColor};">${formatCurrency(totalAmount)}</td>
+        <td style="padding:10px;font-weight:800;font-size:16px;text-align:right;color:${escapeHtml(accentColor)};">${formatCurrency(totalAmount)}</td>
       </tr>
     </tfoot>
   </table>`;
 
 // ── Order Created — Gateway ──────────────────────────────────
 const buildOrderCreatedGatewayContent = (order, items, variables) => {
-  const trackUrl = `${process.env.CLIENT_URL}/order/${order.order_number}`;
+  const trackUrl = `${process.env.CLIENT_URL}/order/${escapeHtml(order.order_number)}`;
   return `
     <div style="background:#eff6ff;border:2px dashed #93c5fd;border-radius:12px;padding:20px;text-align:center;margin-bottom:24px;">
       <p style="color:#64748b;font-size:12px;margin:0 0 4px;text-transform:uppercase;letter-spacing:1px;">Nomor Order</p>
       <p style="color:#1d4ed8;font-size:22px;font-weight:800;margin:0;letter-spacing:2px;font-family:monospace;">
-        ${order.order_number}
+        ${escapeHtml(order.order_number)}
       </p>
     </div>
 
@@ -152,7 +204,7 @@ const buildOrderCreatedGatewayContent = (order, items, variables) => {
     </div>
 
     <div style="text-align:center;">
-      <a href="${trackUrl}" style="display:inline-block;background:${variables.header_color || "#2563eb"};color:white;text-decoration:none;padding:13px 28px;border-radius:10px;font-weight:600;font-size:14px;">
+      <a href="${trackUrl}" style="display:inline-block;background:${escapeHtml(variables.header_color || "#2563eb")};color:white;text-decoration:none;padding:13px 28px;border-radius:10px;font-weight:600;font-size:14px;">
         Lacak Status Pesanan
       </a>
     </div>`;
@@ -160,16 +212,18 @@ const buildOrderCreatedGatewayContent = (order, items, variables) => {
 
 // ── Order Created — Manual Payment ──────────────────────────
 const buildOrderCreatedManualContent = (order, items, variables) => {
-  const trackUrl = `${process.env.CLIENT_URL}/order/${order.order_number}`;
-  const bankInfo = variables.bank_account_info || "";
-  const verificationHours =
-    variables.manual_payment_verification_hours || "1x24 jam kerja";
+  const trackUrl = `${process.env.CLIENT_URL}/order/${escapeHtml(order.order_number)}`;
+  // ✅ bank_account_info dari admin — escape untuk mencegah injeksi
+  const bankInfo = escapeHtml(variables.bank_account_info || "");
+  const verificationHours = escapeHtml(
+    variables.manual_payment_verification_hours || "1x24 jam kerja",
+  );
 
   return `
     <div style="background:#eff6ff;border:2px dashed #93c5fd;border-radius:12px;padding:20px;text-align:center;margin-bottom:24px;">
       <p style="color:#64748b;font-size:12px;margin:0 0 4px;text-transform:uppercase;letter-spacing:1px;">Nomor Order</p>
       <p style="color:#1d4ed8;font-size:22px;font-weight:800;margin:0;letter-spacing:2px;font-family:monospace;">
-        ${order.order_number}
+        ${escapeHtml(order.order_number)}
       </p>
     </div>
 
@@ -198,7 +252,7 @@ const buildOrderCreatedManualContent = (order, items, variables) => {
     </div>
 
     <div style="text-align:center;">
-      <a href="${trackUrl}" style="display:inline-block;background:${variables.header_color || "#2563eb"};color:white;text-decoration:none;padding:13px 28px;border-radius:10px;font-weight:600;font-size:14px;">
+      <a href="${trackUrl}" style="display:inline-block;background:${escapeHtml(variables.header_color || "#2563eb")};color:white;text-decoration:none;padding:13px 28px;border-radius:10px;font-weight:600;font-size:14px;">
         Lacak Status Pesanan
       </a>
     </div>`;
@@ -206,14 +260,14 @@ const buildOrderCreatedManualContent = (order, items, variables) => {
 
 // ── Payment Success ──────────────────────────────────────────
 const buildPaymentSuccessContent = (order, items, variables) => {
-  const trackUrl = `${process.env.CLIENT_URL}/order/${order.order_number}`;
+  const trackUrl = `${process.env.CLIENT_URL}/order/${escapeHtml(order.order_number)}`;
 
   return `
     <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:12px;padding:16px;margin-bottom:20px;">
       <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;">
         <div>
           <p style="color:#64748b;font-size:11px;margin:0;text-transform:uppercase;letter-spacing:1px;">Nomor Order</p>
-          <p style="color:#15803d;font-size:16px;font-weight:800;margin:4px 0 0;font-family:monospace;">${order.order_number}</p>
+          <p style="color:#15803d;font-size:16px;font-weight:800;margin:4px 0 0;font-family:monospace;">${escapeHtml(order.order_number)}</p>
         </div>
         <div style="text-align:right;">
           <p style="color:#64748b;font-size:11px;margin:0;text-transform:uppercase;letter-spacing:1px;">Total Dibayar</p>
@@ -224,7 +278,7 @@ const buildPaymentSuccessContent = (order, items, variables) => {
         order.midtrans_payment_type
           ? `
         <p style="color:#64748b;font-size:12px;margin:10px 0 0;padding-top:10px;border-top:1px solid #bbf7d0;">
-          Metode: <strong style="color:#15803d;">${order.midtrans_payment_type.replace(/_/g, " ")}</strong>
+          Metode: <strong style="color:#15803d;">${escapeHtml(order.midtrans_payment_type.replace(/_/g, " "))}</strong>
           ${order.paid_at ? ` · ${formatDate(order.paid_at)}` : ""}
         </p>`
           : ""
@@ -236,7 +290,7 @@ const buildPaymentSuccessContent = (order, items, variables) => {
         ? `
     <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:14px;margin-bottom:20px;">
       <p style="color:#1e40af;font-size:13px;margin:0;">
-        📦 <strong>Estimasi penyelesaian:</strong> ${variables.delivery_estimation}
+        📦 <strong>Estimasi penyelesaian:</strong> ${escapeHtml(variables.delivery_estimation)}
       </p>
     </div>`
         : ""
@@ -245,7 +299,7 @@ const buildPaymentSuccessContent = (order, items, variables) => {
     ${buildItemsTable(items, order.total_amount, "#059669")}
 
     <div style="text-align:center;">
-      <a href="${`${process.env.CLIENT_URL}/order/${order.order_number}`}" style="display:inline-block;background:${variables.header_color || "#059669"};color:white;text-decoration:none;padding:13px 28px;border-radius:10px;font-weight:600;font-size:14px;">
+      <a href="${trackUrl}" style="display:inline-block;background:${escapeHtml(variables.header_color || "#059669")};color:white;text-decoration:none;padding:13px 28px;border-radius:10px;font-weight:600;font-size:14px;">
         Lihat Detail Pesanan
       </a>
     </div>`;
@@ -296,7 +350,7 @@ const buildFulfillmentUpdateContent = (
   fulfillmentStatus,
   variables,
 ) => {
-  const trackUrl = `${process.env.CLIENT_URL}/order/${order.order_number}`;
+  const trackUrl = `${process.env.CLIENT_URL}/order/${escapeHtml(order.order_number)}`;
   const meta = FULFILLMENT_STATUS_LABELS[fulfillmentStatus] || {
     label: fulfillmentStatus,
     emoji: "📋",
@@ -305,6 +359,7 @@ const buildFulfillmentUpdateContent = (
     border: "#e2e8f0",
   };
 
+  // ✅ Semua data shipping dari DB di-escape
   const shippingBlock =
     fulfillmentStatus === "shipped" &&
     order.shipping_courier &&
@@ -315,18 +370,18 @@ const buildFulfillmentUpdateContent = (
       <table style="width:100%;border-collapse:collapse;">
         <tr>
           <td style="padding:4px 0;color:#64748b;font-size:13px;width:100px;">Kurir</td>
-          <td style="padding:4px 0;color:#0f172a;font-size:13px;font-weight:600;">${order.shipping_courier}</td>
+          <td style="padding:4px 0;color:#0f172a;font-size:13px;font-weight:600;">${escapeHtml(order.shipping_courier)}</td>
         </tr>
         <tr>
           <td style="padding:4px 0;color:#64748b;font-size:13px;">No. Resi</td>
-          <td style="padding:4px 0;color:#1d4ed8;font-size:14px;font-weight:800;font-family:monospace;">${order.shipping_tracking_number}</td>
+          <td style="padding:4px 0;color:#1d4ed8;font-size:14px;font-weight:800;font-family:monospace;">${escapeHtml(order.shipping_tracking_number)}</td>
         </tr>
         ${
           order.shipping_note
             ? `
         <tr>
           <td style="padding:4px 0;color:#64748b;font-size:13px;">Catatan</td>
-          <td style="padding:4px 0;color:#334155;font-size:13px;">${order.shipping_note}</td>
+          <td style="padding:4px 0;color:#334155;font-size:13px;">${escapeHtml(order.shipping_note)}</td>
         </tr>`
             : ""
         }
@@ -335,10 +390,10 @@ const buildFulfillmentUpdateContent = (
       : "";
 
   return `
-    <div style="background:${meta.bg};border:1px solid ${meta.border};border-radius:12px;padding:20px;text-align:center;margin-bottom:24px;">
+    <div style="background:${escapeHtml(meta.bg)};border:1px solid ${escapeHtml(meta.border)};border-radius:12px;padding:20px;text-align:center;margin-bottom:24px;">
       <p style="font-size:32px;margin:0 0 8px;">${meta.emoji}</p>
-      <p style="color:${meta.color};font-size:18px;font-weight:800;margin:0;">${meta.label}</p>
-      <p style="color:#64748b;font-size:12px;margin:6px 0 0;font-family:monospace;">${order.order_number}</p>
+      <p style="color:${escapeHtml(meta.color)};font-size:18px;font-weight:800;margin:0;">${escapeHtml(meta.label)}</p>
+      <p style="color:#64748b;font-size:12px;margin:6px 0 0;font-family:monospace;">${escapeHtml(order.order_number)}</p>
     </div>
 
     ${shippingBlock}
@@ -352,7 +407,7 @@ const buildFulfillmentUpdateContent = (
     ${buildItemsTable(items, order.total_amount)}
 
     <div style="text-align:center;">
-      <a href="${trackUrl}" style="display:inline-block;background:${meta.color};color:white;text-decoration:none;padding:13px 28px;border-radius:10px;font-weight:600;font-size:14px;">
+      <a href="${trackUrl}" style="display:inline-block;background:${escapeHtml(meta.color)};color:white;text-decoration:none;padding:13px 28px;border-radius:10px;font-weight:600;font-size:14px;">
         Lacak Pesanan
       </a>
     </div>`;
@@ -363,7 +418,6 @@ const buildFulfillmentUpdateContent = (
 // ============================================================
 
 // ── sendOrderCreatedEmail ────────────────────────────────────
-// paymentMethod: "gateway" | "manual"
 export const sendOrderCreatedEmail = async (
   order,
   items,
@@ -376,22 +430,22 @@ export const sendOrderCreatedEmail = async (
     ]);
 
     const variables = {
-      buyer_name: order.buyer_name,
-      order_number: order.order_number,
+      buyer_name: escapeHtml(order.buyer_name),
+      order_number: escapeHtml(order.order_number),
       total_amount: formatCurrency(order.total_amount),
       order_date: formatDate(order.created_at),
-      site_name: siteSettings.site_name || "CompanyName",
-      track_url: `${process.env.CLIENT_URL}/order/${order.order_number}`,
-      delivery_estimation: siteSettings.delivery_estimation || "",
+      site_name: escapeHtml(siteSettings.site_name || "CompanyName"),
+      track_url: `${process.env.CLIENT_URL}/order/${escapeHtml(order.order_number)}`,
+      delivery_estimation: escapeHtml(siteSettings.delivery_estimation || ""),
       bank_account_info: siteSettings.bank_account_info || "",
-      manual_payment_verification_hours:
+      manual_payment_verification_hours: escapeHtml(
         siteSettings.manual_payment_verification_hours || "1x24 jam kerja",
+      ),
       header_color: template.header_color,
     };
 
     const subject = renderTemplate(template.subject, variables);
 
-    // ✅ Konten email berbeda berdasarkan metode bayar
     const contentHtml =
       paymentMethod === "manual"
         ? buildOrderCreatedManualContent(order, items, variables)
@@ -424,14 +478,16 @@ export const sendPaymentSuccessEmail = async (order, items) => {
     ]);
 
     const variables = {
-      buyer_name: order.buyer_name,
-      order_number: order.order_number,
+      buyer_name: escapeHtml(order.buyer_name),
+      order_number: escapeHtml(order.order_number),
       total_amount: formatCurrency(order.total_amount),
-      payment_method: order.midtrans_payment_type?.replace(/_/g, " ") || "",
+      payment_method: escapeHtml(
+        order.midtrans_payment_type?.replace(/_/g, " ") || "",
+      ),
       paid_at: order.paid_at ? formatDate(order.paid_at) : "",
-      site_name: siteSettings.site_name || "CompanyName",
-      track_url: `${process.env.CLIENT_URL}/order/${order.order_number}`,
-      delivery_estimation: siteSettings.delivery_estimation || "",
+      site_name: escapeHtml(siteSettings.site_name || "CompanyName"),
+      track_url: `${process.env.CLIENT_URL}/order/${escapeHtml(order.order_number)}`,
+      delivery_estimation: escapeHtml(siteSettings.delivery_estimation || ""),
       header_color: template.header_color,
     };
 
@@ -463,7 +519,7 @@ export const sendFulfillmentUpdateEmail = async (
 ) => {
   try {
     const [template, siteSettings] = await Promise.all([
-      getTemplate("order_created"), // pakai template yang sama, override subject
+      getTemplate("order_created"),
       getSiteSettings(),
     ]);
 
@@ -473,13 +529,13 @@ export const sendFulfillmentUpdateEmail = async (
     };
 
     const variables = {
-      buyer_name: order.buyer_name,
-      order_number: order.order_number,
+      buyer_name: escapeHtml(order.buyer_name),
+      order_number: escapeHtml(order.order_number),
       total_amount: formatCurrency(order.total_amount),
-      site_name: siteSettings.site_name || "CompanyName",
-      track_url: `${process.env.CLIENT_URL}/order/${order.order_number}`,
+      site_name: escapeHtml(siteSettings.site_name || "CompanyName"),
+      track_url: `${process.env.CLIENT_URL}/order/${escapeHtml(order.order_number)}`,
       header_color: template.header_color,
-      fulfillment_status_label: meta.label,
+      fulfillment_status_label: escapeHtml(meta.label),
     };
 
     // ✅ Subject override — tidak pakai template subject
@@ -521,8 +577,11 @@ export const sendBroadcastEmail = async (broadcast, recipients) => {
   const siteName = siteSettings.site_name || "CompanyName";
   const headerColor = template.header_color || "#2563eb";
   const footerText = renderTemplate(template.footer_text || "", {
-    site_name: siteName,
+    site_name: escapeHtml(siteName),
   });
+
+  // ✅ Sanitasi konten broadcast dari Tiptap sebelum dimasukkan ke email
+  const safeBodyHtml = sanitizeBroadcastHtml(broadcast.body_message);
 
   let sent = 0;
   let failed = 0;
@@ -534,15 +593,14 @@ export const sendBroadcastEmail = async (broadcast, recipients) => {
     const results = await Promise.allSettled(
       batch.map((recipient) => {
         const variables = {
-          buyer_name: recipient.buyer_name || recipient.name,
-          site_name: siteName,
+          buyer_name: escapeHtml(recipient.buyer_name || recipient.name || ""),
+          site_name: escapeHtml(siteName),
         };
 
         const subject = renderTemplate(broadcast.subject, variables);
         const greeting = template.greeting
           ? renderTemplate(template.greeting, variables)
           : "";
-        const bodyHtml = broadcast.body_message || "";
 
         const html = `
 <!DOCTYPE html>
@@ -553,12 +611,12 @@ export const sendBroadcastEmail = async (broadcast, recipients) => {
 </head>
 <body style="margin:0;padding:0;background-color:#f8fafc;font-family:'Segoe UI',Arial,sans-serif;">
   <div style="max-width:600px;margin:40px auto;background:white;border-radius:16px;overflow:hidden;box-shadow:0 4px 6px rgba(0,0,0,0.07);">
-    <div style="background:${headerColor};padding:36px 32px;text-align:center;">
-      <h1 style="color:white;margin:0;font-size:22px;font-weight:700;">${siteName}</h1>
+    <div style="background:${escapeHtml(headerColor)};padding:36px 32px;text-align:center;">
+      <h1 style="color:white;margin:0;font-size:22px;font-weight:700;">${escapeHtml(siteName)}</h1>
     </div>
     <div style="padding:32px;">
       ${greeting ? `<p style="color:#334155;font-size:15px;margin:0 0 16px;">${greeting}</p>` : ""}
-      <div style="color:#475569;font-size:15px;line-height:1.7;">${bodyHtml}</div>
+      <div style="color:#475569;font-size:15px;line-height:1.7;">${safeBodyHtml}</div>
     </div>
     <div style="background:#f8fafc;padding:20px 32px;text-align:center;border-top:1px solid #e2e8f0;">
       <p style="color:#94a3b8;font-size:12px;margin:0;line-height:1.6;">${footerText}</p>
@@ -601,30 +659,28 @@ export const sendBroadcastEmail = async (broadcast, recipients) => {
 export const sendInvoiceEmail = async (order, items) => {
   try {
     const [template, siteSettings] = await Promise.all([
-      getTemplate("payment_success"), // Kita gunakan template yang sama, tapi override subject
+      getTemplate("payment_success"),
       getSiteSettings(),
     ]);
 
     const variables = {
-      buyer_name: order.buyer_name,
-      order_number: order.order_number,
+      buyer_name: escapeHtml(order.buyer_name),
+      order_number: escapeHtml(order.order_number),
       total_amount: formatCurrency(order.total_amount),
-      site_name: siteSettings.site_name || "CompanyName",
+      site_name: escapeHtml(siteSettings.site_name || "CompanyName"),
       header_color: template.header_color,
     };
 
-    // Generate PDF Buffer (adminFee dikosongkan dulu 0)
     const pdfBuffer = await generateInvoiceBuffer(order, items, siteSettings, 0);
     const base64Pdf = pdfBuffer.toString("base64");
 
     const subject = `Invoice Tagihan ${order.order_number}`;
-    
-    // Konten email sederhana karena ada attachment PDF
+
     const contentHtml = `
       <div style="background:#f8fafc;border-radius:12px;padding:20px;text-align:center;margin-bottom:24px;">
         <p style="color:#64748b;font-size:12px;margin:0 0 4px;text-transform:uppercase;letter-spacing:1px;">Nomor Invoice</p>
         <p style="color:#0f172a;font-size:22px;font-weight:800;margin:0;letter-spacing:2px;font-family:monospace;">
-          ${order.order_number}
+          ${escapeHtml(order.order_number)}
         </p>
       </div>
       <p style="color:#475569;font-size:15px;line-height:1.6;margin:0 0 20px;">

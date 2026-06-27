@@ -8,6 +8,15 @@ import {
   sendInvoiceEmail,
 } from "../utils/emailService.js";
 
+const isDev = process.env.NODE_ENV !== "production";
+const internalError = (err, res) => {
+  console.error(err);
+  return res.status(500).json({
+    success: false,
+    message: isDev ? err.message : "Internal server error",
+  });
+};
+
 // ─────────────────────────────────────────────
 // HELPERS
 // ─────────────────────────────────────────────
@@ -20,6 +29,16 @@ function isValidEmail(email) {
 // ✅ Validasi format phone — hanya angka, +, spasi, tanda hubung
 function isValidPhone(phone) {
   return /^[0-9+\-\s]{8,20}$/.test(phone);
+}
+
+// ✅ Sanitasi input search — strip karakter khusus PostgREST/SQL
+// Hanya izinkan huruf, angka, spasi, tanda hubung, titik, dan @
+function sanitizeSearch(input) {
+  if (!input || typeof input !== "string") return "";
+  return input
+    .trim()
+    .slice(0, 100) // batas panjang
+    .replace(/[^a-zA-Z0-9\s\-_.@]/g, ""); // strip karakter berbahaya
 }
 
 // ✅ Cek apakah order pending sudah melewati expiry window
@@ -125,7 +144,7 @@ export const createOrder = async (req, res) => {
       message: "Name is too long (max 100 characters)",
     });
 
-  // ✅ Fix #4 — validasi format email
+  // ✅ Validasi format email
   if (!isValidEmail(buyer_email))
     return res.status(400).json({
       success: false,
@@ -138,7 +157,7 @@ export const createOrder = async (req, res) => {
       message: "Email is too long (max 254 characters)",
     });
 
-  // ✅ Fix #4 — validasi format phone
+  // ✅ Validasi format phone
   if (!isValidPhone(buyer_phone))
     return res.status(400).json({
       success: false,
@@ -243,7 +262,7 @@ export const createOrder = async (req, res) => {
 
     const order_number = generateOrderNumber();
 
-    // ✅ Fix #5 (Opsi B) — hitung dan simpan expires_at saat order dibuat
+    // ✅ Hitung dan simpan expires_at saat order dibuat
     let expiryMinutes;
     if (resolvedPaymentMethod === "manual") {
       expiryMinutes = await getManualExpiryMinutes();
@@ -285,7 +304,7 @@ export const createOrder = async (req, res) => {
 
     if (itemsError) {
       await supabase.from("orders").delete().eq("id", order.id);
-      throw new Error(`Failed to save order items: ${itemsError.message}`);
+      throw new Error("Failed to save order items");
     }
 
     // ✅ Manual payment — skip Midtrans
@@ -360,7 +379,7 @@ export const createOrder = async (req, res) => {
       },
     });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return internalError(err, res);
   }
 };
 
@@ -398,7 +417,7 @@ export const trackOrder = async (req, res) => {
         .json({ success: false, message: "Order not found" });
     }
 
-    // ✅ Cek expired menggunakan expires_at — tidak perlu fetch settings lagi
+    // ✅ Cek expired menggunakan expires_at
     if (order.status === "pending") {
       const expired = await checkAndExpireOrder(order);
       if (expired) order.status = "failed";
@@ -406,7 +425,7 @@ export const trackOrder = async (req, res) => {
 
     return res.status(200).json({ success: true, data: order });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return internalError(err, res);
   }
 };
 
@@ -419,8 +438,7 @@ export const handleMidtransWebhook = async (req, res) => {
 
     let notification;
     if (isDev) {
-      // ✅ Fix #3 — di dev mode tetap pakai body langsung, tapi
-      // validasi field wajib ada agar tidak bisa dieksploitasi sembarangan
+      // ✅ Di dev mode tetap pakai body langsung, tapi validasi field wajib ada
       const { order_id, transaction_status, gross_amount } = req.body;
       if (!order_id || !transaction_status || !gross_amount) {
         console.warn(
@@ -430,7 +448,6 @@ export const handleMidtransWebhook = async (req, res) => {
           .status(400)
           .json({ success: false, message: "Invalid webhook payload" });
       }
-      // ✅ Log peringatan agar developer sadar ini tidak terverifikasi
       console.warn(
         "[Webhook][DEV] Skipping Midtrans signature verification — development mode only. " +
           "NEVER expose this server publicly without switching NODE_ENV to production.",
@@ -461,7 +478,6 @@ export const handleMidtransWebhook = async (req, res) => {
       return res.status(200).json({ success: true });
     }
 
-    // Catat apakah sebelumnya sudah paid (mencegah webhook duplikat Midtrans)
     const wasAlreadyPaid = existingOrder?.status === "paid";
 
     let orderStatus = "pending";
@@ -509,7 +525,9 @@ export const handleMidtransWebhook = async (req, res) => {
 
     return res.status(200).json({ success: true });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    // ✅ Webhook error — log internal, kembalikan 500 generik
+    console.error("[Webhook] Error:", err);
+    return res.status(500).json({ success: false, message: "Webhook processing failed" });
   }
 };
 
@@ -517,7 +535,10 @@ export const handleMidtransWebhook = async (req, res) => {
 // GET ALL ORDERS (admin)
 // ─────────────────────────────────────────────
 export const getAllOrders = async (req, res) => {
-  const { status, search } = req.query;
+  const { status } = req.query;
+
+  // ✅ Sanitasi search — strip karakter khusus, batasi panjang
+  const search = sanitizeSearch(req.query.search);
 
   const safePage = Math.max(1, parseInt(req.query.page) || 1);
   const safeLimit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 10));
@@ -539,17 +560,11 @@ export const getAllOrders = async (req, res) => {
       .range(offset, offset + safeLimit - 1);
 
     if (status === "needs_action") {
-      // ✅ Fix #5 — exclude order pending yang sudah expires_at < now
-      // sehingga order expired tidak muncul di needs_action
       query = query.or(
         [
-          // Manual payment belum dikonfirmasi dan belum expired
           `and(payment_method.eq.manual,status.in.(pending,under_review),or(expires_at.is.null,expires_at.gt.${now}))`,
-          // Paid tapi fulfillment_type belum dipilih
           `and(status.eq.paid,fulfillment_type.is.null)`,
-          // Paid, tipe fisik, belum delivered
           `and(status.eq.paid,fulfillment_type.eq.physical,fulfillment_status.neq.delivered)`,
-          // Paid, tipe digital, belum completed
           `and(status.eq.paid,fulfillment_type.eq.digital,fulfillment_status.neq.completed)`,
         ].join(","),
       );
@@ -557,6 +572,7 @@ export const getAllOrders = async (req, res) => {
       query = query.eq("status", status);
     }
 
+    // ✅ search sudah disanitasi sebelum dipakai
     if (search) {
       query = query.or(
         `buyer_name.ilike.%${search}%,buyer_email.ilike.%${search}%,order_number.ilike.%${search}%`,
@@ -577,7 +593,7 @@ export const getAllOrders = async (req, res) => {
       },
     });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return internalError(err, res);
   }
 };
 
@@ -618,7 +634,7 @@ export const getOrderById = async (req, res) => {
 
     return res.status(200).json({ success: true, data: order });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return internalError(err, res);
   }
 };
 
@@ -667,7 +683,7 @@ export const repayOrder = async (req, res) => {
       });
     }
 
-    // ✅ Fix #6 — guard remainingMinutes agar tidak 0 atau negatif
+    // ✅ Guard remainingMinutes agar tidak 0 atau negatif
     const remainingMs = new Date(order.expires_at).getTime() - Date.now();
     const remainingMinutes = Math.floor(remainingMs / 1000 / 60);
 
@@ -714,7 +730,7 @@ export const repayOrder = async (req, res) => {
       },
     });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return internalError(err, res);
   }
 };
 
@@ -771,8 +787,7 @@ export const updateOrderStatus = async (req, res) => {
       }
     }
 
-    // ✅ Fix logika #3 — tambah under_review ke invalidTransitions
-    // under_review tidak bisa langsung ke failed (tidak ada konteks bisnis yang valid)
+    // ✅ under_review tidak bisa langsung ke failed
     const invalidTransitions = {
       paid: ["paid", "failed"],
       cancelled: ["paid", "failed", "cancelled"],
@@ -826,7 +841,6 @@ export const updateOrderStatus = async (req, res) => {
           ),
         );
 
-        // ✅ KIRIM INVOICE PDF
         sendInvoiceEmail(fullOrder, fullOrder.order_items).catch((err) =>
           console.error("Failed to send manual invoice email:", err.message),
         );
@@ -839,7 +853,7 @@ export const updateOrderStatus = async (req, res) => {
       data,
     });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return internalError(err, res);
   }
 };
 
@@ -879,14 +893,12 @@ export const updateFulfillment = async (req, res) => {
       });
     }
 
-    // ✅ Fix logika #2 — tipe boleh diubah hanya jika fulfillment_status masih null
-    // dan hanya oleh superadmin (di-enforce via roleMiddleware di route)
+    // ✅ Tipe boleh diubah hanya jika fulfillment_status masih null
     if (
       existing.fulfillment_type &&
       fulfillment_type &&
       fulfillment_type !== existing.fulfillment_type
     ) {
-      // Jika sudah ada fulfillment_status, perubahan tipe tidak diizinkan sama sekali
       if (existing.fulfillment_status) {
         return res.status(400).json({
           success: false,
@@ -894,9 +906,6 @@ export const updateFulfillment = async (req, res) => {
             "Tipe fulfillment tidak bisa diubah setelah proses fulfillment dimulai",
         });
       }
-      // Jika fulfillment_status masih null, superadmin boleh ubah tipe
-      // roleMiddleware sudah memastikan hanya superadmin yang bisa akses endpoint ini
-      // dengan akses penuh — tidak perlu cek role di sini
     }
 
     const resolvedType = existing.fulfillment_type || fulfillment_type;
@@ -977,7 +986,6 @@ export const updateFulfillment = async (req, res) => {
         created_by: req.admin.id,
       });
     } else if (fulfillment_type && !existing.fulfillment_status) {
-      // Log type_set — baik untuk set pertama maupun koreksi tipe oleh superadmin
       await supabase.from("order_fulfillment_history").insert({
         order_id: id,
         status: "type_set",
@@ -1015,6 +1023,6 @@ export const updateFulfillment = async (req, res) => {
       data: updatedOrder,
     });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return internalError(err, res);
   }
 };

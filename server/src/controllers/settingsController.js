@@ -1,6 +1,15 @@
 import supabase from "../config/supabase.js";
 import uploadToSupabase from "../utils/uploadToSupabase.js";
 
+const isDev = process.env.NODE_ENV !== "production";
+const internalError = (err, res) => {
+  console.error(err);
+  return res.status(500).json({
+    success: false,
+    message: isDev ? err.message : "Internal server error",
+  });
+};
+
 // ==================== HELPERS ====================
 
 const extractYoutubeId = (input) => {
@@ -30,12 +39,9 @@ export const getSiteSettings = async (req, res) => {
     }, {});
     return res.status(200).json({ success: true, data: settings });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return internalError(err, res);
   }
 };
-
-// ==================== POTONGAN updateSiteSettings yang diupdate ====================
-// Ganti fungsi updateSiteSettings yang lama dengan ini seluruhnya
 
 export const updateSiteSettings = async (req, res) => {
   const {
@@ -153,7 +159,6 @@ export const updateSiteSettings = async (req, res) => {
           "URL Maps tidak valid. Gunakan embed URL dari Google Maps (Share → Embed a map).",
       });
     }
-    // Pastikan tidak ada javascript: atau data: URI
     if (
       /javascript:/i.test(company_maps_embed_url) ||
       /data:/i.test(company_maps_embed_url)
@@ -228,7 +233,7 @@ export const updateSiteSettings = async (req, res) => {
       .status(200)
       .json({ success: true, message: "Settings updated successfully" });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return internalError(err, res);
   }
 };
 
@@ -255,7 +260,7 @@ export const uploadLogo = async (req, res) => {
       data: { logo_url: logoUrl },
     });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return internalError(err, res);
   }
 };
 
@@ -270,7 +275,7 @@ export const deleteLogo = async (req, res) => {
       .status(200)
       .json({ success: true, message: "Logo removed successfully" });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return internalError(err, res);
   }
 };
 
@@ -296,7 +301,7 @@ export const getPromoSettings = async (req, res) => {
     }, {});
     return res.status(200).json({ success: true, data: settings });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return internalError(err, res);
   }
 };
 
@@ -335,7 +340,6 @@ export const updatePromoSettings = async (req, res) => {
     }
   }
 
-  // Validasi individual tanggal jika hanya satu yang ada
   if (promo_starts_at && !promo_ends_at) {
     if (isNaN(new Date(promo_starts_at).getTime())) {
       return res.status(400).json({
@@ -361,7 +365,6 @@ export const updatePromoSettings = async (req, res) => {
       updates.push({ key: "promo_title", value: promo_title });
     if (promo_description !== undefined)
       updates.push({ key: "promo_description", value: promo_description });
-    // Simpan sebagai ISO string atau string kosong
     if (promo_starts_at !== undefined)
       updates.push({
         key: "promo_starts_at",
@@ -386,7 +389,7 @@ export const updatePromoSettings = async (req, res) => {
       message: "Promo settings updated successfully",
     });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return internalError(err, res);
   }
 };
 
@@ -397,7 +400,6 @@ export const uploadPromoBanner = async (req, res) => {
       .json({ success: false, message: "No image file provided" });
   }
   try {
-    // Simpan di folder "promo" agar terpisah dari "settings" (logo)
     const bannerUrl = await uploadToSupabase(
       req.file.buffer,
       req.file.mimetype,
@@ -414,7 +416,7 @@ export const uploadPromoBanner = async (req, res) => {
       data: { banner_url: bannerUrl },
     });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return internalError(err, res);
   }
 };
 
@@ -430,7 +432,7 @@ export const deletePromoBanner = async (req, res) => {
       message: "Promo banner removed successfully",
     });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return internalError(err, res);
   }
 };
 
@@ -445,7 +447,7 @@ export const getPageSettings = async (req, res) => {
     if (error) throw error;
     return res.status(200).json({ success: true, data });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return internalError(err, res);
   }
 };
 
@@ -496,6 +498,6 @@ export const updatePageSetting = async (req, res) => {
       data,
     });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return internalError(err, res);
   }
 };

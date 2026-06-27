@@ -3,6 +3,15 @@ import uploadToSupabase from "../utils/uploadToSupabase.js";
 import slugify from "slugify";
 import sanitizeHtml from "sanitize-html";
 
+const isDev = process.env.NODE_ENV !== "production";
+const internalError = (err, res) => {
+  console.error(err);
+  return res.status(500).json({
+    success: false,
+    message: isDev ? err.message : "Internal server error",
+  });
+};
+
 const sanitizeBlogContent = (dirty) =>
   sanitizeHtml(dirty, {
     allowedTags: [
@@ -69,7 +78,7 @@ export const getAllCategories = async (req, res) => {
     if (error) throw error;
     return res.status(200).json({ success: true, data });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return internalError(err, res);
   }
 };
 
@@ -105,7 +114,7 @@ export const createCategory = async (req, res) => {
       .status(201)
       .json({ success: true, message: "Category created successfully", data });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return internalError(err, res);
   }
 };
 
@@ -142,7 +151,7 @@ export const deleteCategory = async (req, res) => {
       message: "Category and all its blogs have been deleted.",
     });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return internalError(err, res);
   }
 };
 
@@ -158,7 +167,7 @@ export const getAllTags = async (req, res) => {
     if (error) throw error;
     return res.status(200).json({ success: true, data });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return internalError(err, res);
   }
 };
 
@@ -194,7 +203,7 @@ export const createTag = async (req, res) => {
       .status(201)
       .json({ success: true, message: "Tag created successfully", data });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return internalError(err, res);
   }
 };
 
@@ -227,7 +236,7 @@ export const deleteTag = async (req, res) => {
       .status(200)
       .json({ success: true, message: "Tag deleted successfully." });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return internalError(err, res);
   }
 };
 
@@ -271,7 +280,7 @@ export const getAllBlogs = async (req, res) => {
 
     return res.status(200).json({ success: true, data: filtered });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return internalError(err, res);
   }
 };
 
@@ -295,7 +304,7 @@ export const getBlogById = async (req, res) => {
 
     return res.status(200).json({ success: true, data });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return internalError(err, res);
   }
 };
 
@@ -319,7 +328,7 @@ export const getBlogBySlug = async (req, res) => {
 
     return res.status(200).json({ success: true, data });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return internalError(err, res);
   }
 };
 
@@ -355,7 +364,6 @@ export const createBlog = async (req, res) => {
     }
   }
 
-  // ✅ Tidak ada lagi fallback ke General tag
   const slug = slugify(title, { lower: true, strict: true });
 
   try {
@@ -408,7 +416,8 @@ export const createBlog = async (req, res) => {
 
       if (tagError) {
         await supabase.from("blogs").delete().eq("id", blog.id);
-        throw new Error(`Failed to save tags: ${tagError.message}`);
+        // ✅ Jangan leak tagError.message ke response
+        throw new Error("Failed to save tags");
       }
     }
 
@@ -418,7 +427,7 @@ export const createBlog = async (req, res) => {
       data: blog,
     });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return internalError(err, res);
   }
 };
 
@@ -515,7 +524,7 @@ export const updateBlog = async (req, res) => {
       data: blog,
     });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return internalError(err, res);
   }
 };
 
@@ -542,6 +551,6 @@ export const deleteBlog = async (req, res) => {
       .status(200)
       .json({ success: true, message: "Blog deleted successfully" });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return internalError(err, res);
   }
 };
