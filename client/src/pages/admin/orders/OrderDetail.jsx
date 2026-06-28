@@ -13,6 +13,7 @@ import {
   Settings,
   PartyPopper,
   ChevronRight,
+  FileText,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import {
@@ -20,6 +21,7 @@ import {
   updateOrderStatus,
   updateFulfillment,
   markOrderUnderReview,
+  resendInvoice,
 } from "../../../api/orders";
 import ConfirmModal from "../../../components/ui/ConfirmModal";
 
@@ -466,6 +468,15 @@ export default function OrderDetail() {
       toast.error(err.response?.data?.message || "Gagal update status"),
   });
 
+  // ── Mutation: resend invoice ──────────────────────────────────
+  const { mutate: doResendInvoice, isPending: isResendingInvoice } =
+    useMutation({
+      mutationFn: () => resendInvoice(id),
+      onSuccess: () => toast.success("Invoice berhasil dikirim ulang"),
+      onError: (err) =>
+        toast.error(err.response?.data?.message || "Gagal mengirim invoice"),
+    });
+
   // ── Mutation: fulfillment ─────────────────────────────────────
   const { mutate: doFulfillment, isPending: isFulfilling } = useMutation({
     mutationFn: (payload) => updateFulfillment(id, payload),
@@ -606,6 +617,18 @@ export default function OrderDetail() {
                   >
                     <Eye size={14} />
                     Tandai Ditinjau
+                  </button>
+                )}
+
+                {/* Resend Invoice — hanya untuk order yang sudah paid */}
+                {order.status === "paid" && (
+                  <button
+                    onClick={() => doResendInvoice()}
+                    disabled={isResendingInvoice}
+                    className="flex items-center gap-1.5 border border-gray-200 hover:bg-gray-50 text-gray-600 text-xs font-medium px-3 py-2 rounded-lg transition-colors disabled:opacity-50"
+                  >
+                    <FileText size={14} />
+                    {isResendingInvoice ? "Mengirim..." : "Kirim Ulang Invoice"}
                   </button>
                 )}
 

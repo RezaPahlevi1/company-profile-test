@@ -516,10 +516,6 @@ export const handleMidtransWebhook = async (req, res) => {
         sendPaymentSuccessEmail(fullOrder, fullOrder.order_items).catch((err) =>
           console.error("Failed to send payment success email:", err.message),
         );
-
-        sendInvoiceEmail(fullOrder, fullOrder.order_items).catch((err) =>
-          console.error("Failed to send invoice email:", err.message),
-        );
       }
     }
 
@@ -527,7 +523,9 @@ export const handleMidtransWebhook = async (req, res) => {
   } catch (err) {
     // ✅ Webhook error — log internal, kembalikan 500 generik
     console.error("[Webhook] Error:", err);
-    return res.status(500).json({ success: false, message: "Webhook processing failed" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Webhook processing failed" });
   }
 };
 
@@ -840,10 +838,6 @@ export const updateOrderStatus = async (req, res) => {
             err.message,
           ),
         );
-
-        sendInvoiceEmail(fullOrder, fullOrder.order_items).catch((err) =>
-          console.error("Failed to send manual invoice email:", err.message),
-        );
       }
     }
 
@@ -1021,6 +1015,50 @@ export const updateFulfillment = async (req, res) => {
       success: true,
       message: "Fulfillment updated",
       data: updatedOrder,
+    });
+  } catch (err) {
+    return internalError(err, res);
+  }
+};
+
+// ─────────────────────────────────────────────
+// RESEND INVOICE (admin)
+// ─────────────────────────────────────────────
+export const resendInvoice = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const { data: order, error } = await supabase
+      .from("orders")
+      .select(`*, order_items(product_name, price_at_purchase, quantity)`)
+      .eq("id", id)
+      .single();
+
+    if (error || !order) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Order not found" });
+    }
+
+    if (order.status !== "paid") {
+      return res.status(400).json({
+        success: false,
+        message: "Invoice hanya bisa dikirim untuk order yang sudah dibayar",
+      });
+    }
+
+    const sent = await sendInvoiceEmail(order, order.order_items);
+
+    if (!sent) {
+      return res.status(502).json({
+        success: false,
+        message: "Gagal mengirim invoice. Silakan coba lagi.",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Invoice berhasil dikirim ulang",
     });
   } catch (err) {
     return internalError(err, res);

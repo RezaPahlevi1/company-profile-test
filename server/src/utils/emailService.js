@@ -27,11 +27,35 @@ const sanitizeBroadcastHtml = (dirty) => {
   if (!dirty) return "";
   return sanitizeHtml(dirty, {
     allowedTags: [
-      "p", "br", "strong", "em", "u", "s", "blockquote",
-      "code", "pre", "h1", "h2", "h3", "h4", "h5", "h6",
-      "ul", "ol", "li", "a", "img",
-      "table", "thead", "tbody", "tr", "th", "td",
-      "hr", "div", "span",
+      "p",
+      "br",
+      "strong",
+      "em",
+      "u",
+      "s",
+      "blockquote",
+      "code",
+      "pre",
+      "h1",
+      "h2",
+      "h3",
+      "h4",
+      "h5",
+      "h6",
+      "ul",
+      "ol",
+      "li",
+      "a",
+      "img",
+      "table",
+      "thead",
+      "tbody",
+      "tr",
+      "th",
+      "td",
+      "hr",
+      "div",
+      "span",
     ],
     allowedAttributes: {
       a: ["href", "target", "rel"],
@@ -469,7 +493,20 @@ export const sendOrderCreatedEmail = async (
   }
 };
 
-// ── sendPaymentSuccessEmail ──────────────────────────────────
+const generateInvoiceWithRetry = async (order, items, siteSettings) => {
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      return await generateInvoiceBuffer(order, items, siteSettings, 0);
+    } catch (err) {
+      console.error(
+        `generateInvoiceBuffer attempt ${attempt} failed for order ${order.order_number}:`,
+        err.message,
+      );
+      if (attempt === 2) return null;
+    }
+  }
+};
+
 export const sendPaymentSuccessEmail = async (order, items) => {
   try {
     const [template, siteSettings] = await Promise.all([
@@ -495,12 +532,34 @@ export const sendPaymentSuccessEmail = async (order, items) => {
     const contentHtml = buildPaymentSuccessContent(order, items, variables);
     const html = buildEmailHtml(template, contentHtml, variables);
 
-    const { data, error } = await resend.emails.send({
+    // ✅ Generate invoice PDF — retry sekali, degrade (tanpa attachment) jika tetap gagal
+    const invoiceBuffer = await generateInvoiceWithRetry(
+      order,
+      items,
+      siteSettings,
+    );
+
+    const emailPayload = {
       from: process.env.RESEND_FROM_EMAIL,
       to: order.buyer_email,
       subject,
       html,
-    });
+    };
+
+    if (invoiceBuffer) {
+      emailPayload.attachments = [
+        {
+          filename: `Invoice_${order.order_number}.pdf`,
+          content: invoiceBuffer.toString("base64"),
+        },
+      ];
+    } else {
+      console.error(
+        `Invoice PDF gagal dibuat untuk order ${order.order_number} — email payment success dikirim tanpa attachment.`,
+      );
+    }
+
+    const { data, error } = await resend.emails.send(emailPayload);
 
     if (error) throw error;
     console.log("Payment success email sent:", data?.id);
@@ -671,7 +730,12 @@ export const sendInvoiceEmail = async (order, items) => {
       header_color: template.header_color,
     };
 
-    const pdfBuffer = await generateInvoiceBuffer(order, items, siteSettings, 0);
+    const pdfBuffer = await generateInvoiceBuffer(
+      order,
+      items,
+      siteSettings,
+      0,
+    );
     const base64Pdf = pdfBuffer.toString("base64");
 
     const subject = `Invoice Tagihan ${order.order_number}`;

@@ -9,6 +9,7 @@ import {
   repayOrder,
   updateOrderStatus,
   updateFulfillment,
+  resendInvoice,
 } from "../controllers/orderController.js";
 import authMiddleware from "../middlewares/authMiddleware.js";
 import { requireRole } from "../middlewares/roleMiddleware.js";
@@ -72,6 +73,14 @@ router.patch(
   authMiddleware,
   requireRole("superadmin", "admin_order"),
   updateFulfillment,
+);
+
+// ✅ Resend invoice — superadmin + admin_order
+router.post(
+  "/:id/resend-invoice",
+  authMiddleware,
+  requireRole("superadmin", "admin_order"),
+  resendInvoice,
 );
 
 export default router;

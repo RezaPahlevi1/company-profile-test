@@ -28,3 +28,6 @@ export const updateFulfillment = (id, data) =>
 // ✅ Tandai under_review — shorthand untuk manual payment review
 export const markOrderUnderReview = (id) =>
   axiosInstance.patch(`/orders/${id}/status`, { status: "under_review" });
+
+export const resendInvoice = (id) =>
+  axiosInstance.post(`/orders/${id}/resend-invoice`);
