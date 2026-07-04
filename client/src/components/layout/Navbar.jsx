@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link, NavLink } from "react-router-dom";
+import { Link, NavLink, useLocation } from "react-router-dom";
 import { Menu, X, MessageCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
@@ -13,12 +13,19 @@ const PAGE_PATH_MAP = {
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const { pathname } = useLocation();
+
+  // Transparent-floating navbar hanya relevan di Home (full-bleed hero).
+  // Halaman lain (page banner + padding) selalu solid dari awal.
+  const isHomePage = pathname === "/";
+  const floating = isHomePage && !scrolled;
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
+    handleScroll(); // set state awal saat mount/ganti halaman
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
+  }, [pathname]);
 
   const { data: siteData } = useQuery({
     queryKey: ["site-settings"],
@@ -59,28 +66,58 @@ export default function Navbar() {
     "$1 $2-$3-$4",
   );
 
+  // Helper class untuk link nav (desktop & Home link)
+  const navLinkClass = ({ isActive }) => {
+    if (floating) {
+      return `text-sm font-medium transition-colors duration-300 ${
+        isActive ? "text-white" : "text-white/80 hover:text-white"
+      }`;
+    }
+    return `text-sm font-medium transition-colors duration-300 ${
+      isActive ? "text-brand-600" : "text-slate-600 hover:text-slate-900"
+    }`;
+  };
+
   return (
     <nav
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        scrolled
-          ? "bg-white/90 backdrop-blur-md shadow-sm border-b border-slate-100"
-          : "bg-transparent"
+        floating
+          ? "bg-transparent"
+          : "bg-white/90 backdrop-blur-md shadow-sm border-b border-slate-100"
       }`}
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      {/* Scrim — hanya saat floating, agnostik terhadap bgType Hero (color/gradient/none/image) */}
+      {floating && (
+        <div
+          aria-hidden="true"
+          className="absolute inset-x-0 top-0 h-28 lg:h-32 z-0 pointer-events-none bg-gradient-to-b from-black/45 to-transparent"
+        />
+      )}
+
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16 lg:h-20">
           {/* Brand kiri */}
           <div className="flex items-center gap-3 min-w-0">
             <Link to="/" className="flex items-center gap-2 min-w-0">
               {showLogo && (
-                <img
-                  src={logoUrl}
-                  alt={siteName}
-                  className="h-9 w-auto object-contain shrink-0"
-                />
+                <span
+                  className={`inline-flex items-center rounded-lg transition-colors duration-300 ${
+                    floating ? "bg-white/90 backdrop-blur-sm px-2 py-1" : ""
+                  }`}
+                >
+                  <img
+                    src={logoUrl}
+                    alt={siteName}
+                    className="h-9 w-auto object-contain shrink-0"
+                  />
+                </span>
               )}
               {showSiteName && (
-                <span className="font-bold text-lg leading-tight text-brand-600 truncate">
+                <span
+                  className={`font-bold text-lg leading-tight truncate transition-colors duration-300 ${
+                    floating ? "text-white" : "text-brand-600"
+                  }`}
+                >
                   {siteName}
                 </span>
               )}
@@ -92,7 +129,11 @@ export default function Navbar() {
                 href={`https://wa.me/${waNumber}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="hidden sm:flex items-center gap-1 text-green-600 hover:text-green-700 transition-colors text-xs"
+                className={`hidden sm:flex items-center gap-1 transition-colors duration-300 text-xs ${
+                  floating
+                    ? "text-white/90 hover:text-white"
+                    : "text-green-600 hover:text-green-700"
+                }`}
               >
                 <MessageCircle size={10} className="shrink-0" />
                 <span>+{waFormatted}</span>
@@ -102,39 +143,23 @@ export default function Navbar() {
 
           {/* Desktop nav */}
           <div className="hidden lg:flex items-center gap-6">
-            <NavLink
-              to="/"
-              end
-              className={({ isActive }) =>
-                `text-sm font-medium transition-colors duration-200 ${
-                  isActive
-                    ? "text-brand-600"
-                    : "text-slate-600 hover:text-slate-900"
-                }`
-              }
-            >
+            <NavLink to="/" end className={navLinkClass}>
               {pages.find((p) => p.page_key === "home")?.navbar_label || "Home"}
             </NavLink>
 
             {navLinks.map((link) => (
-              <NavLink
-                key={link.to}
-                to={link.to}
-                className={({ isActive }) =>
-                  `text-sm font-medium transition-colors duration-200 ${
-                    isActive
-                      ? "text-brand-600"
-                      : "text-slate-600 hover:text-slate-900"
-                  }`
-                }
-              >
+              <NavLink key={link.to} to={link.to} className={navLinkClass}>
                 {link.label}
               </NavLink>
             ))}
           </div>
 
           <button
-            className="lg:hidden p-2 rounded-lg text-slate-600 hover:bg-slate-100 transition-colors"
+            className={`lg:hidden p-2 rounded-lg transition-colors duration-300 ${
+              floating
+                ? "text-white hover:bg-white/10"
+                : "text-slate-600 hover:bg-slate-100"
+            }`}
             onClick={() => setIsOpen(!isOpen)}
           >
             {isOpen ? <X size={22} /> : <Menu size={22} />}
@@ -142,7 +167,7 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* Mobile menu */}
+      {/* Mobile menu — selalu solid putih, tidak terpengaruh state floating */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -150,7 +175,7 @@ export default function Navbar() {
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.2 }}
-            className="lg:hidden bg-white border-t border-slate-100 overflow-hidden"
+            className="relative z-10 lg:hidden bg-white border-t border-slate-100 overflow-hidden"
           >
             <div className="px-4 py-4 space-y-1">
               <NavLink
