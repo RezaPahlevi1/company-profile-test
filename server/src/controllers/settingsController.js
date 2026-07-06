@@ -64,6 +64,7 @@ export const updateSiteSettings = async (req, res) => {
     manual_payment_verification_hours,
     manual_payment_expiry_minutes,
     terms_highlight,
+    gateway_payment_enabled,
   } = req.body;
 
   // Validasi payment_expiry_minutes — 1 menit sampai 1440 menit (24 jam)
@@ -108,6 +109,16 @@ export const updateSiteSettings = async (req, res) => {
     return res.status(400).json({
       success: false,
       message: "Invalid value for show_whatsapp",
+    });
+  }
+
+  if (
+    gateway_payment_enabled !== undefined &&
+    !["true", "false"].includes(gateway_payment_enabled)
+  ) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid value for gateway_payment_enabled",
     });
   }
 
@@ -223,6 +234,16 @@ export const updateSiteSettings = async (req, res) => {
       });
     if (terms_highlight !== undefined)
       updates.push({ key: "terms_highlight", value: terms_highlight });
+    if (gateway_payment_enabled !== undefined) {
+      updates.push({
+        key: "gateway_payment_enabled",
+        value: gateway_payment_enabled,
+      });
+      // ✅ Log sementara — pengganti audit trail resmi (belum ada updated_by di site_settings)
+      console.warn(
+        `[AUDIT] gateway_payment_enabled -> "${gateway_payment_enabled}" by admin ${req.admin?.id} (${req.admin?.email}) at ${new Date().toISOString()}`,
+      );
+    }
 
     for (const update of updates) {
       const { error } = await supabase

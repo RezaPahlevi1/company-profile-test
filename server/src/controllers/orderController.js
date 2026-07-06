@@ -204,6 +204,21 @@ export const createOrder = async (req, res) => {
   try {
     const productIds = items.map((item) => item.product_id);
 
+    if (resolvedPaymentMethod === "gateway") {
+      const { data: gatewaySetting } = await supabase
+        .from("site_settings")
+        .select("value")
+        .eq("key", "gateway_payment_enabled")
+        .single();
+
+      if (gatewaySetting?.value?.trim().toLowerCase() === "false") {
+        return res.status(400).json({
+          success: false,
+          message: "Pembayaran via gateway sedang tidak tersedia saat ini",
+        });
+      }
+    }
+
     if (resolvedPaymentMethod === "manual") {
       const { data: bankSetting } = await supabase
         .from("site_settings")

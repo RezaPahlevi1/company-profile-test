@@ -44,6 +44,7 @@ export default function SiteSettings() {
   const queryClient = useQueryClient();
   const logoInputRef = useRef(null);
   const [confirmDeleteLogo, setConfirmDeleteLogo] = useState(false);
+  const [confirmDisableGateway, setConfirmDisableGateway] = useState(false);
 
   const { data: siteData, isLoading: siteLoading } = useQuery({
     queryKey: ["site-settings"],
@@ -173,6 +174,22 @@ export default function SiteSettings() {
     setVideoError(isYoutube ? "" : "Masukkan URL YouTube yang valid");
   };
 
+  const handleToggleGateway = () => {
+    if (gatewayEnabled) {
+      // Mematikan — perlu guard supaya checkout tidak buntu total
+      if (!form.bank_account_info?.trim()) {
+        toast.error(
+          "Isi dulu Informasi Rekening Bank sebelum menonaktifkan pembayaran gateway, agar pembeli tetap punya opsi bayar.",
+        );
+        return;
+      }
+      setConfirmDisableGateway(true);
+    } else {
+      // Menyalakan — aman, langsung simpan tanpa konfirmasi
+      saveSiteSettings({ gateway_payment_enabled: "true" });
+    }
+  };
+
   const handleSave = () => {
     const mins = Number(form.payment_expiry_minutes);
     if (isNaN(mins) || mins < 1 || mins > 1440) {
@@ -228,6 +245,7 @@ export default function SiteSettings() {
   const showLogo = settings.navbar_logo_url && settings.navbar_logo_url !== "";
   const showWhatsapp = settings.show_whatsapp !== "false";
   const showFooterVideo = settings.show_footer_video !== "false";
+  const gatewayEnabled = settings.gateway_payment_enabled !== "false";
 
   if (siteLoading || pagesLoading) {
     return (
@@ -409,6 +427,24 @@ export default function SiteSettings() {
           <h2 className="text-base font-semibold text-gray-900">
             Pembayaran & Estimasi
           </h2>
+        </div>
+
+        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl mb-4">
+          <div>
+            <p className="text-sm font-medium text-gray-700">
+              Pembayaran via Gateway (Midtrans)
+            </p>
+            <p className="text-xs text-gray-400 mt-0.5">
+              Nonaktifkan untuk hanya menerima transfer manual
+            </p>
+          </div>
+          <button onClick={handleToggleGateway} className="shrink-0 ml-4">
+            {gatewayEnabled ? (
+              <ToggleRight size={28} className="text-blue-600" />
+            ) : (
+              <ToggleLeft size={28} className="text-gray-400" />
+            )}
+          </button>
         </div>
 
         <div className="space-y-4">
@@ -777,6 +813,19 @@ export default function SiteSettings() {
         onConfirm={() => doDeleteLogo()}
         onCancel={() => setConfirmDeleteLogo(false)}
         isLoading={isDeletingLogo}
+      />
+      <ConfirmModal
+        isOpen={confirmDisableGateway}
+        title="Nonaktifkan Pembayaran Gateway"
+        message="Pembeli baru hanya bisa checkout via transfer manual. Order gateway yang sudah ada sebelumnya tetap bisa diselesaikan seperti biasa."
+        variant="danger"
+        confirmLabel="Nonaktifkan"
+        onConfirm={() => {
+          saveSiteSettings({ gateway_payment_enabled: "false" });
+          setConfirmDisableGateway(false);
+        }}
+        onCancel={() => setConfirmDisableGateway(false)}
+        isLoading={isSaving}
       />
     </div>
   );

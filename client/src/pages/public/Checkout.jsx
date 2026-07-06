@@ -55,15 +55,39 @@ export default function Checkout() {
   const siteSettings = settingsData?.data?.data || {};
   const bankAccountInfo = siteSettings.bank_account_info || "";
   const manualPaymentAvailable = bankAccountInfo.trim().length > 0;
+  const gatewayAvailable = siteSettings.gateway_payment_enabled !== "false";
+  const noPaymentAvailable = !gatewayAvailable && !manualPaymentAvailable;
   const verificationHours =
     siteSettings.manual_payment_verification_hours || "1x24 jam kerja";
 
-  // ✅ Reset ke gateway jika manual tidak tersedia
-  useEffect(() => {
-    if (!manualPaymentAvailable && paymentMethod === "manual") {
+  // ✅ Simpan nilai availability sebelumnya untuk deteksi perubahan
+  const [prevAvailability, setPrevAvailability] = useState({
+    gatewayAvailable,
+    manualPaymentAvailable,
+  });
+
+  // ✅ Penyesuaian state langsung saat render (bukan di useEffect)
+  // Ini pola resmi React untuk "adjusting state when a value changes"
+  if (
+    prevAvailability.gatewayAvailable !== gatewayAvailable ||
+    prevAvailability.manualPaymentAvailable !== manualPaymentAvailable
+  ) {
+    setPrevAvailability({ gatewayAvailable, manualPaymentAvailable });
+
+    if (
+      !manualPaymentAvailable &&
+      paymentMethod === "manual" &&
+      gatewayAvailable
+    ) {
       setPaymentMethod("gateway");
+    } else if (
+      !gatewayAvailable &&
+      paymentMethod === "gateway" &&
+      manualPaymentAvailable
+    ) {
+      setPaymentMethod("manual");
     }
-  }, [manualPaymentAvailable, paymentMethod]);
+  }
 
   const {
     register,
@@ -144,6 +168,32 @@ export default function Checkout() {
           >
             Lihat Produk
           </button>
+        </div>
+      </main>
+    );
+  }
+
+  if (noPaymentAvailable) {
+    return (
+      <main className="pt-16 lg:pt-20 min-h-screen flex items-center justify-center">
+        <div className="text-center max-w-md px-4">
+          <Info size={48} className="text-slate-300 mx-auto mb-4" />
+          <p className="text-slate-500 text-lg mb-2">
+            Pembayaran sedang tidak tersedia saat ini.
+          </p>
+          <p className="text-slate-400 text-sm mb-4">
+            Silakan hubungi kami langsung untuk melanjutkan pemesanan.
+          </p>
+          {siteSettings.whatsapp_number && (
+            <a
+              href={`https://wa.me/${siteSettings.whatsapp_number}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-primary inline-flex"
+            >
+              Hubungi via WhatsApp
+            </a>
+          )}
         </div>
       </main>
     );
@@ -263,53 +313,55 @@ export default function Checkout() {
                   </label>
                   <div className="grid grid-cols-1 gap-3">
                     {/* Gateway */}
-                    <button
-                      type="button"
-                      onClick={() => setPaymentMethod("gateway")}
-                      className={`flex items-center gap-4 p-4 rounded-xl border-2 text-left transition-all ${
-                        paymentMethod === "gateway"
-                          ? "border-brand-500 bg-brand-50"
-                          : "border-slate-200 bg-white hover:border-slate-300"
-                      }`}
-                    >
-                      <div
-                        className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
+                    {gatewayAvailable && (
+                      <button
+                        type="button"
+                        onClick={() => setPaymentMethod("gateway")}
+                        className={`flex items-center gap-4 p-4 rounded-xl border-2 text-left transition-all ${
                           paymentMethod === "gateway"
-                            ? "bg-brand-100"
-                            : "bg-slate-100"
+                            ? "border-brand-500 bg-brand-50"
+                            : "border-slate-200 bg-white hover:border-slate-300"
                         }`}
                       >
-                        <CreditCard
-                          size={18}
-                          className={
+                        <div
+                          className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
                             paymentMethod === "gateway"
-                              ? "text-brand-600"
-                              : "text-slate-400"
-                          }
-                        />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p
-                          className={`text-sm font-semibold ${paymentMethod === "gateway" ? "text-brand-700" : "text-slate-700"}`}
+                              ? "bg-brand-100"
+                              : "bg-slate-100"
+                          }`}
                         >
-                          Bayar via Website
-                        </p>
-                        <p className="text-xs text-slate-500 mt-0.5">
-                          Transfer bank, QRIS, kartu kredit, e-wallet
-                        </p>
-                      </div>
-                      <div
-                        className={`w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center ${
-                          paymentMethod === "gateway"
-                            ? "border-brand-500"
-                            : "border-slate-300"
-                        }`}
-                      >
-                        {paymentMethod === "gateway" && (
-                          <div className="w-2 h-2 rounded-full bg-brand-500" />
-                        )}
-                      </div>
-                    </button>
+                          <CreditCard
+                            size={18}
+                            className={
+                              paymentMethod === "gateway"
+                                ? "text-brand-600"
+                                : "text-slate-400"
+                            }
+                          />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p
+                            className={`text-sm font-semibold ${paymentMethod === "gateway" ? "text-brand-700" : "text-slate-700"}`}
+                          >
+                            Bayar via Website
+                          </p>
+                          <p className="text-xs text-slate-500 mt-0.5">
+                            Transfer bank, QRIS, e-wallet
+                          </p>
+                        </div>
+                        <div
+                          className={`w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center ${
+                            paymentMethod === "gateway"
+                              ? "border-brand-500"
+                              : "border-slate-300"
+                          }`}
+                        >
+                          {paymentMethod === "gateway" && (
+                            <div className="w-2 h-2 rounded-full bg-brand-500" />
+                          )}
+                        </div>
+                      </button>
+                    )}
 
                     {/* Manual — hanya tampil jika tersedia */}
                     {manualPaymentAvailable && (
