@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, Link } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -31,6 +31,9 @@ const checkoutSchema = z.object({
     .email("Format email tidak valid"),
   buyer_phone: z.string().min(8, "Nomor HP tidak valid"),
   buyer_address: z.string().min(10, "Alamat minimal 10 karakter"),
+  terms_accepted: z.boolean().refine((val) => val === true, {
+    message: "Anda harus menyetujui syarat dan ketentuan",
+  }),
 });
 
 export default function Checkout() {
@@ -66,7 +69,10 @@ export default function Checkout() {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm({ resolver: zodResolver(checkoutSchema) });
+  } = useForm({
+    resolver: zodResolver(checkoutSchema),
+    defaultValues: { terms_accepted: false },
+  });
 
   const { mutate: submitOrder, isPending } = useMutation({
     mutationFn: createOrder,
@@ -116,8 +122,9 @@ export default function Checkout() {
       toast.error("Produk tidak ditemukan");
       return;
     }
+    const { terms_accepted, ...orderData } = data;
     submitOrder({
-      ...data,
+      ...orderData,
       items: [{ product_id: product.id, quantity }],
       payment_method: paymentMethod,
     });
@@ -392,6 +399,42 @@ export default function Checkout() {
                   </AnimatePresence>
                 </div>
 
+                <div className="flex items-start gap-3 p-4 rounded-xl bg-amber-50 border border-amber-200">
+                  <Info size={16} className="text-amber-600 shrink-0 mt-0.5" />
+                  <p className="text-sm text-amber-800">
+                    {siteSettings.terms_highlight ||
+                      "Pembelian produk hanya kami layani untuk wilayah Pulau Batam."}
+                  </p>
+                </div>
+
+                {/* Checkbox persetujuan wajib */}
+                <div>
+                  <label className="flex items-start gap-2.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      {...register("terms_accepted")}
+                      className="mt-0.5 w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500 shrink-0"
+                    />
+                    <span className="text-sm text-slate-600">
+                      Saya sudah membaca dan setuju dengan{" "}
+                      <Link
+                        to="/terms"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-brand-600 font-medium hover:underline"
+                      >
+                        Syarat dan Ketentuan
+                      </Link>{" "}
+                      kami.
+                    </span>
+                  </label>
+                  {errors.terms_accepted && (
+                    <p className="text-red-500 text-xs mt-1.5">
+                      {errors.terms_accepted.message}
+                    </p>
+                  )}
+                </div>
+
                 {/* Submit */}
                 <button
                   type="submit"
@@ -438,11 +481,6 @@ export default function Checkout() {
                     </>
                   )}
                 </button>
-
-                <p className="text-xs text-slate-400 text-center">
-                  Dengan melanjutkan, Anda setuju dengan syarat dan ketentuan
-                  kami.
-                </p>
               </form>
             </motion.div>
 
@@ -541,7 +579,6 @@ export default function Checkout() {
                       {[
                         "Transfer Bank / Virtual Account",
                         "QRIS",
-                        "Kartu Kredit / Debit",
                         "GoPay, OVO, ShopeePay",
                         "Indomaret / Alfamart",
                       ].map((method) => (

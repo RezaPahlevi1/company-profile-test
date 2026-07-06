@@ -63,6 +63,7 @@ export const updateSiteSettings = async (req, res) => {
     bank_account_info,
     manual_payment_verification_hours,
     manual_payment_expiry_minutes,
+    terms_highlight,
   } = req.body;
 
   // Validasi payment_expiry_minutes — 1 menit sampai 1440 menit (24 jam)
@@ -220,6 +221,8 @@ export const updateSiteSettings = async (req, res) => {
         key: "manual_payment_verification_hours",
         value: manual_payment_verification_hours,
       });
+    if (terms_highlight !== undefined)
+      updates.push({ key: "terms_highlight", value: terms_highlight });
 
     for (const update of updates) {
       const { error } = await supabase

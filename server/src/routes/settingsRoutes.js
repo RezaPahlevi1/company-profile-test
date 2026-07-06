@@ -32,6 +32,7 @@ router.put(
     footer_cta_title: { max: 100 },
     footer_cta_body: { max: 300 },
     // footer_video_url tidak di-checkBounds — divalidasi via extractYoutubeId di controller
+    terms_highlight: { max: 250 },
   }),
   updateSiteSettings,
 );

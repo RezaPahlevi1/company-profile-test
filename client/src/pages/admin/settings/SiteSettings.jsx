@@ -14,6 +14,7 @@ import {
   MessageCircle,
   AlignLeft,
   Video,
+  ScrollText,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import {
@@ -73,6 +74,8 @@ export default function SiteSettings() {
     footer_video_url: "",
   });
 
+  const [termsForm, setTermsForm] = useState({ terms_highlight: "" });
+
   const [videoError, setVideoError] = useState("");
 
   useEffect(() => {
@@ -92,6 +95,9 @@ export default function SiteSettings() {
         footer_cta_title: settings.footer_cta_title || "",
         footer_cta_body: settings.footer_cta_body || "",
         footer_video_url: settings.footer_video_id || "",
+      });
+      setTermsForm({
+        terms_highlight: settings.terms_highlight || "",
       });
     }
   }, [siteData]);
@@ -191,6 +197,20 @@ export default function SiteSettings() {
       footer_cta_body: footerForm.footer_cta_body,
       footer_video_url: footerForm.footer_video_url,
     });
+  };
+
+  const { mutate: saveTermsHighlight, isPending: isSavingTerms } = useMutation({
+    mutationFn: updateSiteSettings,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["site-settings"] });
+      toast.success("Syarat & Ketentuan settings saved");
+    },
+    onError: (err) =>
+      toast.error(err.response?.data?.message || "Failed to save"),
+  });
+
+  const handleSaveTerms = () => {
+    saveTermsHighlight({ terms_highlight: termsForm.terms_highlight });
   };
 
   const getPreviewVideoId = (val) => {
@@ -524,6 +544,60 @@ export default function SiteSettings() {
           <Save size={16} />
           {isSaving ? "Menyimpan..." : "Simpan Pengaturan"}
         </button>
+      </div>
+
+      {/* Syarat & Ketentuan — highlight checkout */}
+      <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
+        <div className="flex items-center gap-3 mb-5">
+          <div className="w-9 h-9 bg-amber-50 rounded-lg flex items-center justify-center shrink-0">
+            <ScrollText size={18} className="text-amber-600" />
+          </div>
+          <div>
+            <h2 className="text-base font-semibold text-gray-900">
+              Syarat & Ketentuan (Checkout)
+            </h2>
+            <p className="text-xs text-gray-400 mt-0.5">
+              Untuk edit isi lengkap halaman{" "}
+              <code className="bg-gray-100 px-1 py-0.5 rounded">/terms</code>,
+              buka{" "}
+              <Link
+                to="/admin/settings/terms"
+                className="text-blue-600 hover:underline"
+              >
+                Terms & Conditions
+              </Link>
+            </p>
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Penegasan Utama di Halaman Checkout
+          </label>
+          <textarea
+            value={termsForm.terms_highlight}
+            onChange={(e) => setTermsForm({ terms_highlight: e.target.value })}
+            rows={2}
+            maxLength={250}
+            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+            placeholder="Pembelian produk hanya kami layani untuk wilayah Pulau Batam."
+          />
+          <p className="text-xs text-gray-400 mt-1.5">
+            Ditampilkan sebagai kotak peringatan di halaman checkout, sebelum
+            tombol bayar. Maksimal 250 karakter.
+          </p>
+        </div>
+
+        <div className="flex justify-end mt-5">
+          <button
+            onClick={handleSaveTerms}
+            disabled={isSavingTerms}
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-medium px-4 py-2.5 rounded-lg transition-colors"
+          >
+            <Save size={16} />
+            {isSavingTerms ? "Menyimpan..." : "Simpan"}
+          </button>
+        </div>
       </div>
 
       {/* Footer Settings */}

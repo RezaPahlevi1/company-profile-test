@@ -152,6 +152,12 @@ export default function Footer() {
           <p>
             © {new Date().getFullYear()} {siteName}. All rights reserved.
           </p>
+          <Link
+            to="/terms"
+            className="hover:text-white transition-colors duration-200"
+          >
+            Syarat dan Ketentuan
+          </Link>
         </div>
       </div>
     </footer>

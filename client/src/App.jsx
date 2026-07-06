@@ -14,6 +14,7 @@ const ProductDetail = lazy(() => import("./pages/public/ProductDetail"));
 const Services = lazy(() => import("./pages/public/Services"));
 const Blog = lazy(() => import("./pages/public/Blog"));
 const BlogDetail = lazy(() => import("./pages/public/BlogDetail"));
+const Terms = lazy(() => import("./pages/public/Terms"));
 const Contact = lazy(() => import("./pages/public/Contact"));
 const Checkout = lazy(() => import("./pages/public/Checkout"));
 const OrderStatus = lazy(() => import("./pages/public/OrderStatus"));
@@ -39,6 +40,9 @@ const AboutBuilder = lazy(
 );
 const PromoSettings = lazy(
   () => import("./pages/admin/settings/PromoSettings"),
+);
+const TermsSettings = lazy(
+  () => import("./pages/admin/settings/TermsSettings"),
 );
 
 const AdminLayout = lazy(() => import("./components/layout/AdminLayout"));
@@ -255,6 +259,14 @@ export default function App() {
           }
         />
         <Route
+          path="/terms"
+          element={
+            <PublicLayout>
+              <Terms />
+            </PublicLayout>
+          }
+        />
+        <Route
           path="/checkout"
           element={
             <PublicLayout>
@@ -369,6 +381,14 @@ export default function App() {
             element={
               <RoleProtectedRoute allowedRoles={["superadmin"]}>
                 <CompanyInfo />
+              </RoleProtectedRoute>
+            }
+          />
+          <Route
+            path="settings/terms"
+            element={
+              <RoleProtectedRoute allowedRoles={["superadmin"]}>
+                <TermsSettings />
               </RoleProtectedRoute>
             }
           />
