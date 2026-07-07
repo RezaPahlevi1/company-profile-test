@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect, useRef } from "react";
 import { Routes, Route, Navigate, Link, useParams } from "react-router-dom";
 import ScrollToTop from "./components/shared/ScrollToTop";
 import useAuthStore from "./store/authStore";
@@ -145,19 +145,29 @@ const OrderTrackGuard = ({ children }) => {
   return children;
 };
 
+// SESUDAH
 const ProtectedRoute = ({ children }) => {
-  const { isAuthenticated, _hasHydrated } = useAuthStore();
+  const { isAuthenticated, admin, _hasHydrated } = useAuthStore();
+
   if (!_hasHydrated) return <PageSpinner />;
-  return isAuthenticated ? children : <Navigate to="/admin/login" replace />;
+  if (!isAuthenticated) return <Navigate to="/admin/login" replace />;
+
+  // ✅ Tunggu data admin siap DI SINI, sebelum AdminLayout/Sidebar sempat mount.
+  // Ini menyatukan gate "hydration" + "data admin" jadi satu spinner,
+  // bukan dua tahap terpisah yang bikin sidebar mount kosong lalu terisi.
+  if (!admin) return <PageSpinner />;
+
+  return children;
 };
 
 const RoleProtectedRoute = ({ allowedRoles, children }) => {
-  const { admin, _hasHydrated } = useAuthStore();
-  if (!_hasHydrated) return <PageSpinner />;
-  const role = admin?.role;
-  if (!role) return <Navigate to="/admin/login" replace />;
-  if (!allowedRoles.includes(role))
+  // ✅ Cukup cek role saja — ProtectedRoute di atasnya sudah menjamin
+  // `admin` pasti sudah terisi sebelum titik ini pernah dieksekusi
+  const { admin } = useAuthStore();
+
+  if (!allowedRoles.includes(admin.role))
     return <Navigate to="/admin/dashboard" replace />;
+
   return children;
 };
 
@@ -169,9 +179,25 @@ const PublicLayout = ({ children }) => (
   </>
 );
 
+// SESUDAH
 function AppInit() {
   useAuthVerify();
   useTrackVisit();
+
+  const { isAuthenticated, _hasHydrated } = useAuthStore();
+  const hasPrefetched = useRef(false);
+
+  useEffect(() => {
+    if (!_hasHydrated) return;
+    if (!isAuthenticated) return;
+    if (hasPrefetched.current) return;
+
+    hasPrefetched.current = true;
+    // .catch diam-diam — kalau prefetch gagal (misal koneksi putus sesaat),
+    // React.lazy() akan tetap coba lagi sendiri saat benar-benar dirender
+    import("./components/layout/AdminLayout").catch(() => {});
+  }, [_hasHydrated, isAuthenticated]);
+
   return null;
 }
 

@@ -35,7 +35,6 @@ export const createAdmin = async (req, res) => {
     });
   }
 
-  // ✅ Hanya admin_konten dan admin_order yang bisa dibuat
   const allowedRoles = ["admin_konten", "admin_order"];
   if (!allowedRoles.includes(role)) {
     return res.status(400).json({
@@ -104,7 +103,6 @@ export const updateAdmin = async (req, res) => {
       });
     }
 
-    // ✅ Tidak bisa upgrade role siapapun menjadi superadmin
     if (role === "superadmin") {
       return res.status(400).json({
         success: false,
@@ -112,7 +110,6 @@ export const updateAdmin = async (req, res) => {
       });
     }
 
-    // ✅ Tidak bisa ubah role diri sendiri
     if (id === requesterId && role && role !== existing.role) {
       return res.status(400).json({
         success: false,
@@ -120,7 +117,6 @@ export const updateAdmin = async (req, res) => {
       });
     }
 
-    // ✅ Tidak bisa edit superadmin lain (nama, email, password sekalipun)
     if (existing.role === "superadmin" && id !== requesterId) {
       return res.status(400).json({
         success: false,
@@ -128,7 +124,6 @@ export const updateAdmin = async (req, res) => {
       });
     }
 
-    // ✅ Cek duplikat email jika email diubah
     if (email && email !== existing.email) {
       const { data: emailTaken } = await supabase
         .from("admins")
@@ -158,6 +153,11 @@ export const updateAdmin = async (req, res) => {
         });
       }
       updatePayload.password_hash = await bcrypt.hash(password, 10);
+      // ✅ Revoke semua token yang diterbitkan sebelum sekarang —
+      // efeknya, device lain (termasuk device yang dipakai attacker
+      // kalau ini reset akibat akun kebobolan) langsung ter-logout
+      // di request berikutnya, tanpa perlu token blocklist penuh.
+      updatePayload.token_valid_after = new Date().toISOString();
     }
 
     const { data, error } = await supabase

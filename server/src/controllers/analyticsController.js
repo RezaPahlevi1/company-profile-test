@@ -2,6 +2,8 @@ import crypto from "crypto";
 import geoip from "geoip-lite";
 import supabase from "../config/supabase.js";
 
+const isDev = process.env.NODE_ENV !== "production";
+
 // Map kode negara ke nama negara
 const countryNames = {
   ID: "Indonesia",
@@ -57,11 +59,9 @@ const normalizeIp = (raw = "") => {
 
   const ip = raw.trim();
 
-  // IPv4-mapped IPv6: ::ffff:1.2.3.4 atau ::ffff:0:1.2.3.4
   const ipv4MappedMatch = ip.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/i);
   if (ipv4MappedMatch) return ipv4MappedMatch[1];
 
-  // Loopback dan link-local — tidak bisa di-resolve ke negara
   const isLocal =
     ip === "::1" ||
     ip === "127.0.0.1" ||
@@ -74,9 +74,9 @@ const normalizeIp = (raw = "") => {
     ip.startsWith("172.2") ||
     ip.startsWith("172.30.") ||
     ip.startsWith("172.31.") ||
-    ip.startsWith("fe80:") || // link-local IPv6
-    ip.startsWith("fc") || // unique local IPv6
-    ip.startsWith("fd"); // unique local IPv6
+    ip.startsWith("fe80:") ||
+    ip.startsWith("fc") ||
+    ip.startsWith("fd");
 
   if (isLocal) return null;
 
@@ -87,28 +87,17 @@ export const trackVisit = async (req, res) => {
   try {
     const ua = req.headers["user-agent"] || "";
 
-    // Skip bot traffic
     if (isBot(ua)) {
       return res.status(200).json({ success: true });
     }
 
-    // Di production dengan trust proxy aktif, req.ip sudah berisi
-    // IP asli user dari x-forwarded-for secara otomatis.
-    // Di development, fallback ke socket address (akan jadi ::1/lokal)
-    const rawIp =
-      req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
-      req.headers["x-real-ip"] ||
-      req.ip ||
-      req.socket.remoteAddress ||
-      "";
+    const rawIp = req.ip || req.socket.remoteAddress || "";
 
-    // Hash IP untuk privacy — selalu dari rawIp agar konsisten
     const ip_hash = crypto
       .createHash("sha256")
       .update(rawIp + process.env.JWT_SECRET)
       .digest("hex");
 
-    // Cek apakah ip_hash yang sama sudah visit dalam 30 menit terakhir
     const thirtyMinutesAgo = new Date(
       Date.now() - 30 * 60 * 1000,
     ).toISOString();
@@ -125,12 +114,10 @@ export const trackVisit = async (req, res) => {
       return res.status(200).json({ success: true });
     }
 
-    // Normalisasi IP sebelum lookup
-    // Jika null (lokal/tidak valid), country akan null — kunjungan tetap tercatat
     const cleanIp = normalizeIp(rawIp);
     const geo = cleanIp ? geoip.lookup(cleanIp) : null;
-    const isDev = process.env.NODE_ENV === "development";
-    const country_code = geo?.country || (isDev && !cleanIp ? "ID" : null);
+    const isDevEnv = process.env.NODE_ENV === "development";
+    const country_code = geo?.country || (isDevEnv && !cleanIp ? "ID" : null);
     const country_name = country_code ? getCountryName(country_code) : null;
 
     await supabase.from("visits").insert([
@@ -143,7 +130,7 @@ export const trackVisit = async (req, res) => {
 
     return res.status(200).json({ success: true });
   } catch (err) {
-    // Silent fail — jangan ganggu user
+    // Silent fail — jangan ganggu user publik
     return res.status(200).json({ success: true });
   }
 };
@@ -173,14 +160,11 @@ export const getAnalytics = async (req, res) => {
 
     if (error) throw error;
 
-    // Total visits
     const totalVisits = visits.length;
 
-    // Unique visitors by ip_hash
     const uniqueIps = new Set(visits.map((v) => v.ip_hash));
     const uniqueVisitors = uniqueIps.size;
 
-    // Daily visits
     const dailyMap = {};
     visits.forEach((v) => {
       const date = v.visited_at.split("T")[0];
@@ -189,7 +173,6 @@ export const getAnalytics = async (req, res) => {
       dailyMap[date].ips.add(v.ip_hash);
     });
 
-    // Fill missing dates dengan 0
     const dailyVisits = [];
     for (let i = days - 1; i >= 0; i--) {
       const d = new Date();
@@ -202,7 +185,6 @@ export const getAnalytics = async (req, res) => {
       });
     }
 
-    // Weekly summary (hanya untuk 30d dan 90d)
     const weeklyVisits = [];
     if (days >= 14) {
       const weekMap = {};
@@ -226,7 +208,6 @@ export const getAnalytics = async (req, res) => {
         });
     }
 
-    // Monthly summary (hanya untuk 90d)
     const monthlyVisits = [];
     if (days >= 30) {
       const monthMap = {};
@@ -248,7 +229,6 @@ export const getAnalytics = async (req, res) => {
         });
     }
 
-    // Top countries
     const countryMap = {};
     visits.forEach((v) => {
       if (!v.country_code) return;
@@ -282,14 +262,17 @@ export const getAnalytics = async (req, res) => {
       },
     });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    console.error(err);
+    return res.status(500).json({
+      success: false,
+      message: isDev ? err.message : "Internal server error",
+    });
   }
 };
 
 export const getSalesAnalytics = async (req, res) => {
   const { range = "7d" } = req.query;
 
-  // Konfigurasi range → jumlah hari & granularitas
   const rangeConfig = {
     "1d": { days: 1, granularity: "hour" },
     "7d": { days: 7, granularity: "day" },
@@ -303,7 +286,6 @@ export const getSalesAnalytics = async (req, res) => {
 
   const since = new Date();
   since.setDate(since.getDate() - days);
-  // Untuk range 1d, mulai dari awal jam ini dikurangi 23 jam (24 data point)
   if (granularity === "hour") {
     since.setMinutes(0, 0, 0);
   } else {
@@ -312,7 +294,6 @@ export const getSalesAnalytics = async (req, res) => {
   const sinceIso = since.toISOString();
 
   try {
-    // Ambil semua order paid dalam range, beserta order_items-nya
     const { data: orders, error } = await supabase
       .from("orders")
       .select(
@@ -329,7 +310,6 @@ export const getSalesAnalytics = async (req, res) => {
 
     if (error) throw error;
 
-    // Hitung summary
     const totalRevenue = orders.reduce(
       (sum, o) => sum + Number(o.total_amount),
       0,
@@ -341,11 +321,9 @@ export const getSalesAnalytics = async (req, res) => {
     );
     const totalPaidOrders = orders.length;
 
-    // Bangun chart data sesuai granularitas
     let chartData = [];
 
     if (granularity === "hour") {
-      // 24 jam terakhir — label "HH:00"
       const hourMap = {};
       orders.forEach((o) => {
         const d = new Date(o.paid_at);
@@ -360,7 +338,6 @@ export const getSalesAnalytics = async (req, res) => {
         hourMap[key].orders++;
       });
 
-      // Fill 24 jam dari since sampai sekarang
       for (let i = 0; i < 24; i++) {
         const d = new Date(since);
         d.setHours(since.getHours() + i);
@@ -373,7 +350,6 @@ export const getSalesAnalytics = async (req, res) => {
         });
       }
     } else if (granularity === "day") {
-      // Per hari — label "YYYY-MM-DD"
       const dayMap = {};
       orders.forEach((o) => {
         const key = o.paid_at.split("T")[0];
@@ -387,7 +363,6 @@ export const getSalesAnalytics = async (req, res) => {
         dayMap[key].orders++;
       });
 
-      // Fill missing days dengan 0
       for (let i = 0; i < days; i++) {
         const d = new Date(since);
         d.setDate(since.getDate() + i);
@@ -400,10 +375,9 @@ export const getSalesAnalytics = async (req, res) => {
         });
       }
     } else if (granularity === "month") {
-      // Per bulan — label "YYYY-MM"
       const monthMap = {};
       orders.forEach((o) => {
-        const key = o.paid_at.substring(0, 7); // "YYYY-MM"
+        const key = o.paid_at.substring(0, 7);
         if (!monthMap[key])
           monthMap[key] = { revenue: 0, items_sold: 0, orders: 0 };
         monthMap[key].revenue += Number(o.total_amount);
@@ -414,7 +388,6 @@ export const getSalesAnalytics = async (req, res) => {
         monthMap[key].orders++;
       });
 
-      // Tentukan bulan pertama sampai bulan sekarang
       const monthCount = days === 90 ? 3 : 12;
       for (let i = monthCount - 1; i >= 0; i--) {
         const d = new Date();
@@ -444,6 +417,10 @@ export const getSalesAnalytics = async (req, res) => {
       },
     });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    console.error(err);
+    return res.status(500).json({
+      success: false,
+      message: isDev ? err.message : "Internal server error",
+    });
   }
 };

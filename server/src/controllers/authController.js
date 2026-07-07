@@ -9,18 +9,25 @@ const cookieOptions = {
   maxAge: 24 * 60 * 60 * 1000,
 };
 
-// ✅ Helper sanitasi sederhana
+// ✅ Sanitasi HANYA untuk email — password TIDAK BOLEH disanitasi
 const sanitizeString = (str) =>
   typeof str === "string" ? str.trim().replace(/\s+/g, " ") : "";
+
+// ✅ Dummy hash statis (bcrypt cost 10, sama dengan hash asli) — hanya
+// dipakai untuk padding waktu respons saat admin tidak ditemukan.
+// Ini BUKAN password siapa pun, murni untuk membuat bcrypt.compare()
+// selalu dieksekusi dan waktu respons konsisten (anti timing attack).
+const DUMMY_HASH =
+  "$2b$10$/5gkCVfEif6U.b9cEE2Ef.klpdNrvAxD8/yVjV8jxqvVDVz7q02te";
 
 export const login = async (req, res) => {
   let { email, password } = req.body;
 
-  // ✅ Sanitasi
+  // ✅ Email tetap disanitasi (aman, email tidak butuh whitespace signifikan)
   email = sanitizeString(email).toLowerCase();
-  password = sanitizeString(password);
+  // ✅ Password diperlakukan sebagai raw data — tidak di-trim, tidak diubah
+  password = typeof password === "string" ? password : "";
 
-  // ✅ Validasi keberadaan
   if (!email || !password) {
     return res.status(400).json({
       success: false,
@@ -28,7 +35,6 @@ export const login = async (req, res) => {
     });
   }
 
-  // ✅ Bounds checking — tolak input terlalu panjang
   if (email.length > 254 || password.length > 128) {
     return res.status(400).json({
       success: false,
@@ -36,7 +42,6 @@ export const login = async (req, res) => {
     });
   }
 
-  // ✅ Format email dasar
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(email)) {
     return res.status(400).json({
@@ -52,16 +57,16 @@ export const login = async (req, res) => {
       .eq("email", email)
       .single();
 
-    if (error || !admin) {
-      return res.status(401).json({
-        success: false,
-        message: "Invalid email or password",
-      });
-    }
+    const adminExists = !error && !!admin;
 
-    const isPasswordValid = await bcrypt.compare(password, admin.password_hash);
+    // ✅ bcrypt.compare() SELALU dijalankan, entah admin ada atau tidak —
+    // menutup timing side-channel untuk user enumeration
+    const isPasswordValid = await bcrypt.compare(
+      password,
+      adminExists ? admin.password_hash : DUMMY_HASH,
+    );
 
-    if (!isPasswordValid) {
+    if (!adminExists || !isPasswordValid) {
       return res.status(401).json({
         success: false,
         message: "Invalid email or password",
@@ -77,6 +82,7 @@ export const login = async (req, res) => {
 
     const token = jwt.sign(payload, process.env.JWT_SECRET, {
       expiresIn: process.env.JWT_EXPIRES_IN || "1d",
+      algorithm: "HS256",
     });
 
     res.cookie("token", token, cookieOptions);
@@ -92,6 +98,7 @@ export const login = async (req, res) => {
       },
     });
   } catch (err) {
+    console.error(err);
     return res.status(500).json({
       success: false,
       message: "Internal server error",
