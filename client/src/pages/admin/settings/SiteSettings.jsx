@@ -15,6 +15,7 @@ import {
   AlignLeft,
   Video,
   ScrollText,
+  ShieldCheck,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import {
@@ -38,6 +39,28 @@ const formatMinutes = (total) => {
   if (hours === 0) return `${remaining} menit`;
   if (remaining === 0) return `${hours} jam`;
   return `${hours} jam ${remaining} menit`;
+};
+
+const MIN_SESSION_HOURS = 1;
+const MAX_SESSION_HOURS = 720;
+
+const SESSION_PRESETS = [
+  { label: "1 Jam", value: 1 },
+  { label: "8 Jam", value: 8 },
+  { label: "1 Hari", value: 24 },
+  { label: "3 Hari", value: 72 },
+  { label: "7 Hari", value: 168 },
+  { label: "30 Hari", value: 720 },
+];
+
+const formatHours = (total) => {
+  const hours = Number(total);
+  if (isNaN(hours) || hours <= 0) return "";
+  if (hours < 24) return `${hours} jam`;
+  const days = Math.floor(hours / 24);
+  const remaining = hours % 24;
+  if (remaining === 0) return `${days} hari`;
+  return `${days} hari ${remaining} jam`;
 };
 
 export default function SiteSettings() {
@@ -76,6 +99,9 @@ export default function SiteSettings() {
   });
 
   const [termsForm, setTermsForm] = useState({ terms_highlight: "" });
+  const [sessionForm, setSessionForm] = useState({
+    admin_session_duration_hours: "24",
+  });
 
   const [videoError, setVideoError] = useState("");
 
@@ -99,6 +125,10 @@ export default function SiteSettings() {
       });
       setTermsForm({
         terms_highlight: settings.terms_highlight || "",
+      });
+      setSessionForm({
+        admin_session_duration_hours:
+          settings.admin_session_duration_hours || "24",
       });
     }
   }, [siteData]);
@@ -225,6 +255,32 @@ export default function SiteSettings() {
     onError: (err) =>
       toast.error(err.response?.data?.message || "Failed to save"),
   });
+
+  const { mutate: saveSessionSettings, isPending: isSavingSession } =
+    useMutation({
+      mutationFn: updateSiteSettings,
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ["site-settings"] });
+        toast.success("Durasi sesi login berhasil disimpan");
+      },
+      onError: (err) =>
+        toast.error(err.response?.data?.message || "Failed to save"),
+    });
+
+  const handleSaveSession = () => {
+    const hours = Number(sessionForm.admin_session_duration_hours);
+    if (
+      !Number.isInteger(hours) ||
+      hours < MIN_SESSION_HOURS ||
+      hours > MAX_SESSION_HOURS
+    ) {
+      toast.error(
+        `Durasi sesi harus antara ${MIN_SESSION_HOURS} hingga ${MAX_SESSION_HOURS} jam (${MAX_SESSION_HOURS / 24} hari)`,
+      );
+      return;
+    }
+    saveSessionSettings({ admin_session_duration_hours: String(hours) });
+  };
 
   const handleSaveTerms = () => {
     saveTermsHighlight({ terms_highlight: termsForm.terms_highlight });
@@ -632,6 +688,100 @@ export default function SiteSettings() {
           >
             <Save size={16} />
             {isSavingTerms ? "Menyimpan..." : "Simpan"}
+          </button>
+        </div>
+      </div>
+
+      {/* Keamanan Sesi Admin */}
+      <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
+        <div className="flex items-center gap-3 mb-5">
+          <div className="w-9 h-9 bg-red-50 rounded-lg flex items-center justify-center shrink-0">
+            <ShieldCheck size={18} className="text-red-600" />
+          </div>
+          <div>
+            <h2 className="text-base font-semibold text-gray-900">
+              Keamanan Sesi Admin
+            </h2>
+            <p className="text-xs text-gray-400 mt-0.5">
+              Berlaku untuk semua akun admin (superadmin, admin konten, admin
+              order)
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Durasi Sesi Login (jam)
+            </label>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+              <input
+                type="number"
+                min={MIN_SESSION_HOURS}
+                max={MAX_SESSION_HOURS}
+                value={sessionForm.admin_session_duration_hours}
+                onChange={(e) =>
+                  setSessionForm({
+                    admin_session_duration_hours: e.target.value,
+                  })
+                }
+                className="w-full sm:w-32 px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              {sessionForm.admin_session_duration_hours && (
+                <span className="text-sm text-gray-500">
+                  = {formatHours(sessionForm.admin_session_duration_hours)}
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-gray-400 mt-1.5">
+              Antara {MIN_SESSION_HOURS} jam hingga {MAX_SESSION_HOURS} jam (
+              {MAX_SESSION_HOURS / 24} hari).
+            </p>
+          </div>
+
+          {/* Quick presets */}
+          <div className="flex flex-wrap gap-1.5">
+            {SESSION_PRESETS.map((preset) => (
+              <button
+                key={preset.value}
+                onClick={() =>
+                  setSessionForm({
+                    admin_session_duration_hours: String(preset.value),
+                  })
+                }
+                className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                  Number(sessionForm.admin_session_duration_hours) ===
+                  preset.value
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Catatan penting — transparansi soal efek perubahan */}
+          <div className="flex gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+            <ShieldCheck size={15} className="text-amber-600 shrink-0 mt-0.5" />
+            <p className="text-xs text-amber-700 leading-relaxed">
+              Perubahan hanya berlaku untuk <strong>login baru</strong> setelah
+              disimpan — sesi admin yang sedang aktif sekarang tidak akan
+              terpengaruh sampai mereka logout/login ulang. Durasi lebih panjang
+              lebih nyaman, tapi memperlebar jendela risiko kalau ada device
+              yang hilang/dicuri sebelum sempat ganti password.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex justify-end mt-5">
+          <button
+            onClick={handleSaveSession}
+            disabled={isSavingSession}
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-medium px-4 py-2.5 rounded-lg transition-colors"
+          >
+            <Save size={16} />
+            {isSavingSession ? "Menyimpan..." : "Simpan"}
           </button>
         </div>
       </div>

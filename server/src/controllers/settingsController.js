@@ -1,5 +1,10 @@
 import supabase from "../config/supabase.js";
 import uploadToSupabase from "../utils/uploadToSupabase.js";
+import {
+  SESSION_DURATION_KEY,
+  MIN_SESSION_HOURS,
+  MAX_SESSION_HOURS,
+} from "../config/sessionSettings.js";
 
 const isDev = process.env.NODE_ENV !== "production";
 const internalError = (err, res) => {
@@ -65,6 +70,7 @@ export const updateSiteSettings = async (req, res) => {
     manual_payment_expiry_minutes,
     terms_highlight,
     gateway_payment_enabled,
+    admin_session_duration_hours,
   } = req.body;
 
   // Validasi payment_expiry_minutes — 1 menit sampai 1440 menit (24 jam)
@@ -86,6 +92,24 @@ export const updateSiteSettings = async (req, res) => {
         success: false,
         message:
           "Batas waktu pembayaran manual harus antara 1 hingga 1440 menit (24 jam)",
+      });
+    }
+  }
+
+  // ✅ Validasi admin_session_duration_hours — batas sama persis dengan
+  // yang dipakai authController.js (via config/sessionSettings.js),
+  // supaya tidak ada kemungkinan nilai lolos di sini tapi ditolak/di-fallback
+  // diam-diam di authController.js, atau sebaliknya.
+  if (admin_session_duration_hours !== undefined) {
+    const hours = Number(admin_session_duration_hours);
+    if (
+      !Number.isInteger(hours) ||
+      hours < MIN_SESSION_HOURS ||
+      hours > MAX_SESSION_HOURS
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: `Durasi sesi login admin harus antara ${MIN_SESSION_HOURS} hingga ${MAX_SESSION_HOURS} jam (${MAX_SESSION_HOURS / 24} hari)`,
       });
     }
   }
@@ -239,9 +263,19 @@ export const updateSiteSettings = async (req, res) => {
         key: "gateway_payment_enabled",
         value: gateway_payment_enabled,
       });
-      // ✅ Log sementara — pengganti audit trail resmi (belum ada updated_by di site_settings)
       console.warn(
         `[AUDIT] gateway_payment_enabled -> "${gateway_payment_enabled}" by admin ${req.admin?.id} (${req.admin?.email}) at ${new Date().toISOString()}`,
+      );
+    }
+    if (admin_session_duration_hours !== undefined) {
+      updates.push({
+        key: SESSION_DURATION_KEY,
+        value: String(admin_session_duration_hours),
+      });
+      // ✅ Log audit — ini setting keamanan sensitif (mempengaruhi durasi
+      // sesi SEMUA admin), sama pentingnya dengan gateway_payment_enabled
+      console.warn(
+        `[AUDIT] ${SESSION_DURATION_KEY} -> "${admin_session_duration_hours}" by admin ${req.admin?.id} (${req.admin?.email}) at ${new Date().toISOString()}`,
       );
     }
 
@@ -338,7 +372,6 @@ export const updatePromoSettings = async (req, res) => {
     promo_ends_at,
   } = req.body;
 
-  // Validasi show_promo
   if (show_promo !== undefined && !["true", "false"].includes(show_promo)) {
     return res.status(400).json({
       success: false,
@@ -346,7 +379,6 @@ export const updatePromoSettings = async (req, res) => {
     });
   }
 
-  // Validasi tanggal — jika keduanya ada, starts_at harus sebelum ends_at
   if (promo_starts_at && promo_ends_at) {
     const start = new Date(promo_starts_at);
     const end = new Date(promo_ends_at);
