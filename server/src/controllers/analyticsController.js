@@ -4,31 +4,16 @@ import supabase from "../config/supabase.js";
 
 const isDev = process.env.NODE_ENV !== "production";
 
-// Map kode negara ke nama negara
-const countryNames = {
-  ID: "Indonesia",
-  MY: "Malaysia",
-  SG: "Singapore",
-  US: "United States",
-  GB: "United Kingdom",
-  AU: "Australia",
-  JP: "Japan",
-  KR: "South Korea",
-  CN: "China",
-  IN: "India",
-  DE: "Germany",
-  FR: "France",
-  NL: "Netherlands",
-  CA: "Canada",
-  BR: "Brazil",
-  SA: "Saudi Arabia",
-  AE: "United Arab Emirates",
-  PH: "Philippines",
-  TH: "Thailand",
-  VN: "Vietnam",
-};
+const regionNames = new Intl.DisplayNames(["id"], { type: "region" });
 
-const getCountryName = (code) => countryNames[code] || code;
+const getCountryName = (code) => {
+  if (!code) return null;
+  try {
+    return regionNames.of(code) || code;
+  } catch {
+    return code;
+  }
+};
 
 const isBot = (ua = "") => {
   const botPatterns = [
@@ -235,7 +220,7 @@ export const getAnalytics = async (req, res) => {
       if (!countryMap[v.country_code]) {
         countryMap[v.country_code] = {
           country_code: v.country_code,
-          country_name: v.country_name,
+          country_name: getCountryName(v.country_code),
           count: 0,
         };
       }
