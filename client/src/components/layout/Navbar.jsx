@@ -5,7 +5,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { getSiteSettings, getPageSettings } from "../../api/settings";
 
-// page_key yang perlu path berbeda dari /${page_key}
 const PAGE_PATH_MAP = {
   "order-track": "/order/track",
 };
@@ -15,8 +14,6 @@ export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const { pathname } = useLocation();
 
-  // Transparent-floating navbar hanya relevan di Home (full-bleed hero).
-  // Halaman lain (page banner + padding) selalu solid dari awal.
   const isHomePage = pathname === "/";
   const floating = isHomePage && !scrolled;
 
@@ -27,7 +24,7 @@ export default function Navbar() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, [pathname]);
 
-  const { data: siteData } = useQuery({
+  const { data: siteData, isLoading: siteLoading } = useQuery({
     queryKey: ["site-settings"],
     queryFn: getSiteSettings,
     staleTime: 1000 * 60 * 10,
@@ -54,7 +51,6 @@ export default function Navbar() {
   const showLogo = logoUrl && logoUrl !== "";
   const showSiteName = !showLogo || settings.show_site_name !== "false";
 
-  // WA — dari database, fallback ke env variable jika belum di-set
   const waNumber =
     settings.whatsapp_number ||
     import.meta.env.VITE_WA_NUMBER ||
@@ -100,44 +96,55 @@ export default function Navbar() {
           <div className="flex items-center gap-3 min-w-0">
             <Link to="/" className="flex items-center gap-2 min-w-0">
               {showLogo && (
-                <span
-                  className={`inline-flex items-center rounded-lg transition-colors duration-300 ${
-                    floating ? "bg-white/90 backdrop-blur-sm px-2 py-1" : ""
-                  }`}
-                >
-                  <img
-                    src={logoUrl}
-                    alt={siteName}
-                    className="h-9 w-auto object-contain shrink-0"
+                <img
+                  src={logoUrl}
+                  alt={siteName}
+                  className="h-9 w-auto object-contain shrink-0"
+                />
+              )}
+              {showSiteName &&
+                (siteLoading ? (
+                  <span
+                    aria-hidden="true"
+                    className={`h-5 w-24 rounded-md animate-pulse shrink-0 ${
+                      floating ? "bg-white/30" : "bg-slate-200"
+                    }`}
                   />
-                </span>
-              )}
-              {showSiteName && (
-                <span
-                  className={`font-bold text-lg leading-tight truncate transition-colors duration-300 ${
-                    floating ? "text-white" : "text-brand-600"
-                  }`}
-                >
-                  {siteName}
-                </span>
-              )}
+                ) : (
+                  <span
+                    className={`font-bold text-lg leading-tight truncate transition-colors duration-300 ${
+                      floating ? "text-white" : "text-brand-600"
+                    }`}
+                  >
+                    {siteName}
+                  </span>
+                ))}
             </Link>
 
             {/* WA — hanya tampil jika show_whatsapp aktif */}
-            {showWhatsapp && (
-              <a
-                href={`https://wa.me/${waNumber}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={`hidden sm:flex items-center gap-1 transition-colors duration-300 text-xs ${
-                  floating
-                    ? "text-white/90 hover:text-white"
-                    : "text-green-600 hover:text-green-700"
+            {siteLoading ? (
+              <span
+                aria-hidden="true"
+                className={`hidden sm:block h-3 w-20 rounded-md animate-pulse ${
+                  floating ? "bg-white/30" : "bg-slate-200"
                 }`}
-              >
-                <MessageCircle size={10} className="shrink-0" />
-                <span>+{waFormatted}</span>
-              </a>
+              />
+            ) : (
+              showWhatsapp && (
+                <a
+                  href={`https://wa.me/${waNumber}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`hidden sm:flex items-center gap-1 transition-colors duration-300 text-xs ${
+                    floating
+                      ? "text-white/90 hover:text-white"
+                      : "text-green-600 hover:text-green-700"
+                  }`}
+                >
+                  <MessageCircle size={10} className="shrink-0" />
+                  <span>+{waFormatted}</span>
+                </a>
+              )
             )}
           </div>
 
