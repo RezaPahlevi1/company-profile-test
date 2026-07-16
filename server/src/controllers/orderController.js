@@ -525,8 +525,6 @@ export const trackOrder = async (req, res) => {
 // ─────────────────────────────────────────────
 export const handleMidtransWebhook = async (req, res) => {
   try {
-    const isDev = process.env.NODE_ENV === "development";
-
     let notification;
     if (isDev) {
       // ✅ Di dev mode tetap pakai body langsung, tapi validasi field wajib ada
@@ -554,6 +552,7 @@ export const handleMidtransWebhook = async (req, res) => {
       fraud_status,
       payment_type,
       transaction_id,
+      gross_amount,
     } = notification;
 
     const order_id = rawOrderId.replace(/-R\d+$/, "");
@@ -561,11 +560,18 @@ export const handleMidtransWebhook = async (req, res) => {
     // ✅ Abaikan webhook untuk order manual
     const { data: existingOrder } = await supabase
       .from("orders")
-      .select("payment_method, status")
+      .select("payment_method, status, total_amount")
       .eq("order_number", order_id)
       .single();
 
-    if (existingOrder?.payment_method === "manual") {
+    if (!existingOrder) {
+      console.error(
+        `[Webhook] Order tidak ditemukan — order_number: ${order_id}. Notifikasi diabaikan.`,
+      );
+      return res.status(200).json({ success: true });
+    }
+
+    if (existingOrder.payment_method === "manual") {
       return res.status(200).json({ success: true });
     }
 
@@ -580,6 +586,19 @@ export const handleMidtransWebhook = async (req, res) => {
       orderStatus = "failed";
     } else if (transaction_status === "pending") {
       orderStatus = "pending";
+    }
+
+    // ✅ Cross-check gross_amount dari Midtrans vs total_amount order kita
+    if (orderStatus === "paid" && existingOrder) {
+      const reportedAmount = Math.round(Number(gross_amount));
+      const expectedAmount = Math.round(Number(existingOrder.total_amount));
+
+      if (reportedAmount !== expectedAmount) {
+        console.error(
+          `[Webhook] AMOUNT MISMATCH — order_number: ${order_id}, expected: ${expectedAmount}, dilaporkan Midtrans: ${reportedAmount}. Status order TIDAK diubah jadi paid.`,
+        );
+        return res.status(200).json({ success: true });
+      }
     }
 
     const updatePayload = {
