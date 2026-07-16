@@ -39,10 +39,16 @@ const checkoutSchema = z.object({
 export default function Checkout() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { product, quantity = 1 } = location.state || {};
+
+  // ✅ Generalisasi: terima bentuk baru { item, itemType } (service)
+  // ATAU bentuk lama { product, quantity } (product, dari ProductDetail.jsx — tidak diubah)
+  const state = location.state || {};
+  const itemType = state.itemType || "product";
+  const item = state.item || state.product;
+  const quantity = itemType === "service" ? 1 : state.quantity || 1;
+
   const { campaignActive } = usePromoStatus();
 
-  // ✅ Fix #14 — gunakan shared hook
   useSnapScript();
 
   const [paymentMethod, setPaymentMethod] = useState("gateway");
@@ -60,14 +66,11 @@ export default function Checkout() {
   const verificationHours =
     siteSettings.manual_payment_verification_hours || "1x24 jam kerja";
 
-  // ✅ Simpan nilai availability sebelumnya untuk deteksi perubahan
   const [prevAvailability, setPrevAvailability] = useState({
     gatewayAvailable,
     manualPaymentAvailable,
   });
 
-  // ✅ Penyesuaian state langsung saat render (bukan di useEffect)
-  // Ini pola resmi React untuk "adjusting state when a value changes"
   if (
     prevAvailability.gatewayAvailable !== gatewayAvailable ||
     prevAvailability.manualPaymentAvailable !== manualPaymentAvailable
@@ -142,31 +145,41 @@ export default function Checkout() {
   });
 
   const onSubmit = (data) => {
-    if (!product) {
-      toast.error("Produk tidak ditemukan");
+    if (!item) {
+      toast.error(
+        itemType === "service"
+          ? "Layanan tidak ditemukan"
+          : "Produk tidak ditemukan",
+      );
       return;
     }
     const { terms_accepted, ...orderData } = data;
     submitOrder({
       ...orderData,
-      items: [{ product_id: product.id, quantity }],
+      items:
+        itemType === "service"
+          ? [{ item_type: "service", service_id: item.id }]
+          : [{ item_type: "product", product_id: item.id, quantity }],
       payment_method: paymentMethod,
     });
   };
 
-  if (!product) {
+  if (!item) {
     return (
       <main className="pt-16 lg:pt-20 min-h-screen flex items-center justify-center">
         <div className="text-center">
           <ShoppingCart size={48} className="text-slate-300 mx-auto mb-4" />
           <p className="text-slate-500 text-lg">
-            Tidak ada produk yang dipilih.
+            Tidak ada {itemType === "service" ? "layanan" : "produk"} yang
+            dipilih.
           </p>
           <button
-            onClick={() => navigate("/products")}
+            onClick={() =>
+              navigate(itemType === "service" ? "/services" : "/products")
+            }
             className="btn-primary mt-4 inline-flex"
           >
-            Lihat Produk
+            {itemType === "service" ? "Lihat Layanan" : "Lihat Produk"}
           </button>
         </div>
       </main>
@@ -200,11 +213,11 @@ export default function Checkout() {
   }
 
   const promoPrice =
-    campaignActive && product.is_promo && product.discount_percent > 0
-      ? product.price - (product.price * product.discount_percent) / 100
+    campaignActive && item.is_promo && item.discount_percent > 0
+      ? item.price - (item.price * item.discount_percent) / 100
       : null;
 
-  const effectivePrice = promoPrice ?? Number(product.price);
+  const effectivePrice = promoPrice ?? Number(item.price);
   const total = Math.round(effectivePrice) * quantity;
 
   return (
@@ -232,7 +245,6 @@ export default function Checkout() {
               </h2>
 
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-                {/* Nama */}
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">
                     <User size={14} className="inline mr-1.5" />
@@ -250,7 +262,6 @@ export default function Checkout() {
                   )}
                 </div>
 
-                {/* Email */}
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">
                     <Mail size={14} className="inline mr-1.5" />
@@ -269,7 +280,6 @@ export default function Checkout() {
                   )}
                 </div>
 
-                {/* No HP */}
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">
                     <Phone size={14} className="inline mr-1.5" />
@@ -287,7 +297,6 @@ export default function Checkout() {
                   )}
                 </div>
 
-                {/* Alamat */}
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">
                     <MapPin size={14} className="inline mr-1.5" />
@@ -312,7 +321,6 @@ export default function Checkout() {
                     Metode Pembayaran
                   </label>
                   <div className="grid grid-cols-1 gap-3">
-                    {/* Gateway */}
                     {gatewayAvailable && (
                       <button
                         type="button"
@@ -363,7 +371,6 @@ export default function Checkout() {
                       </button>
                     )}
 
-                    {/* Manual — hanya tampil jika tersedia */}
                     {manualPaymentAvailable && (
                       <button
                         type="button"
@@ -415,7 +422,6 @@ export default function Checkout() {
                     )}
                   </div>
 
-                  {/* Info manual payment */}
                   <AnimatePresence>
                     {paymentMethod === "manual" && (
                       <motion.div
@@ -455,11 +461,10 @@ export default function Checkout() {
                   <Info size={16} className="text-amber-600 shrink-0 mt-0.5" />
                   <p className="text-sm text-amber-800">
                     {siteSettings.terms_highlight ||
-                      "Pembelian produk hanya kami layani untuk wilayah Pulau Batam."}
+                      "Pemesanan hanya kami layani untuk wilayah Pulau Batam."}
                   </p>
                 </div>
 
-                {/* Checkbox persetujuan wajib */}
                 <div>
                   <label className="flex items-start gap-2.5 cursor-pointer">
                     <input
@@ -487,7 +492,6 @@ export default function Checkout() {
                   )}
                 </div>
 
-                {/* Submit */}
                 <button
                   type="submit"
                   disabled={isPending}
@@ -550,10 +554,10 @@ export default function Checkout() {
 
                 <div className="flex gap-4">
                   <div className="w-20 h-20 bg-slate-100 rounded-xl overflow-hidden shrink-0">
-                    {product.image_url ? (
+                    {item.image_url ? (
                       <img
-                        src={product.image_url}
-                        alt={product.name}
+                        src={item.image_url}
+                        alt={item.name}
                         loading="lazy"
                         decoding="async"
                         className="w-full h-full object-cover"
@@ -566,7 +570,7 @@ export default function Checkout() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <h3 className="font-semibold text-slate-900 line-clamp-2">
-                      {product.name}
+                      {item.name}
                     </h3>
                     {promoPrice !== null ? (
                       <div className="flex items-center gap-2 flex-wrap mt-1">
@@ -574,34 +578,40 @@ export default function Checkout() {
                           Rp {Math.round(promoPrice).toLocaleString("id-ID")}
                         </span>
                         <span className="line-through text-slate-400 text-sm">
-                          Rp {Number(product.price).toLocaleString("id-ID")}
+                          Rp {Number(item.price).toLocaleString("id-ID")}
                         </span>
                       </div>
                     ) : (
                       <p className="text-brand-600 font-bold mt-1">
-                        Rp {Number(product.price).toLocaleString("id-ID")}
+                        Rp {Number(item.price).toLocaleString("id-ID")}
                       </p>
                     )}
-                    <p className="text-slate-500 text-sm mt-1">
-                      Jumlah: {quantity}
-                    </p>
+                    {itemType === "product" && (
+                      <p className="text-slate-500 text-sm mt-1">
+                        Jumlah: {quantity}
+                      </p>
+                    )}
                   </div>
                 </div>
 
                 <div className="border-t border-slate-100 mt-4 pt-4 space-y-2">
                   {promoPrice !== null && (
                     <div className="flex justify-between text-sm text-red-500">
-                      <span>Diskon ({product.discount_percent}%)</span>
+                      <span>Diskon ({item.discount_percent}%)</span>
                       <span>
                         -Rp{" "}
                         {Math.round(
-                          (product.price - promoPrice) * quantity,
+                          (item.price - promoPrice) * quantity,
                         ).toLocaleString("id-ID")}
                       </span>
                     </div>
                   )}
                   <div className="flex justify-between text-sm text-slate-600">
-                    <span>Subtotal ({quantity} item)</span>
+                    <span>
+                      {itemType === "service"
+                        ? "Subtotal"
+                        : `Subtotal (${quantity} item)`}
+                    </span>
                     <span>Rp {total.toLocaleString("id-ID")}</span>
                   </div>
                   <div className="flex justify-between font-bold text-slate-900 text-lg pt-2 border-t border-slate-100">
@@ -613,7 +623,6 @@ export default function Checkout() {
                 </div>
               </div>
 
-              {/* Payment method info card */}
               <AnimatePresence mode="wait">
                 {paymentMethod === "gateway" ? (
                   <motion.div

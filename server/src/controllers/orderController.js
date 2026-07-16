@@ -109,9 +109,10 @@ async function getCampaignActive() {
   return true;
 }
 
-// ✅ Flow urutan fulfillment status
+// Flow urutan fulfillment status
 const PHYSICAL_FLOW = ["processing", "packed", "shipped", "delivered"];
 const DIGITAL_FLOW = ["processing", "completed"];
+const SERVICE_FLOW = ["processing", "completed"];
 
 // ─────────────────────────────────────────────
 // CREATE ORDER
@@ -182,28 +183,57 @@ export const createOrder = async (req, res) => {
       message: "Cannot order more than 50 different items at once",
     });
 
+  const allowedItemTypes = ["product", "service"];
   for (let i = 0; i < items.length; i++) {
     const item = items[i];
-    if (!item.product_id)
+    const itemType = item.item_type || "product"; // default backward-compatible
+
+    if (!allowedItemTypes.includes(itemType))
       return res.status(400).json({
         success: false,
-        message: "Product ID is required for each item",
+        message: "Invalid item_type. Must be 'product' or 'service'.",
       });
-    const qty = Number(item.quantity);
-    if (isNaN(qty) || qty <= 0 || qty > 100)
+
+    const itemId = itemType === "service" ? item.service_id : item.product_id;
+    if (!itemId)
       return res.status(400).json({
         success: false,
-        message: "Invalid quantity. Must be a number between 1 and 100.",
+        message:
+          itemType === "service"
+            ? "Service ID is required"
+            : "Product ID is required for each item",
       });
-    items[i].quantity = qty;
+
+    if (itemType === "service") {
+      // ✅ Booking layanan selalu quantity 1 — nilai dari client diabaikan
+      items[i].quantity = 1;
+    } else {
+      const qty = Number(item.quantity);
+      if (isNaN(qty) || qty <= 0 || qty > 100)
+        return res.status(400).json({
+          success: false,
+          message: "Invalid quantity. Must be a number between 1 and 100.",
+        });
+      items[i].quantity = qty;
+    }
+
+    items[i].item_type = itemType;
+  }
+
+  // ✅ Order layanan tidak boleh dicampur dengan item lain, dan cuma 1 layanan per order
+  const hasService = items.some((i) => i.item_type === "service");
+  const hasProduct = items.some((i) => i.item_type === "product");
+  if (hasService && (hasProduct || items.length > 1)) {
+    return res.status(400).json({
+      success: false,
+      message: "Order layanan hanya boleh berisi 1 layanan per order",
+    });
   }
 
   const resolvedPaymentMethod =
     payment_method === "manual" ? "manual" : "gateway";
 
   try {
-    const productIds = items.map((item) => item.product_id);
-
     if (resolvedPaymentMethod === "gateway") {
       const { data: gatewaySetting } = await supabase
         .from("site_settings")
@@ -234,39 +264,84 @@ export const createOrder = async (req, res) => {
       }
     }
 
-    const { data: products, error: productError } = await supabase
-      .from("products")
-      .select("id, name, price, is_active, is_promo, discount_percent")
-      .in("id", productIds);
+    const productItems = items.filter((i) => i.item_type === "product");
+    const serviceItems = items.filter((i) => i.item_type === "service");
 
-    if (productError) throw productError;
+    let products = [];
+    if (productItems.length > 0) {
+      const productIds = productItems.map((item) => item.product_id);
+      const { data, error: productError } = await supabase
+        .from("products")
+        .select("id, name, price, is_active, is_promo, discount_percent")
+        .in("id", productIds);
+      if (productError) throw productError;
+      products = data;
 
-    for (const item of items) {
-      const product = products.find((p) => p.id === item.product_id);
-      if (!product)
-        return res
-          .status(404)
-          .json({ success: false, message: "Product not found" });
-      if (!product.is_active)
-        return res.status(400).json({
-          success: false,
-          message: `Product "${product.name}" is no longer available`,
-        });
+      for (const item of productItems) {
+        const product = products.find((p) => p.id === item.product_id);
+        if (!product)
+          return res
+            .status(404)
+            .json({ success: false, message: "Product not found" });
+        if (!product.is_active)
+          return res.status(400).json({
+            success: false,
+            message: `Product "${product.name}" is no longer available`,
+          });
+      }
+    }
+
+    let services = [];
+    if (serviceItems.length > 0) {
+      const serviceIds = serviceItems.map((item) => item.service_id);
+      const { data, error: serviceError } = await supabase
+        .from("services")
+        .select(
+          "id, name, price, is_active, is_orderable, is_promo, discount_percent",
+        )
+        .in("id", serviceIds);
+      if (serviceError) throw serviceError;
+      services = data;
+
+      for (const item of serviceItems) {
+        const service = services.find((s) => s.id === item.service_id);
+        if (!service)
+          return res
+            .status(404)
+            .json({ success: false, message: "Service not found" });
+        if (!service.is_active || !service.is_orderable)
+          return res.status(400).json({
+            success: false,
+            message: `Layanan "${service.name}" belum tersedia untuk pemesanan online`,
+          });
+        if (service.price == null)
+          return res.status(400).json({
+            success: false,
+            message: `Layanan "${service.name}" belum memiliki harga`,
+          });
+      }
     }
 
     const campaignActive = await getCampaignActive();
 
     const orderItems = items.map((item) => {
-      const product = products.find((p) => p.id === item.product_id);
+      const isService = item.item_type === "service";
+      const source = isService
+        ? services.find((s) => s.id === item.service_id)
+        : products.find((p) => p.id === item.product_id);
+
       const effectivePrice =
-        campaignActive && product.is_promo && product.discount_percent > 0
-          ? product.price - (product.price * product.discount_percent) / 100
-          : product.price;
+        campaignActive && source.is_promo && source.discount_percent > 0
+          ? source.price - (source.price * source.discount_percent) / 100
+          : source.price;
+
       return {
-        product_id: item.product_id,
-        product_name: product.name,
+        item_type: item.item_type,
+        product_id: isService ? null : item.product_id,
+        service_id: isService ? item.service_id : null,
+        product_name: source.name,
         price_at_purchase: Math.round(effectivePrice),
-        quantity: item.quantity || 1,
+        quantity: item.quantity,
       };
     });
 
@@ -301,6 +376,7 @@ export const createOrder = async (req, res) => {
           status: "pending",
           payment_method: resolvedPaymentMethod,
           expires_at: expiresAt,
+          ...(hasService && { fulfillment_type: "service" }),
         },
       ])
       .select()
@@ -348,7 +424,7 @@ export const createOrder = async (req, res) => {
 
     // ✅ Gateway payment — flow Midtrans
     const midtransItems = orderItems.map((item) => ({
-      id: item.product_id,
+      id: item.product_id || item.service_id,
       price: Math.round(item.price_at_purchase),
       quantity: item.quantity,
       name: item.product_name.substring(0, 50),
@@ -415,7 +491,7 @@ export const trackOrder = async (req, res) => {
         fulfillment_type, fulfillment_status,
         shipping_courier, shipping_tracking_number, shipping_note,
         paid_at, created_at, expires_at,
-        order_items ( product_name, price_at_purchase, quantity ),
+        order_items ( item_type, product_id, service_id, product_name, price_at_purchase, quantity ),
         order_fulfillment_history ( id, status, note, created_at )
       `,
       )
@@ -579,6 +655,7 @@ export const getAllOrders = async (req, res) => {
           `and(status.eq.paid,fulfillment_type.is.null)`,
           `and(status.eq.paid,fulfillment_type.eq.physical,fulfillment_status.neq.delivered)`,
           `and(status.eq.paid,fulfillment_type.eq.digital,fulfillment_status.neq.completed)`,
+          `and(status.eq.paid,fulfillment_type.eq.service,or(fulfillment_status.is.null,fulfillment_status.neq.completed))`,
         ].join(","),
       );
     } else if (status) {
@@ -622,7 +699,7 @@ export const getOrderById = async (req, res) => {
       .select(
         `
         *,
-        order_items ( id, product_id, product_name, price_at_purchase, quantity ),
+        order_items ( id, item_type, product_id, service_id, product_name, price_at_purchase, quantity ),
         order_fulfillment_history ( id, status, note, created_at, admins ( name ) )
       `,
       )
@@ -661,7 +738,7 @@ export const repayOrder = async (req, res) => {
     const { data: order, error } = await supabase
       .from("orders")
       .select(
-        `*, order_items ( product_id, product_name, price_at_purchase, quantity )`,
+        `*, order_items ( product_id, service_id, product_name, price_at_purchase, quantity )`,
       )
       .eq("order_number", orderNumber)
       .single();
@@ -710,7 +787,7 @@ export const repayOrder = async (req, res) => {
     const midtransOrderId = `${order.order_number}-R${Date.now()}`;
 
     const midtransItems = order.order_items.map((item) => ({
-      id: item.product_id,
+      id: item.product_id || item.service_id,
       price: Math.round(item.price_at_purchase),
       quantity: item.quantity,
       name: item.product_name.substring(0, 50),
@@ -925,15 +1002,20 @@ export const updateFulfillment = async (req, res) => {
           "Fulfillment type harus ditentukan terlebih dahulu (physical/digital)",
       });
     }
-    if (!["physical", "digital"].includes(resolvedType)) {
+    if (!["physical", "digital", "service"].includes(resolvedType)) {
       return res.status(400).json({
         success: false,
-        message: "fulfillment_type harus physical atau digital",
+        message: "fulfillment_type harus physical, digital, atau service",
       });
     }
 
     if (fulfillment_status) {
-      const flow = resolvedType === "physical" ? PHYSICAL_FLOW : DIGITAL_FLOW;
+      const flow =
+        resolvedType === "physical"
+          ? PHYSICAL_FLOW
+          : resolvedType === "service"
+            ? SERVICE_FLOW
+            : DIGITAL_FLOW;
 
       if (!flow.includes(fulfillment_status)) {
         return res.status(400).json({

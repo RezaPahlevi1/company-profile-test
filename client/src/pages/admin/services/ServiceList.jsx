@@ -185,16 +185,23 @@ export default function ServiceList() {
                     </div>
                   )}
 
-                  {/* Status badge */}
-                  <span
-                    className={`absolute top-2 right-2 text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
-                      service.is_active
-                        ? "bg-green-100 text-green-700"
-                        : "bg-gray-100 text-gray-500"
-                    }`}
-                  >
-                    {service.is_active ? "Active" : "Inactive"}
-                  </span>
+                  {/* Status badges — stack di kanan atas */}
+                  <div className="absolute top-2 right-2 flex flex-col items-end gap-1">
+                    <span
+                      className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
+                        service.is_active
+                          ? "bg-green-100 text-green-700"
+                          : "bg-gray-100 text-gray-500"
+                      }`}
+                    >
+                      {service.is_active ? "Active" : "Inactive"}
+                    </span>
+                    {service.is_orderable && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-blue-100 text-blue-700">
+                        🛒 Bisa Dipesan
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 {/* Info */}
@@ -202,6 +209,12 @@ export default function ServiceList() {
                   <h3 className="font-semibold text-gray-900 text-xs lg:text-sm leading-tight line-clamp-2">
                     {service.name}
                   </h3>
+
+                  {service.price != null && (
+                    <p className="text-xs lg:text-sm font-semibold text-blue-600 mt-1">
+                      Rp {Number(service.price).toLocaleString("id-ID")}
+                    </p>
+                  )}
 
                   {service.description && (
                     <p className="text-[10px] lg:text-xs text-gray-500 mt-1 line-clamp-2">

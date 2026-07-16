@@ -31,7 +31,6 @@ const statusOptions = [
   { label: "Cancelled", value: "cancelled" },
 ];
 
-// ✅ Fix #11 — satu konstanta saja, hapus duplikat LIMIT yang tidak terpakai
 const LIMIT = 10;
 
 // ─── Helper: tentukan action badge untuk satu order ──────────
@@ -73,6 +72,19 @@ function getActionBadge(order) {
   if (
     order.status === "paid" &&
     order.fulfillment_type === "digital" &&
+    order.fulfillment_status !== "completed"
+  ) {
+    return {
+      dot: "bg-orange-400",
+      label: "Update Status",
+      labelClass: "bg-orange-100 text-orange-700",
+    };
+  }
+
+  // ✅ Baru — order layanan yang belum completed
+  if (
+    order.status === "paid" &&
+    order.fulfillment_type === "service" &&
     order.fulfillment_status !== "completed"
   ) {
     return {

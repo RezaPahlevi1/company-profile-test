@@ -91,9 +91,15 @@ const historyLabel = {
 
 const PHYSICAL_FLOW = ["processing", "packed", "shipped", "delivered"];
 const DIGITAL_FLOW = ["processing", "completed"];
+const SERVICE_FLOW = ["processing", "completed"];
 
 function getNextStatus(fulfillmentType, currentStatus) {
-  const flow = fulfillmentType === "physical" ? PHYSICAL_FLOW : DIGITAL_FLOW;
+  const flow =
+    fulfillmentType === "physical"
+      ? PHYSICAL_FLOW
+      : fulfillmentType === "service"
+        ? SERVICE_FLOW
+        : DIGITAL_FLOW;
   if (!currentStatus) return flow[0];
   const idx = flow.indexOf(currentStatus);
   if (idx === -1 || idx === flow.length - 1) return null;
@@ -101,8 +107,6 @@ function getNextStatus(fulfillmentType, currentStatus) {
 }
 
 // ─── Modal: Confirm Paid ──────────────────────────────────────
-// ✅ Fix #13 — gunakan conditional render bukan className hidden
-// agar state form (catatan) ter-reset saat modal ditutup
 function ConfirmPaidModal({
   isOpen,
   onConfirm,
@@ -340,7 +344,6 @@ function ShippingModal({ isOpen, onConfirm, onCancel, isLoading }) {
 }
 
 // ─── Modal: Note (non-shipped status) ────────────────────────
-// ✅ Fix #13 — conditional render agar state note ter-reset
 function NoteModal({ status, onConfirm, onCancel, isLoading }) {
   const [note, setNote] = useState("");
   const cfg = fulfillmentStatusConfig[status] || {};
@@ -554,6 +557,19 @@ export default function OrderDetail() {
   const NextIcon = nextConfig?.icon;
   const isManualOrder = order.payment_method === "manual";
 
+  const typeLabel =
+    order.fulfillment_type === "physical"
+      ? "Fisik"
+      : order.fulfillment_type === "service"
+        ? "Jasa"
+        : "Digital";
+  const typeBadgeClass =
+    order.fulfillment_type === "physical"
+      ? "bg-blue-100 text-blue-700"
+      : order.fulfillment_type === "service"
+        ? "bg-emerald-100 text-emerald-700"
+        : "bg-violet-100 text-violet-700";
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -644,8 +660,6 @@ export default function OrderDetail() {
                   </button>
                 )}
 
-                {/* ✅ Fix #10 — Cancel button: hanya untuk pending dan under_review
-                    Order paid tidak bisa di-cancel (backend juga memblokir) */}
                 {["pending", "under_review"].includes(order.status) && (
                   <button
                     onClick={() => setConfirmCancelOpen(true)}
@@ -718,7 +732,7 @@ export default function OrderDetail() {
                       <Package size={24} className="text-violet-500" />
                       <div className="text-center">
                         <p className="text-sm font-semibold text-gray-800">
-                          Digital / Jasa
+                          Digital
                         </p>
                         <p className="text-xs text-gray-400 mt-0.5">
                           Tidak perlu pengiriman
@@ -726,6 +740,10 @@ export default function OrderDetail() {
                       </div>
                     </button>
                   </div>
+                  <p className="text-xs text-gray-400 text-center">
+                    Order berisi layanan akan otomatis bertipe "Jasa" — pilihan
+                    di atas hanya untuk order produk.
+                  </p>
                 </div>
               )}
 
@@ -757,15 +775,9 @@ export default function OrderDetail() {
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-gray-400">Tipe:</span>
                     <span
-                      className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                        order.fulfillment_type === "physical"
-                          ? "bg-blue-100 text-blue-700"
-                          : "bg-violet-100 text-violet-700"
-                      }`}
+                      className={`text-xs font-medium px-2 py-0.5 rounded-full ${typeBadgeClass}`}
                     >
-                      {order.fulfillment_type === "physical"
-                        ? "Fisik"
-                        : "Digital / Jasa"}
+                      {typeLabel}
                     </span>
                   </div>
 
@@ -841,9 +853,16 @@ export default function OrderDetail() {
                   className="flex items-center justify-between py-3 border-b border-gray-50 last:border-0"
                 >
                   <div>
-                    <p className="font-medium text-gray-900 text-sm">
-                      {item.product_name}
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium text-gray-900 text-sm">
+                        {item.product_name}
+                      </p>
+                      {item.item_type === "service" && (
+                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
+                          Jasa
+                        </span>
+                      )}
+                    </div>
                     <p className="text-xs text-gray-400 mt-0.5">
                       Rp{" "}
                       {Number(item.price_at_purchase).toLocaleString("id-ID")} ×{" "}

@@ -30,6 +30,7 @@ export default function ServiceForm({ service, onClose, onSuccess }) {
     register,
     handleSubmit,
     reset,
+    watch,
     formState: { errors },
   } = useForm({
     resolver: zodResolver(serviceSchema),
@@ -38,8 +39,22 @@ export default function ServiceForm({ service, onClose, onSuccess }) {
       description: "",
       is_active: true,
       is_promo: false,
+      is_orderable: false,
+      price: "",
+      discount_percent: "0",
     },
   });
+
+  const watchIsPromo = watch("is_promo");
+  const watchIsOrderable = watch("is_orderable");
+  const watchPrice = watch("price");
+  const watchDiscount = watch("discount_percent");
+
+  const promoPrice =
+    watchIsPromo && watchPrice && watchDiscount
+      ? parseFloat(watchPrice) -
+        (parseFloat(watchPrice) * parseFloat(watchDiscount)) / 100
+      : null;
 
   useEffect(() => {
     if (service) {
@@ -48,6 +63,9 @@ export default function ServiceForm({ service, onClose, onSuccess }) {
         description: service.description || "",
         is_active: service.is_active,
         is_promo: service.is_promo || false,
+        is_orderable: service.is_orderable || false,
+        price: service.price != null ? String(service.price) : "",
+        discount_percent: String(service.discount_percent || 0),
       });
     }
   }, [service, reset]);
@@ -79,6 +97,12 @@ export default function ServiceForm({ service, onClose, onSuccess }) {
     formData.append("description", data.description || "");
     formData.append("is_active", String(data.is_active));
     formData.append("is_promo", String(data.is_promo));
+    formData.append("is_orderable", String(data.is_orderable));
+    formData.append("price", data.price || "");
+    formData.append(
+      "discount_percent",
+      data.is_promo ? data.discount_percent || "0" : "0",
+    );
 
     if (file) {
       formData.append("image", file);
@@ -131,6 +155,28 @@ export default function ServiceForm({ service, onClose, onSuccess }) {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
+              Harga (Rp){" "}
+              {watchIsOrderable && <span className="text-red-500">*</span>}
+            </label>
+            <input
+              {...register("price")}
+              inputMode="numeric"
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="500000"
+            />
+            {errors.price && (
+              <p className="text-red-500 text-xs mt-1">
+                {errors.price.message}
+              </p>
+            )}
+            <p className="text-xs text-gray-400 mt-1">
+              Kosongkan jika layanan ini hanya dipesan via WhatsApp (tidak
+              ditampilkan harga di website).
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
               Service Image
             </label>
             {isEdit && service.image_url && (
@@ -156,27 +202,86 @@ export default function ServiceForm({ service, onClose, onSuccess }) {
             </p>
           </div>
 
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              {...register("is_active")}
-              className="w-4 h-4 rounded accent-blue-600"
-            />
-            <span className="text-sm text-gray-700">Active</span>
-          </label>
+          <div className="flex gap-6">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                {...register("is_active")}
+                className="w-4 h-4 rounded accent-blue-600"
+              />
+              <span className="text-sm text-gray-700">Active</span>
+            </label>
+          </div>
 
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              {...register("is_promo")}
-              className="w-4 h-4 rounded accent-red-500"
-            />
-            <span className="text-sm text-gray-700">
-              🔥 Tandai sebagai Promo
-            </span>
-          </label>
+          {/* Pemesanan Online */}
+          <div className="border border-gray-100 rounded-xl p-4 space-y-2">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                {...register("is_orderable")}
+                className="w-4 h-4 rounded accent-green-600"
+              />
+              <span className="text-sm font-medium text-gray-700">
+                🛒 Bisa Dipesan Online
+              </span>
+            </label>
+            <p className="text-xs text-gray-500">
+              Jika diaktifkan, pelanggan bisa langsung checkout & membayar
+              layanan ini lewat website (bukan hanya WhatsApp). Wajib isi harga
+              di atas. Pemesanan layanan selalu 1 booking per order.
+            </p>
+          </div>
 
-          {/* Sticky footer */}
+          {/* Promo */}
+          <div className="border border-gray-100 rounded-xl p-4 space-y-3">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                {...register("is_promo")}
+                className="w-4 h-4 rounded accent-red-500"
+              />
+              <span className="text-sm font-medium text-gray-700">
+                🔥 Tandai sebagai Promo
+              </span>
+            </label>
+
+            {watchIsPromo && (
+              <div className="space-y-3 pt-2 border-t border-gray-100">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Diskon (%)
+                  </label>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min="1"
+                    max="100"
+                    {...register("discount_percent")}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
+                    placeholder="Contoh: 20"
+                  />
+                </div>
+
+                {promoPrice !== null && !isNaN(promoPrice) && watchPrice && (
+                  <div className="bg-red-50 border border-red-100 rounded-lg p-3">
+                    <p className="text-xs text-gray-500">Preview harga:</p>
+                    <div className="flex items-center gap-3 mt-1 flex-wrap">
+                      <span className="line-through text-gray-400 text-sm">
+                        Rp {parseFloat(watchPrice).toLocaleString("id-ID")}
+                      </span>
+                      <span className="text-red-600 font-bold">
+                        Rp {Math.round(promoPrice).toLocaleString("id-ID")}
+                      </span>
+                      <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full font-semibold">
+                        -{watchDiscount}%
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           <div className="flex gap-3 pt-2 sticky bottom-0 bg-white pb-2">
             <button
               type="button"
