@@ -70,6 +70,16 @@ export const createProduct = async (req, res) => {
     });
   }
 
+  if (discount_percent !== undefined && discount_percent !== "") {
+    const parsedDiscount = parseFloat(discount_percent);
+    if (isNaN(parsedDiscount) || parsedDiscount < 0 || parsedDiscount > 100) {
+      return res.status(400).json({
+        success: false,
+        message: "Discount percent harus berupa angka antara 0 dan 100",
+      });
+    }
+  }
+
   try {
     let image_url = null;
 
@@ -121,6 +131,16 @@ export const updateProduct = async (req, res) => {
     discount_percent,
     is_promo,
   } = req.body;
+
+  if (discount_percent !== undefined && discount_percent !== "") {
+    const parsedDiscount = parseFloat(discount_percent);
+    if (isNaN(parsedDiscount) || parsedDiscount < 0 || parsedDiscount > 100) {
+      return res.status(400).json({
+        success: false,
+        message: "Discount percent harus berupa angka antara 0 dan 100",
+      });
+    }
+  }
 
   try {
     const { data: existing, error: findError } = await supabase

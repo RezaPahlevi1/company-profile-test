@@ -188,8 +188,8 @@ export default function ProductList() {
                       <ImageOff size={24} className="text-gray-300" />
                     )}
 
-                    {/* ✅ Badge promo */}
-                    {product.is_promo && (
+                    {/* Badge promo */}
+                    {product.is_promo && product.discount_percent > 0 && (
                       <div className="absolute top-0 left-0 bg-red-500 text-white text-[10px] font-bold px-2 py-1 rounded-br-lg">
                         🔥 -{product.discount_percent}%
                       </div>

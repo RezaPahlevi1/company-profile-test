@@ -161,89 +161,113 @@ export default function ServiceList() {
       ) : (
         <>
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 lg:gap-4">
-            {paginated.map((service) => (
-              <div
-                key={service.id}
-                className="bg-white rounded-xl shadow-sm overflow-hidden flex flex-col"
-              >
-                {/* Image */}
-                <div className="relative h-32 sm:h-40 lg:h-48 bg-gray-100 flex items-center justify-center shrink-0">
-                  {service.image_url ? (
-                    <img
-                      src={service.image_url}
-                      alt={service.name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <ImageOff size={24} className="text-gray-300" />
-                  )}
+            {paginated.map((service) => {
+              const promoPrice =
+                service.is_promo &&
+                service.price != null &&
+                service.discount_percent > 0
+                  ? service.price -
+                    (service.price * service.discount_percent) / 100
+                  : null;
 
-                  {/* Badge promo */}
-                  {service.is_promo && (
-                    <div className="absolute top-0 left-0 bg-red-500 text-white text-[10px] font-bold px-2 py-1 rounded-br-lg">
-                      🔥 Promo
-                    </div>
-                  )}
-
-                  {/* Status badges — stack di kanan atas */}
-                  <div className="absolute top-2 right-2 flex flex-col items-end gap-1">
-                    <span
-                      className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
-                        service.is_active
-                          ? "bg-green-100 text-green-700"
-                          : "bg-gray-100 text-gray-500"
-                      }`}
-                    >
-                      {service.is_active ? "Active" : "Inactive"}
-                    </span>
-                    {service.is_orderable && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-blue-100 text-blue-700">
-                        🛒 Bisa Dipesan
-                      </span>
+              return (
+                <div
+                  key={service.id}
+                  className="bg-white rounded-xl shadow-sm overflow-hidden flex flex-col"
+                >
+                  {/* Image */}
+                  <div className="relative h-32 sm:h-40 lg:h-48 bg-gray-100 flex items-center justify-center shrink-0">
+                    {service.image_url ? (
+                      <img
+                        src={service.image_url}
+                        alt={service.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <ImageOff size={24} className="text-gray-300" />
                     )}
+
+                    {/* Badge promo */}
+                    {service.is_promo && service.discount_percent > 0 && (
+                      <div className="absolute top-0 left-0 bg-red-500 text-white text-[10px] font-bold px-2 py-1 rounded-br-lg">
+                        🔥 -{service.discount_percent}%
+                      </div>
+                    )}
+
+                    {/* Status badges — stack di kanan atas */}
+                    <div className="absolute top-2 right-2 flex flex-col items-end gap-1">
+                      <span
+                        className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
+                          service.is_active
+                            ? "bg-green-100 text-green-700"
+                            : "bg-gray-100 text-gray-500"
+                        }`}
+                      >
+                        {service.is_active ? "Active" : "Inactive"}
+                      </span>
+                      {service.is_orderable && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-blue-100 text-blue-700">
+                          🛒 Bisa Dipesan
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Info */}
+                  <div className="p-3 lg:p-4 flex flex-col flex-1">
+                    <h3 className="font-semibold text-gray-900 text-xs lg:text-sm leading-tight line-clamp-2">
+                      {service.name}
+                    </h3>
+
+                    {service.price != null && (
+                      <div className="mt-1">
+                        {promoPrice !== null ? (
+                          <div>
+                            <span className="text-red-600 font-bold text-xs lg:text-sm">
+                              Rp{" "}
+                              {Math.round(promoPrice).toLocaleString("id-ID")}
+                            </span>
+                            <span className="line-through text-gray-400 text-[10px] ml-1">
+                              Rp {Number(service.price).toLocaleString("id-ID")}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-blue-600 font-semibold text-xs lg:text-sm">
+                            Rp {Number(service.price).toLocaleString("id-ID")}
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {service.description && (
+                      <p className="text-[10px] lg:text-xs text-gray-500 mt-1 line-clamp-2">
+                        {service.description}
+                      </p>
+                    )}
+
+                    {/* Actions */}
+                    <div className="flex gap-1.5 lg:gap-2 mt-auto pt-3">
+                      <button
+                        onClick={() => handleEdit(service)}
+                        className="flex-1 flex items-center justify-center gap-1 border border-gray-200 hover:border-blue-300 hover:text-blue-600 text-gray-600 text-xs font-medium py-1.5 lg:py-2 rounded-lg transition-colors"
+                      >
+                        <Pencil size={11} />
+                        <span className="hidden sm:inline">Edit</span>
+                      </button>
+                      <button
+                        onClick={() =>
+                          handleDeleteClick(service.id, service.name)
+                        }
+                        className="flex-1 flex items-center justify-center gap-1 border border-gray-200 hover:border-red-300 hover:text-red-600 text-gray-600 text-xs font-medium py-1.5 lg:py-2 rounded-lg transition-colors"
+                      >
+                        <Trash2 size={11} />
+                        <span className="hidden sm:inline">Delete</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
-
-                {/* Info */}
-                <div className="p-3 lg:p-4 flex flex-col flex-1">
-                  <h3 className="font-semibold text-gray-900 text-xs lg:text-sm leading-tight line-clamp-2">
-                    {service.name}
-                  </h3>
-
-                  {service.price != null && (
-                    <p className="text-xs lg:text-sm font-semibold text-blue-600 mt-1">
-                      Rp {Number(service.price).toLocaleString("id-ID")}
-                    </p>
-                  )}
-
-                  {service.description && (
-                    <p className="text-[10px] lg:text-xs text-gray-500 mt-1 line-clamp-2">
-                      {service.description}
-                    </p>
-                  )}
-
-                  {/* Actions */}
-                  <div className="flex gap-1.5 lg:gap-2 mt-auto pt-3">
-                    <button
-                      onClick={() => handleEdit(service)}
-                      className="flex-1 flex items-center justify-center gap-1 border border-gray-200 hover:border-blue-300 hover:text-blue-600 text-gray-600 text-xs font-medium py-1.5 lg:py-2 rounded-lg transition-colors"
-                    >
-                      <Pencil size={11} />
-                      <span className="hidden sm:inline">Edit</span>
-                    </button>
-                    <button
-                      onClick={() =>
-                        handleDeleteClick(service.id, service.name)
-                      }
-                      className="flex-1 flex items-center justify-center gap-1 border border-gray-200 hover:border-red-300 hover:text-red-600 text-gray-600 text-xs font-medium py-1.5 lg:py-2 rounded-lg transition-colors"
-                    >
-                      <Trash2 size={11} />
-                      <span className="hidden sm:inline">Delete</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Pagination */}

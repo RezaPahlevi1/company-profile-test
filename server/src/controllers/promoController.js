@@ -36,7 +36,7 @@ export const getActivePromos = async (req, res) => {
         .eq("is_active", true),
       supabase
         .from("services")
-        .select("id, name, image_url")
+        .select("id, name, image_url, price, discount_percent, is_orderable")
         .eq("is_promo", true)
         .eq("is_active", true),
       supabase
@@ -100,11 +100,18 @@ export const getActivePromos = async (req, res) => {
         },
         products: products.map((p) => ({
           ...p,
-          promo_price: Math.round(
-            p.price - (p.price * p.discount_percent) / 100,
-          ),
+          promo_price:
+            p.discount_percent > 0
+              ? Math.round(p.price - (p.price * p.discount_percent) / 100)
+              : p.price,
         })),
-        services,
+        services: services.map((s) => ({
+          ...s,
+          promo_price:
+            s.is_orderable && s.price != null && s.discount_percent > 0
+              ? Math.round(s.price - (s.price * s.discount_percent) / 100)
+              : null,
+        })),
       },
     });
   } catch (err) {

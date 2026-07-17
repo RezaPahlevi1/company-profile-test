@@ -213,9 +213,29 @@ export default function PromoPopup() {
                             <p className="font-semibold text-slate-900 text-sm line-clamp-1">
                               {service.name}
                             </p>
-                            <span className="inline-flex items-center gap-1 bg-orange-500 text-white text-xs px-2 py-0.5 rounded-full mt-1 font-semibold">
-                              🔥 Sedang Promo
-                            </span>
+                            {service.promo_price != null ? (
+                              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                <span className="text-orange-600 font-bold text-sm">
+                                  Rp{" "}
+                                  {Number(service.promo_price).toLocaleString(
+                                    "id-ID",
+                                  )}
+                                </span>
+                                <span className="line-through text-gray-400 text-xs">
+                                  Rp{" "}
+                                  {Number(service.price).toLocaleString(
+                                    "id-ID",
+                                  )}
+                                </span>
+                                <span className="bg-orange-500 text-white text-xs px-1.5 py-0.5 rounded-full font-bold">
+                                  -{service.discount_percent}%
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 bg-orange-500 text-white text-xs px-2 py-0.5 rounded-full mt-1 font-semibold">
+                                🔥 Sedang Promo
+                              </span>
+                            )}
                           </div>
                         </div>
                       ))}

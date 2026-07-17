@@ -83,6 +83,16 @@ export const createService = async (req, res) => {
     });
   }
 
+  if (discount_percent !== undefined && discount_percent !== "") {
+    const parsedDiscount = parseFloat(discount_percent);
+    if (isNaN(parsedDiscount) || parsedDiscount < 0 || parsedDiscount > 100) {
+      return res.status(400).json({
+        success: false,
+        message: "Discount percent harus berupa angka antara 0 dan 100",
+      });
+    }
+  }
+
   try {
     let image_url = null;
     if (req.file) {
@@ -164,6 +174,16 @@ export const updateService = async (req, res) => {
         message:
           "Harga wajib diisi dan lebih dari 0 untuk layanan yang bisa dipesan online",
       });
+    }
+
+    if (discount_percent !== undefined && discount_percent !== "") {
+      const parsedDiscount = parseFloat(discount_percent);
+      if (isNaN(parsedDiscount) || parsedDiscount < 0 || parsedDiscount > 100) {
+        return res.status(400).json({
+          success: false,
+          message: "Discount percent harus berupa angka antara 0 dan 100",
+        });
+      }
     }
 
     let image_url = existing.image_url;
