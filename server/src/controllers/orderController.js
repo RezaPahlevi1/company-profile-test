@@ -672,8 +672,8 @@ export const getAllOrders = async (req, res) => {
         [
           `and(payment_method.eq.manual,status.in.(pending,under_review),or(expires_at.is.null,expires_at.gt.${now}))`,
           `and(status.eq.paid,fulfillment_type.is.null)`,
-          `and(status.eq.paid,fulfillment_type.eq.physical,fulfillment_status.neq.delivered)`,
-          `and(status.eq.paid,fulfillment_type.eq.digital,fulfillment_status.neq.completed)`,
+          `and(status.eq.paid,fulfillment_type.eq.physical,or(fulfillment_status.is.null,fulfillment_status.neq.delivered))`,
+          `and(status.eq.paid,fulfillment_type.eq.digital,or(fulfillment_status.is.null,fulfillment_status.neq.completed))`,
           `and(status.eq.paid,fulfillment_type.eq.service,or(fulfillment_status.is.null,fulfillment_status.neq.completed))`,
         ].join(","),
       );
@@ -898,7 +898,7 @@ export const updateOrderStatus = async (req, res) => {
 
     // ✅ under_review tidak bisa langsung ke failed
     const invalidTransitions = {
-      paid: ["paid", "failed"],
+      paid: ["paid", "failed", "cancelled"],
       cancelled: ["paid", "failed", "cancelled"],
       failed: ["failed"],
       under_review: ["failed"],

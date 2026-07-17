@@ -427,11 +427,12 @@ export default function OrderDetail() {
   const [pendingNextStatus, setPendingNextStatus] = useState(null);
   const [noteModal, setNoteModal] = useState({ open: false, status: null });
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isFetching } = useQuery({
     queryKey: ["admin-order", id],
     queryFn: () => getOrderById(id),
     refetchInterval: 15000,
     refetchIntervalInBackground: false,
+    refetchOnMount: "always",
   });
 
   const invalidate = () => {
@@ -628,7 +629,7 @@ export default function OrderDetail() {
                 {order.status === "pending" && isManualOrder && (
                   <button
                     onClick={() => doMarkReview()}
-                    disabled={isMarkingReview}
+                    disabled={isMarkingReview || isFetching}
                     className="flex items-center gap-1.5 border border-blue-200 hover:bg-blue-50 text-blue-600 text-xs font-medium px-3 py-2 rounded-lg transition-colors disabled:opacity-50"
                   >
                     <Eye size={14} />
@@ -653,6 +654,7 @@ export default function OrderDetail() {
                   order.status === "under_review") && (
                   <button
                     onClick={() => setConfirmPaidOpen(true)}
+                    disabled={isFetching}
                     className="flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-medium px-3 py-2 rounded-lg transition-colors"
                   >
                     <CheckCircle size={14} />
@@ -663,6 +665,7 @@ export default function OrderDetail() {
                 {["pending", "under_review"].includes(order.status) && (
                   <button
                     onClick={() => setConfirmCancelOpen(true)}
+                    disabled={isFetching}
                     className="flex items-center gap-1.5 border border-red-200 hover:bg-red-50 text-red-600 text-xs font-medium px-3 py-2 rounded-lg transition-colors"
                   >
                     <XCircle size={14} />
@@ -711,7 +714,7 @@ export default function OrderDetail() {
                   <div className="grid grid-cols-2 gap-3">
                     <button
                       onClick={() => handleFulfillmentTypeSelect("physical")}
-                      disabled={isFulfilling}
+                      disabled={isFulfilling || isFetching}
                       className="flex flex-col items-center gap-2 p-4 border-2 border-gray-200 hover:border-blue-400 hover:bg-blue-50 rounded-xl transition-all disabled:opacity-50"
                     >
                       <Truck size={24} className="text-blue-500" />
@@ -726,7 +729,7 @@ export default function OrderDetail() {
                     </button>
                     <button
                       onClick={() => handleFulfillmentTypeSelect("digital")}
-                      disabled={isFulfilling}
+                      disabled={isFulfilling || isFetching}
                       className="flex flex-col items-center gap-2 p-4 border-2 border-gray-200 hover:border-violet-400 hover:bg-violet-50 rounded-xl transition-all disabled:opacity-50"
                     >
                       <Package size={24} className="text-violet-500" />
@@ -784,7 +787,7 @@ export default function OrderDetail() {
                   {nextFulfillmentStatus && nextConfig && (
                     <button
                       onClick={() => handleNextStatus(nextFulfillmentStatus)}
-                      disabled={isFulfilling}
+                      disabled={isFulfilling || isFetching}
                       className="w-full flex items-center justify-between px-4 py-3 bg-gray-900 hover:bg-gray-800 text-white rounded-xl transition-colors disabled:opacity-50"
                     >
                       <div className="flex items-center gap-2">
