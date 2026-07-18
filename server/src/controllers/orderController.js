@@ -272,7 +272,9 @@ export const createOrder = async (req, res) => {
       const productIds = productItems.map((item) => item.product_id);
       const { data, error: productError } = await supabase
         .from("products")
-        .select("id, name, price, is_active, is_promo, discount_percent")
+        .select(
+          "id, name, price, is_active, is_promo, discount_percent, delivery_estimation",
+        )
         .in("id", productIds);
       if (productError) throw productError;
       products = data;
@@ -297,7 +299,7 @@ export const createOrder = async (req, res) => {
       const { data, error: serviceError } = await supabase
         .from("services")
         .select(
-          "id, name, price, is_active, is_orderable, is_promo, discount_percent",
+          "id, name, price, is_active, is_orderable, is_promo, discount_percent, delivery_estimation",
         )
         .in("id", serviceIds);
       if (serviceError) throw serviceError;
@@ -342,6 +344,7 @@ export const createOrder = async (req, res) => {
         product_name: source.name,
         price_at_purchase: Math.round(effectivePrice),
         quantity: item.quantity,
+        delivery_estimation_snapshot: source.delivery_estimation || null,
       };
     });
 
@@ -618,7 +621,9 @@ export const handleMidtransWebhook = async (req, res) => {
     if (orderStatus === "paid" && !wasAlreadyPaid) {
       const { data: fullOrder } = await supabase
         .from("orders")
-        .select(`*, order_items(product_name, price_at_purchase, quantity)`)
+        .select(
+          `*, order_items(product_name, price_at_purchase, quantity, delivery_estimation_snapshot)`,
+        )
         .eq("order_number", order_id)
         .single();
 
@@ -938,7 +943,9 @@ export const updateOrderStatus = async (req, res) => {
     if (status === "paid" && !wasAlreadyPaid) {
       const { data: fullOrder } = await supabase
         .from("orders")
-        .select(`*, order_items(product_name, price_at_purchase, quantity)`)
+        .select(
+          `*, order_items(product_name, price_at_purchase, quantity, delivery_estimation_snapshot)`,
+        )
         .eq("id", id)
         .single();
 

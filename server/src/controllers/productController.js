@@ -61,6 +61,7 @@ export const createProduct = async (req, res) => {
     allow_negotiation,
     discount_percent,
     is_promo,
+    delivery_estimation,
   } = req.body;
 
   if (!name || !price) {
@@ -103,6 +104,7 @@ export const createProduct = async (req, res) => {
           is_active: true,
           discount_percent: parseFloat(discount_percent) || 0,
           is_promo: parseBoolean(is_promo),
+          delivery_estimation: delivery_estimation || null,
         },
       ])
       .select()
@@ -130,6 +132,7 @@ export const updateProduct = async (req, res) => {
     is_active,
     discount_percent,
     is_promo,
+    delivery_estimation,
   } = req.body;
 
   if (discount_percent !== undefined && discount_percent !== "") {
@@ -178,6 +181,7 @@ export const updateProduct = async (req, res) => {
         discount_percent: parseFloat(discount_percent) || 0,
       }),
       ...(is_promo !== undefined && { is_promo: parseBoolean(is_promo) }),
+      ...(delivery_estimation !== undefined && { delivery_estimation }),
       image_url,
     };
 

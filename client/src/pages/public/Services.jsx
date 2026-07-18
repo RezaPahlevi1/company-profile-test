@@ -5,7 +5,6 @@ import { Search, Tag, Calendar } from "lucide-react";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import { getServices } from "../../api/services";
-import { getSiteSettings } from "../../api/settings";
 import ServiceCard from "../../components/shared/ServiceCard";
 import Spinner from "../../components/ui/Spinner";
 import EmptyState from "../../components/ui/EmptyState";
@@ -39,17 +38,10 @@ export default function Services() {
     staleTime: 1000 * 60 * 5,
   });
 
-  const { data: siteData } = useQuery({
-    queryKey: ["site-settings"],
-    queryFn: getSiteSettings,
-    staleTime: 1000 * 60 * 10,
-  });
-
   const { campaignActive, hasPromo, campaign, promoServices } =
     usePromoStatus();
 
   const services = data?.data?.data || [];
-  const siteSettings = siteData?.data?.data || {};
 
   const filtered = services.filter(
     (s) =>
@@ -198,12 +190,7 @@ export default function Services() {
               </p>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filtered.map((service, i) => (
-                  <ServiceCard
-                    key={service.id}
-                    service={service}
-                    index={i}
-                    siteSettings={siteSettings}
-                  />
+                  <ServiceCard key={service.id} service={service} index={i} />
                 ))}
               </div>
             </>

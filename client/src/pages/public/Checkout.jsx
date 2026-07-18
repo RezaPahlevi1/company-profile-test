@@ -15,6 +15,7 @@ import {
   Landmark,
   ChevronRight,
   Info,
+  Clock,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { z } from "zod";
@@ -590,6 +591,12 @@ export default function Checkout() {
                       <p className="text-slate-500 text-sm mt-1">
                         Jumlah: {quantity}
                       </p>
+                    )}
+                    {item.delivery_estimation && (
+                      <div className="flex items-center gap-1.5 mt-2 text-blue-600 text-xs font-medium bg-blue-50 w-fit px-2 py-1 rounded">
+                        <Clock size={12} />
+                        Estimasi: {item.delivery_estimation}
+                      </div>
                     )}
                   </div>
                 </div>

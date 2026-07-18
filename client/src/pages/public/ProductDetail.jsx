@@ -8,7 +8,6 @@ import {
   ImageOff,
   CheckCircle,
   Tag,
-  Clock,
 } from "lucide-react";
 import { getProductById } from "../../api/products";
 import { getSiteSettings } from "../../api/settings";
@@ -27,16 +26,9 @@ export default function ProductDetail() {
     staleTime: 1000 * 60 * 5,
   });
 
-  const { data: siteData } = useQuery({
-    queryKey: ["site-settings"],
-    queryFn: getSiteSettings,
-    staleTime: 1000 * 60 * 10,
-  });
-
   const { campaignActive } = usePromoStatus();
 
   const product = data?.data?.data;
-  const siteSettings = siteData?.data?.data || {};
 
   // Harga promo hanya dihitung jika kampanye global sedang aktif
   const promoPrice =
@@ -167,14 +159,6 @@ export default function ProductDetail() {
                     {item}
                   </li>
                 ))}
-                {siteSettings.delivery_estimation && (
-                  <li className="flex items-center gap-3 text-slate-600 mt-4 bg-blue-50 p-3 rounded-lg border border-blue-100">
-                    <Clock size={16} className="text-blue-600 shrink-0" />
-                    <span className="text-sm font-medium">
-                      Estimasi Pengerjaan: {siteSettings.delivery_estimation}
-                    </span>
-                  </li>
-                )}
               </ul>
 
               {/* Quantity */}

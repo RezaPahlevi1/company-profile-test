@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
-import { ShoppingCart, ImageOff } from "lucide-react";
+import { ShoppingCart, ImageOff, Clock } from "lucide-react";
 import WhatsAppButton from "./WhatsAppButton";
 import usePromoStatus from "../../hooks/usePromoStatus";
 
@@ -82,6 +82,13 @@ export default function ProductCard({ product, index = 0 }) {
             </span>
           )}
         </div>
+
+        {product.delivery_estimation && (
+          <div className="flex items-center gap-1.5 mt-3 text-blue-600 text-xs font-medium bg-blue-50 w-fit px-2 py-1 rounded">
+            <Clock size={12} />
+            {product.delivery_estimation}
+          </div>
+        )}
 
         <div className="flex gap-2 mt-4">
           <Link

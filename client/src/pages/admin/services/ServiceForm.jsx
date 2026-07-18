@@ -42,6 +42,7 @@ export default function ServiceForm({ service, onClose, onSuccess }) {
       is_orderable: false,
       price: "",
       discount_percent: "0",
+      delivery_estimation: "",
     },
   });
 
@@ -66,6 +67,7 @@ export default function ServiceForm({ service, onClose, onSuccess }) {
         is_orderable: service.is_orderable || false,
         price: service.price != null ? String(service.price) : "",
         discount_percent: String(service.discount_percent || 0),
+        delivery_estimation: service.delivery_estimation || "",
       });
     }
   }, [service, reset]);
@@ -103,6 +105,7 @@ export default function ServiceForm({ service, onClose, onSuccess }) {
       "discount_percent",
       data.is_promo ? data.discount_percent || "0" : "0",
     );
+    formData.append("delivery_estimation", data.delivery_estimation || "");
 
     if (file) {
       formData.append("image", file);
@@ -173,6 +176,17 @@ export default function ServiceForm({ service, onClose, onSuccess }) {
               Kosongkan jika layanan ini hanya dipesan via WhatsApp (tidak
               ditampilkan harga di website).
             </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Estimasi Pengerjaan
+            </label>
+            <input
+              {...register("delivery_estimation")}
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Contoh: 3-5 hari kerja"
+            />
           </div>
 
           <div>

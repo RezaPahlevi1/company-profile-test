@@ -85,7 +85,6 @@ export default function SiteSettings() {
   const [form, setForm] = useState({
     site_name: "",
     payment_expiry_minutes: "1440",
-    delivery_estimation: "",
     bank_account_info: "",
     manual_payment_verification_hours: "",
     manual_payment_expiry_minutes: "4320",
@@ -110,7 +109,6 @@ export default function SiteSettings() {
       setForm({
         site_name: settings.site_name || "",
         payment_expiry_minutes: settings.payment_expiry_minutes || "1440",
-        delivery_estimation: settings.delivery_estimation || "",
         bank_account_info: settings.bank_account_info || "",
         manual_payment_verification_hours:
           settings.manual_payment_verification_hours || "",
@@ -563,23 +561,6 @@ export default function SiteSettings() {
             <p className="text-xs text-gray-400 mt-1.5">
               Antara 1 menit hingga 1440 menit (24 jam). Order manual yang
               melewati batas ini akan otomatis gagal.
-            </p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Estimasi Penyelesaian
-            </label>
-            <input
-              value={form.delivery_estimation}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, delivery_estimation: e.target.value }))
-              }
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Contoh: 3-5 hari kerja"
-            />
-            <p className="text-xs text-gray-400 mt-1.5">
-              Ditampilkan di email konfirmasi pembayaran berhasil.
             </p>
           </div>
         </div>

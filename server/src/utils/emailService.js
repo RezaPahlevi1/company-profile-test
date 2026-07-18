@@ -282,6 +282,27 @@ const buildOrderCreatedManualContent = (order, items, variables) => {
     </div>`;
 };
 
+// ── Estimasi Pengerjaan per-item ─────────────────────────────
+const buildDeliveryEstimationBlock = (items) => {
+  const withEstimation = items.filter(
+    (item) => item.delivery_estimation_snapshot,
+  );
+  if (withEstimation.length === 0) return "";
+
+  return `
+    <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:14px;margin-bottom:20px;">
+      <p style="color:#1e40af;font-size:13px;font-weight:700;margin:0 0 8px;">📦 Estimasi Pengerjaan</p>
+      <ul style="margin:0;padding-left:18px;color:#1e40af;font-size:13px;line-height:1.8;">
+        ${withEstimation
+          .map(
+            (item) =>
+              `<li>${escapeHtml(item.product_name)}: <strong>${escapeHtml(item.delivery_estimation_snapshot)}</strong></li>`,
+          )
+          .join("")}
+      </ul>
+    </div>`;
+};
+
 // ── Payment Success ──────────────────────────────────────────
 const buildPaymentSuccessContent = (order, items, variables) => {
   const trackUrl = `${process.env.CLIENT_URL}/order/${escapeHtml(order.order_number)}`;
@@ -309,16 +330,7 @@ const buildPaymentSuccessContent = (order, items, variables) => {
       }
     </div>
 
-    ${
-      variables.delivery_estimation
-        ? `
-    <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:14px;margin-bottom:20px;">
-      <p style="color:#1e40af;font-size:13px;margin:0;">
-        📦 <strong>Estimasi penyelesaian:</strong> ${escapeHtml(variables.delivery_estimation)}
-      </p>
-    </div>`
-        : ""
-    }
+    ${buildDeliveryEstimationBlock(items)}
 
     ${buildItemsTable(items, order.total_amount, "#059669")}
 
@@ -460,7 +472,6 @@ export const sendOrderCreatedEmail = async (
       order_date: formatDate(order.created_at),
       site_name: escapeHtml(siteSettings.site_name || "CompanyName"),
       track_url: `${process.env.CLIENT_URL}/order/${escapeHtml(order.order_number)}`,
-      delivery_estimation: escapeHtml(siteSettings.delivery_estimation || ""),
       bank_account_info: siteSettings.bank_account_info || "",
       manual_payment_verification_hours: escapeHtml(
         siteSettings.manual_payment_verification_hours || "1x24 jam kerja",
@@ -524,7 +535,6 @@ export const sendPaymentSuccessEmail = async (order, items) => {
       paid_at: order.paid_at ? formatDate(order.paid_at) : "",
       site_name: escapeHtml(siteSettings.site_name || "CompanyName"),
       track_url: `${process.env.CLIENT_URL}/order/${escapeHtml(order.order_number)}`,
-      delivery_estimation: escapeHtml(siteSettings.delivery_estimation || ""),
       header_color: template.header_color,
     };
 

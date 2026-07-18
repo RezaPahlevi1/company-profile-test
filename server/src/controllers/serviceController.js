@@ -59,8 +59,15 @@ export const getServiceById = async (req, res) => {
 };
 
 export const createService = async (req, res) => {
-  const { name, description, is_promo, price, discount_percent, is_orderable } =
-    req.body;
+  const {
+    name,
+    description,
+    is_promo,
+    price,
+    discount_percent,
+    is_orderable,
+    delivery_estimation,
+  } = req.body;
 
   if (!name) {
     return res
@@ -115,6 +122,7 @@ export const createService = async (req, res) => {
           price: parsedPrice,
           discount_percent: parseFloat(discount_percent) || 0,
           is_orderable: resolvedIsOrderable,
+          delivery_estimation: delivery_estimation || null,
         },
       ])
       .select()
@@ -139,6 +147,7 @@ export const updateService = async (req, res) => {
     price,
     discount_percent,
     is_orderable,
+    delivery_estimation,
   } = req.body;
 
   try {
@@ -205,6 +214,7 @@ export const updateService = async (req, res) => {
         discount_percent: parseFloat(discount_percent) || 0,
       }),
       ...(is_orderable !== undefined && { is_orderable: resolvedIsOrderable }),
+      ...(delivery_estimation !== undefined && { delivery_estimation }),
       image_url,
     };
 

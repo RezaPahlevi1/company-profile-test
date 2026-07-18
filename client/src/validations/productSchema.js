@@ -13,4 +13,5 @@ export const productSchema = z.object({
   is_active: z.boolean().default(true),
   is_promo: z.boolean().default(false),
   discount_percent: z.string().default("0"),
+  delivery_estimation: z.string().optional(),
 });

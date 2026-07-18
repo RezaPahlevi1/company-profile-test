@@ -4,7 +4,7 @@ import { ImageOff, Clock, ShoppingCart } from "lucide-react";
 import WhatsAppButton from "./WhatsAppButton";
 import usePromoStatus from "../../hooks/usePromoStatus";
 
-export default function ServiceCard({ service, index = 0, siteSettings = {} }) {
+export default function ServiceCard({ service, index = 0 }) {
   if (!service) return null;
 
   const { campaignActive } = usePromoStatus();
@@ -83,10 +83,10 @@ export default function ServiceCard({ service, index = 0, siteSettings = {} }) {
             {service.description}
           </p>
         )}
-        {siteSettings.delivery_estimation && (
+        {service.delivery_estimation && (
           <div className="flex items-center gap-1.5 mt-3 text-blue-600 text-xs font-medium bg-blue-50 w-fit px-2 py-1 rounded">
             <Clock size={12} />
-            {siteSettings.delivery_estimation}
+            {service.delivery_estimation}
           </div>
         )}
 

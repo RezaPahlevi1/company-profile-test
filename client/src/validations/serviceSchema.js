@@ -13,6 +13,7 @@ export const serviceSchema = z
     is_orderable: z.boolean().default(false),
     price: z.string().optional(),
     discount_percent: z.string().optional(),
+    delivery_estimation: z.string().optional(),
   })
   .refine(
     (data) => {

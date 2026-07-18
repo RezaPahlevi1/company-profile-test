@@ -53,7 +53,6 @@ export const updateSiteSettings = async (req, res) => {
     site_name,
     site_description,
     payment_expiry_minutes,
-    delivery_estimation,
     show_site_name,
     whatsapp_number,
     show_whatsapp,
@@ -222,8 +221,6 @@ export const updateSiteSettings = async (req, res) => {
         key: "manual_payment_expiry_minutes",
         value: String(manual_payment_expiry_minutes),
       });
-    if (delivery_estimation !== undefined)
-      updates.push({ key: "delivery_estimation", value: delivery_estimation });
     if (show_site_name !== undefined)
       updates.push({ key: "show_site_name", value: show_site_name });
     if (whatsapp_number !== undefined)

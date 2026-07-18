@@ -44,6 +44,7 @@ export default function ProductForm({ product, onClose, onSuccess }) {
       is_active: true,
       is_promo: false,
       discount_percent: "0",
+      delivery_estimation: "",
     },
   });
 
@@ -67,6 +68,7 @@ export default function ProductForm({ product, onClose, onSuccess }) {
         is_active: product.is_active,
         is_promo: product.is_promo || false,
         discount_percent: String(product.discount_percent || 0),
+        delivery_estimation: product.delivery_estimation || "",
       });
     }
   }, [product, reset]);
@@ -105,6 +107,7 @@ export default function ProductForm({ product, onClose, onSuccess }) {
       "discount_percent",
       data.is_promo ? data.discount_percent || "0" : "0",
     );
+    formData.append("delivery_estimation", data.delivery_estimation || "");
 
     // ✅ Gunakan ref bukan getElementById
     if (file) {
@@ -172,6 +175,17 @@ export default function ProductForm({ product, onClose, onSuccess }) {
                 {errors.price.message}
               </p>
             )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Estimasi Pengerjaan
+            </label>
+            <input
+              {...register("delivery_estimation")}
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Contoh: 3-5 hari kerja"
+            />
           </div>
 
           <div>
