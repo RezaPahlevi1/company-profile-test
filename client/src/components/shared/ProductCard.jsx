@@ -5,9 +5,9 @@ import WhatsAppButton from "./WhatsAppButton";
 import usePromoStatus from "../../hooks/usePromoStatus";
 
 export default function ProductCard({ product, index = 0 }) {
-  if (!product) return null;
-
   const { campaignActive } = usePromoStatus();
+
+  if (!product) return null;
 
   // Harga promo hanya dihitung jika kampanye global sedang aktif
   const promoPrice =

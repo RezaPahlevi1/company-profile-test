@@ -5,9 +5,9 @@ import WhatsAppButton from "./WhatsAppButton";
 import usePromoStatus from "../../hooks/usePromoStatus";
 
 export default function ServiceCard({ service, index = 0 }) {
-  if (!service) return null;
-
   const { campaignActive } = usePromoStatus();
+
+  if (!service) return null;
 
   const showPromoBadge = campaignActive && service.is_promo;
   const canOrder = service.is_orderable && service.price != null;

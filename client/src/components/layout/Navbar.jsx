@@ -86,7 +86,7 @@ export default function Navbar() {
       {floating && (
         <div
           aria-hidden="true"
-          className="absolute inset-x-0 top-0 h-28 lg:h-32 z-0 pointer-events-none bg-gradient-to-b from-black/45 to-transparent"
+          className="absolute inset-x-0 top-0 h-28 lg:h-32 z-0 pointer-events-none bg-linear-to-b from-black/45 to-transparent"
         />
       )}
 

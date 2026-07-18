@@ -10,7 +10,6 @@ import {
   Tag,
 } from "lucide-react";
 import { getProductById } from "../../api/products";
-import { getSiteSettings } from "../../api/settings";
 import WhatsAppButton from "../../components/shared/WhatsAppButton";
 import Spinner from "../../components/ui/Spinner";
 import usePromoStatus from "../../hooks/usePromoStatus";

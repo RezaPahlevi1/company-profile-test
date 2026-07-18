@@ -37,7 +37,7 @@ export default function BlogCard({ blog, index = 0 }) {
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
             />
           ) : (
-            <div className="w-full h-full bg-gradient-to-br from-brand-50 to-brand-100 flex items-center justify-center">
+            <div className="w-full h-full bg-linear-to-br from-brand-50 to-brand-100 flex items-center justify-center">
               <span className="text-brand-300 text-4xl font-bold">
                 {blog.title?.charAt(0)}
               </span>
