@@ -55,7 +55,7 @@ export default function Blog() {
   return (
     <main className="pt-16 lg:pt-20">
       {/* Hero */}
-      <section className="section-padding bg-gradient-to-br from-slate-900 via-brand-950 to-slate-900 relative overflow-hidden">
+      <section className="section-padding bg-linear-to-br from-slate-900 via-brand-950 to-slate-900 relative overflow-hidden">
         <div
           className="absolute inset-0 opacity-20"
           style={{

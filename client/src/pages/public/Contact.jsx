@@ -119,7 +119,7 @@ export default function Contact() {
   return (
     <main className="pt-16 lg:pt-20">
       {/* Hero */}
-      <section className="section-padding bg-gradient-to-br from-slate-900 via-brand-950 to-slate-900 relative overflow-hidden">
+      <section className="section-padding bg-linear-to-br from-slate-900 via-brand-950 to-slate-900 relative overflow-hidden">
         <div
           className="absolute inset-0 opacity-20"
           style={{
@@ -214,12 +214,12 @@ export default function Contact() {
                                 ? "noopener noreferrer"
                                 : undefined
                             }
-                            className="text-slate-700 font-medium hover:text-brand-600 transition-colors mt-0.5 block break-words"
+                            className="text-slate-700 font-medium hover:text-brand-600 transition-colors mt-0.5 block wrap-break-word"
                           >
                             {info.value}
                           </a>
                         ) : (
-                          <p className="text-slate-700 font-medium mt-0.5 break-words">
+                          <p className="text-slate-700 font-medium mt-0.5 wrap-break-word">
                             {info.value}
                           </p>
                         )}

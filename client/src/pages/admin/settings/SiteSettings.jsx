@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Save,
@@ -104,32 +104,37 @@ export default function SiteSettings() {
 
   const [videoError, setVideoError] = useState("");
 
-  useEffect(() => {
-    if (settings.site_name !== undefined) {
-      setForm({
-        site_name: settings.site_name || "",
-        payment_expiry_minutes: settings.payment_expiry_minutes || "1440",
-        bank_account_info: settings.bank_account_info || "",
-        manual_payment_verification_hours:
-          settings.manual_payment_verification_hours || "",
-        manual_payment_expiry_minutes:
-          settings.manual_payment_expiry_minutes || "4320",
-      });
-      setFooterForm({
-        footer_tagline: settings.footer_tagline || "",
-        footer_cta_title: settings.footer_cta_title || "",
-        footer_cta_body: settings.footer_cta_body || "",
-        footer_video_url: settings.footer_video_id || "",
-      });
-      setTermsForm({
-        terms_highlight: settings.terms_highlight || "",
-      });
-      setSessionForm({
-        admin_session_duration_hours:
-          settings.admin_session_duration_hours || "24",
-      });
-    }
-  }, [siteData]);
+  // Lacak referensi siteData yang terakhir disinkronkan ke form lokal.
+  // Sinkronisasi dilakukan di badan render (bukan di useEffect) supaya
+  // React mengulang render dengan state baru SEBELUM browser melukis,
+  // menghindari cascading render / flash nilai default.
+  const [syncedSiteData, setSyncedSiteData] = useState(null);
+
+  if (siteData !== syncedSiteData && settings.site_name !== undefined) {
+    setSyncedSiteData(siteData);
+    setForm({
+      site_name: settings.site_name || "",
+      payment_expiry_minutes: settings.payment_expiry_minutes || "1440",
+      bank_account_info: settings.bank_account_info || "",
+      manual_payment_verification_hours:
+        settings.manual_payment_verification_hours || "",
+      manual_payment_expiry_minutes:
+        settings.manual_payment_expiry_minutes || "4320",
+    });
+    setFooterForm({
+      footer_tagline: settings.footer_tagline || "",
+      footer_cta_title: settings.footer_cta_title || "",
+      footer_cta_body: settings.footer_cta_body || "",
+      footer_video_url: settings.footer_video_id || "",
+    });
+    setTermsForm({
+      terms_highlight: settings.terms_highlight || "",
+    });
+    setSessionForm({
+      admin_session_duration_hours:
+        settings.admin_session_duration_hours || "24",
+    });
+  }
 
   const { mutate: saveSiteSettings, isPending: isSaving } = useMutation({
     mutationFn: updateSiteSettings,
