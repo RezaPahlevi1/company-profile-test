@@ -94,8 +94,7 @@ export default function ServiceCard({ service, index = 0 }) {
           {/* Tombol Pesan — hanya jika is_orderable && ada harga */}
           {canOrder && (
             <Link
-              to="/checkout"
-              state={{ item: service, itemType: "service" }}
+              to={`/services/${service.id}`}
               className="btn-primary w-full justify-center"
             >
               <ShoppingCart size={16} />

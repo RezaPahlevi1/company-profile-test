@@ -46,7 +46,7 @@ export default function Checkout() {
   const state = location.state || {};
   const itemType = state.itemType || "product";
   const item = state.item || state.product;
-  const quantity = itemType === "service" ? 1 : state.quantity || 1;
+  const quantity = state.quantity || 1;
 
   const { campaignActive } = usePromoStatus();
 
@@ -160,7 +160,7 @@ export default function Checkout() {
       ...orderData,
       items:
         itemType === "service"
-          ? [{ item_type: "service", service_id: item.id }]
+          ? [{ item_type: "service", service_id: item.id, quantity }]
           : [{ item_type: "product", product_id: item.id, quantity }],
       payment_method: paymentMethod,
     });
@@ -588,11 +588,9 @@ export default function Checkout() {
                         Rp {Number(item.price).toLocaleString("id-ID")}
                       </p>
                     )}
-                    {itemType === "product" && (
-                      <p className="text-slate-500 text-sm mt-1">
-                        Jumlah: {quantity}
-                      </p>
-                    )}
+                    <p className="text-slate-500 text-sm mt-1">
+                      Jumlah: {quantity}
+                    </p>
                     {item.delivery_estimation && (
                       <div className="flex items-center gap-1.5 mt-2 text-blue-600 text-xs font-medium bg-blue-50 w-fit px-2 py-1 rounded">
                         <Clock size={12} />
@@ -615,11 +613,7 @@ export default function Checkout() {
                     </div>
                   )}
                   <div className="flex justify-between text-sm text-slate-600">
-                    <span>
-                      {itemType === "service"
-                        ? "Subtotal"
-                        : `Subtotal (${quantity} item)`}
-                    </span>
+                    <span>{`Subtotal (${quantity} item)`}</span>
                     <span>Rp {total.toLocaleString("id-ID")}</span>
                   </div>
                   <div className="flex justify-between font-bold text-slate-900 text-lg pt-2 border-t border-slate-100">

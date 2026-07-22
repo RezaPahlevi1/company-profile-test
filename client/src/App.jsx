@@ -11,6 +11,7 @@ const Home = lazy(() => import("./pages/public/Home"));
 const About = lazy(() => import("./pages/public/About"));
 const Products = lazy(() => import("./pages/public/Products"));
 const ProductDetail = lazy(() => import("./pages/public/ProductDetail"));
+const ServiceDetail = lazy(() => import("./pages/public/ServiceDetail"));
 const Services = lazy(() => import("./pages/public/Services"));
 const Blog = lazy(() => import("./pages/public/Blog"));
 const BlogDetail = lazy(() => import("./pages/public/BlogDetail"));
@@ -253,6 +254,14 @@ export default function App() {
               <PageGuard pageKey="services">
                 <Services />
               </PageGuard>
+            </PublicLayout>
+          }
+        />
+        <Route
+          path="/services/:id"
+          element={
+            <PublicLayout>
+              <ServiceDetail />
             </PublicLayout>
           }
         />

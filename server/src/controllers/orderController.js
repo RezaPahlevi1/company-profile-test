@@ -204,18 +204,14 @@ export const createOrder = async (req, res) => {
             : "Product ID is required for each item",
       });
 
-    if (itemType === "service") {
-      // ✅ Booking layanan selalu quantity 1 — nilai dari client diabaikan
-      items[i].quantity = 1;
-    } else {
-      const qty = Number(item.quantity);
-      if (isNaN(qty) || qty <= 0 || qty > 100)
-        return res.status(400).json({
-          success: false,
-          message: "Invalid quantity. Must be a number between 1 and 100.",
-        });
-      items[i].quantity = qty;
-    }
+    // ✅ Quantity divalidasi sama untuk product maupun service (1-100)
+    const qty = Number(item.quantity);
+    if (isNaN(qty) || qty <= 0 || qty > 100)
+      return res.status(400).json({
+        success: false,
+        message: "Invalid quantity. Must be a number between 1 and 100.",
+      });
+    items[i].quantity = qty;
 
     items[i].item_type = itemType;
   }
