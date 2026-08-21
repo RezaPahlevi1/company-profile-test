@@ -4,6 +4,8 @@ import { Play } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { getSiteSettings, getPageSettings } from "../../api/settings";
 
+import BrandMarquee from "../shared/BrandMarquee";
+
 // Halaman yang tidak ditampilkan di footer quick links
 const EXCLUDED_FROM_FOOTER = ["home", "order-track"];
 
@@ -96,6 +98,7 @@ export default function Footer() {
 
   return (
     <footer className="bg-slate-900 text-slate-400">
+      <BrandMarquee direction={settings.brand_marquee_direction || "left"} />
       <div className="container-base section-padding">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
           {/* Kolom 1 — Brand + tagline + video */}

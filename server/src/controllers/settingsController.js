@@ -70,6 +70,7 @@ export const updateSiteSettings = async (req, res) => {
     terms_highlight,
     gateway_payment_enabled,
     admin_session_duration_hours,
+    brand_marquee_direction,
   } = req.body;
 
   // Validasi payment_expiry_minutes — 1 menit sampai 1440 menit (24 jam)
@@ -142,6 +143,16 @@ export const updateSiteSettings = async (req, res) => {
     return res.status(400).json({
       success: false,
       message: "Invalid value for gateway_payment_enabled",
+    });
+  }
+
+  if (
+    brand_marquee_direction !== undefined &&
+    !["left", "right"].includes(brand_marquee_direction)
+  ) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid value for brand_marquee_direction",
     });
   }
 
@@ -245,6 +256,11 @@ export const updateSiteSettings = async (req, res) => {
       updates.push({
         key: "company_maps_embed_url",
         value: company_maps_embed_url,
+      });
+    if (brand_marquee_direction !== undefined)
+      updates.push({
+        key: "brand_marquee_direction",
+        value: brand_marquee_direction,
       });
     if (bank_account_info !== undefined)
       updates.push({ key: "bank_account_info", value: bank_account_info });

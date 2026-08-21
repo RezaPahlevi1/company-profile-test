@@ -16,6 +16,7 @@ import {
   ChevronDown,
   Building2,
   ScrollText,
+  Image,
 } from "lucide-react";
 import useAuthStore from "../../store/authStore";
 import { logoutAdmin } from "../../api/auth";
@@ -54,6 +55,7 @@ const navGroups = [
     items: [
       { label: "Products", to: "/admin/products", icon: Package },
       { label: "Services", to: "/admin/services", icon: Briefcase },
+      { label: "Brands", to: "/admin/brands", icon: Image },
       { label: "Promo", to: "/admin/promo", icon: Tag },
     ],
   },

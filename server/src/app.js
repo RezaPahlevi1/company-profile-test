@@ -18,6 +18,7 @@ import analyticsRoutes from "./routes/analyticsRoutes.js";
 import emailRoutes from "./routes/emailRoutes.js";
 import pageBuilderRoutes from "./routes/pageBuilderRoutes.js";
 import legalRoutes from "./routes/legalRoutes.js";
+import brandRoutes from "./routes/brandRoutes.js";
 
 const app = express();
 const isDev = process.env.NODE_ENV !== "production";
@@ -110,6 +111,7 @@ app.use("/api/analytics", analyticsRoutes);
 app.use("/api/email", emailRoutes);
 app.use("/api/page-builder", pageBuilderRoutes);
 app.use("/api/legal", legalRoutes);
+app.use("/api/brands", brandRoutes);
 
 if (isDev) {
   app.get("/api/health", (req, res) => {

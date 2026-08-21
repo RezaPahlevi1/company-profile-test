@@ -29,6 +29,7 @@ const OrderList = lazy(() => import("./pages/admin/orders/OrderList"));
 const OrderDetail = lazy(() => import("./pages/admin/orders/OrderDetail"));
 const AdminList = lazy(() => import("./pages/admin/settings/AdminList"));
 const SiteSettings = lazy(() => import("./pages/admin/settings/SiteSettings"));
+const BrandList = lazy(() => import("./pages/admin/brands/BrandList"));
 const EmailSettings = lazy(
   () => import("./pages/admin/settings/emailSettings"),
 );
@@ -360,6 +361,14 @@ export default function App() {
             element={
               <RoleProtectedRoute allowedRoles={["superadmin"]}>
                 <ServiceList />
+              </RoleProtectedRoute>
+            }
+          />
+          <Route
+            path="brands"
+            element={
+              <RoleProtectedRoute allowedRoles={["superadmin"]}>
+                <BrandList />
               </RoleProtectedRoute>
             }
           />
