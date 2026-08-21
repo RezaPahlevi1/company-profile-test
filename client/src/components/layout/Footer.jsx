@@ -99,7 +99,7 @@ export default function Footer() {
   return (
     <footer className="bg-slate-900 text-slate-400">
       <BrandMarquee direction={settings.brand_marquee_direction || "left"} />
-      <div className="container-base section-padding">
+      <div className="container-base section-padding pt-10 pb-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
           {/* Kolom 1 — Brand + tagline + video */}
           <div className="md:col-span-1">
@@ -151,7 +151,7 @@ export default function Footer() {
         </div>
 
         {/* Bottom bar */}
-        <div className="border-t border-slate-800 mt-12 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm">
+        <div className="border-t border-slate-800 mt-8 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm">
           <p>
             © {new Date().getFullYear()} {siteName}. All rights reserved.
           </p>
