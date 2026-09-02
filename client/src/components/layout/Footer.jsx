@@ -87,6 +87,8 @@ export default function Footer() {
   const footerVideoId = settings.footer_video_id || "";
   const showFooterVideo =
     settings.show_footer_video !== "false" && footerVideoId !== "";
+  const brandMarqueeTitle =
+    settings.brand_marquee_title || "Kami Bekerja Sama Dengan";
 
   // Quick links — hanya halaman aktif, exclude home dan order-track
   const quickLinks = pages
@@ -98,11 +100,10 @@ export default function Footer() {
 
   return (
     <footer className="bg-slate-900 text-slate-400">
-      <BrandMarquee direction={settings.brand_marquee_direction || "left"} />
       <div className="container-base section-padding pt-10 pb-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
+        <div className="grid grid-cols-1 md:grid-cols-[auto_auto_auto_auto] gap-8 lg:gap-24 md:justify-center">
           {/* Kolom 1 — Brand + tagline + video */}
-          <div className="md:col-span-1">
+          <div className="md:col-span-1 min-w-0 max-w-xs">
             <Link to="/" className="font-bold text-xl text-white">
               <span className="text-brand-400">{siteName}</span>
             </Link>
@@ -117,7 +118,7 @@ export default function Footer() {
           </div>
 
           {/* Kolom 2 — Quick links dinamis dari page_settings */}
-          <div>
+          <div className="min-w-0">
             <h4 className="text-white font-semibold mb-4">Navigasi</h4>
             {quickLinks.length > 0 ? (
               <ul className="space-y-2.5">
@@ -137,10 +138,16 @@ export default function Footer() {
             )}
           </div>
 
-          {/* Kolom 3 — CTA */}
-          <div>
+          <div className="min-w-0">
+            <BrandMarquee title={brandMarqueeTitle} />
+          </div>
+
+          {/* Kolom 4 — CTA */}
+          <div className="min-w-0">
             <h4 className="text-white font-semibold mb-4">{footerCtaTitle}</h4>
-            <p className="text-sm leading-relaxed mb-5">{footerCtaBody}</p>
+            <p className="text-sm leading-relaxed mb-5 wrap-break-word max-w-sm">
+              {footerCtaBody}
+            </p>
             <Link
               to="/contact"
               className="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium px-4 py-2.5 rounded-xl transition-colors duration-200"

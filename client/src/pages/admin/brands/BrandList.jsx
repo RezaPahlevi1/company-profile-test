@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, ImageOff, Search } from "lucide-react";
+import { Plus, Pencil, Trash2, ImageOff, Search, Save } from "lucide-react";
 import toast from "react-hot-toast";
 import { getBrands, deleteBrand } from "../../../api/brands";
 import { getSiteSettings, updateSiteSettings } from "../../../api/settings";
@@ -22,32 +22,43 @@ export default function BrandList() {
   const [filterStatus, setFilterStatus] = useState("all");
   const [page, setPage] = useState(1);
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["admin-brands"],
-    queryFn: () => getBrands(true),
-  });
+  const [titleForm, setTitleForm] = useState("");
+  const [syncedTitleData, setSyncedTitleData] = useState(null);
 
-  // Setting arah animasi marquee — reuse site_settings yang sudah ada
   const { data: siteData } = useQuery({
     queryKey: ["site-settings"],
     queryFn: getSiteSettings,
+    staleTime: 1000 * 60 * 10,
   });
-  const direction = siteData?.data?.data?.brand_marquee_direction || "left";
 
-  const { mutate: saveDirection, isPending: isSavingDirection } = useMutation({
+  const siteSettings = siteData?.data?.data || {};
+
+  if (
+    siteData !== syncedTitleData &&
+    siteSettings.brand_marquee_title !== undefined
+  ) {
+    setSyncedTitleData(siteData);
+    setTitleForm(siteSettings.brand_marquee_title || "");
+  }
+
+  const { mutate: saveMarqueeTitle, isPending: isSavingTitle } = useMutation({
     mutationFn: updateSiteSettings,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["site-settings"] });
-      toast.success("Arah animasi disimpan");
+      toast.success("Judul brand marquee disimpan");
     },
     onError: (err) =>
       toast.error(err.response?.data?.message || "Gagal menyimpan"),
   });
 
-  const handleSetDirection = (dir) => {
-    if (dir === direction || isSavingDirection) return;
-    saveDirection({ brand_marquee_direction: dir });
+  const handleSaveTitle = () => {
+    saveMarqueeTitle({ brand_marquee_title: titleForm.trim() });
   };
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["admin-brands"],
+    queryFn: () => getBrands(true),
+  });
 
   const { mutate: remove, isPending: isDeleting } = useMutation({
     mutationFn: deleteBrand,
@@ -146,40 +157,32 @@ export default function BrandList() {
         </div>
       </div>
 
-      {/* Arah animasi marquee */}
-      <div className="bg-white rounded-xl shadow-sm p-4 flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <p className="text-sm font-medium text-gray-700">
-            Arah Animasi Marquee
-          </p>
-          <p className="text-xs text-gray-400 mt-0.5">
-            Arah scroll logo brand di footer
-          </p>
-        </div>
-        <div className="flex gap-1.5">
+      <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
+        <h2 className="text-sm font-semibold text-gray-900 mb-3">
+          Judul Section di Footer
+        </h2>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+          <input
+            value={titleForm}
+            onChange={(e) => setTitleForm(e.target.value)}
+            placeholder="Dipercaya Oleh Brand Terkemuka"
+            maxLength={100}
+            className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
           <button
-            onClick={() => handleSetDirection("left")}
-            disabled={isSavingDirection}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50 ${
-              direction === "left"
-                ? "bg-blue-600 text-white"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-            }`}
+            onClick={handleSaveTitle}
+            disabled={isSavingTitle}
+            className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-medium px-4 py-2.5 rounded-lg transition-colors shrink-0"
           >
-            ← Kiri
-          </button>
-          <button
-            onClick={() => handleSetDirection("right")}
-            disabled={isSavingDirection}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50 ${
-              direction === "right"
-                ? "bg-blue-600 text-white"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-            }`}
-          >
-            Kanan →
+            <Save size={16} />
+            {isSavingTitle ? "Menyimpan..." : "Simpan"}
           </button>
         </div>
+        <p className="text-xs text-gray-400 mt-1.5">
+          Ditampilkan sebagai judul di atas cluster logo brand pada footer
+          publik. Kosongkan untuk menyembunyikan judul (cluster logo tetap
+          tampil).
+        </p>
       </div>
 
       {isLoading ? (

@@ -70,7 +70,7 @@ export const updateSiteSettings = async (req, res) => {
     terms_highlight,
     gateway_payment_enabled,
     admin_session_duration_hours,
-    brand_marquee_direction,
+    brand_marquee_title,
   } = req.body;
 
   // Validasi payment_expiry_minutes — 1 menit sampai 1440 menit (24 jam)
@@ -143,16 +143,6 @@ export const updateSiteSettings = async (req, res) => {
     return res.status(400).json({
       success: false,
       message: "Invalid value for gateway_payment_enabled",
-    });
-  }
-
-  if (
-    brand_marquee_direction !== undefined &&
-    !["left", "right"].includes(brand_marquee_direction)
-  ) {
-    return res.status(400).json({
-      success: false,
-      message: "Invalid value for brand_marquee_direction",
     });
   }
 
@@ -244,6 +234,8 @@ export const updateSiteSettings = async (req, res) => {
       updates.push({ key: "footer_cta_title", value: footer_cta_title });
     if (footer_cta_body !== undefined)
       updates.push({ key: "footer_cta_body", value: footer_cta_body });
+    if (brand_marquee_title !== undefined)
+      updates.push({ key: "brand_marquee_title", value: brand_marquee_title });
     if (footer_video_url !== undefined)
       updates.push({ key: "footer_video_id", value: req.body.footer_video_id });
     if (show_footer_video !== undefined)
@@ -256,11 +248,6 @@ export const updateSiteSettings = async (req, res) => {
       updates.push({
         key: "company_maps_embed_url",
         value: company_maps_embed_url,
-      });
-    if (brand_marquee_direction !== undefined)
-      updates.push({
-        key: "brand_marquee_direction",
-        value: brand_marquee_direction,
       });
     if (bank_account_info !== undefined)
       updates.push({ key: "bank_account_info", value: bank_account_info });
